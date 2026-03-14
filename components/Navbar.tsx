@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Phone, Send } from 'lucide-react';
+import { Menu, X, Phone, Send, LogIn } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -22,6 +22,11 @@ export const Navbar: React.FC = () => {
     { name: 'FAQ', href: '#faq' },
     { name: 'Contact', href: '#contact' },
   ];
+
+  const loginLink = {
+    name: 'Login',
+    href: 'https://legendsmtgpro.netlify.app/login/loanflow',
+  };
 
   // Primary CTA link styled as a button
   const submitLink = { name: 'Submit Loan', href: '#submit' };
@@ -79,6 +84,15 @@ export const Navbar: React.FC = () => {
              {/* Divider */}
              <div className="h-4 w-px bg-white/10 mx-2"></div>
 
+             {/* Login CTA */}
+             <a
+               href={loginLink.href}
+               className="inline-flex items-center gap-1.5 rounded-lg border border-brand-copper/40 bg-white/[0.05] px-4 py-1.5 text-xs font-bold text-brand-copper uppercase tracking-wider transition-all duration-200 hover:border-brand-copper/70 hover:bg-brand-copper/10 hover:text-[#f4d3a5] hover:shadow-lg hover:shadow-brand-copper/15 hover:scale-[1.03] active:scale-[0.97]"
+             >
+               <LogIn className="h-3 w-3" />
+               {loginLink.name}
+             </a>
+
              {/* Submit Loan CTA */}
              <a
                href={submitLink.href}
@@ -126,6 +140,13 @@ export const Navbar: React.FC = () => {
                 </a>
               ))}
                <div className="border-t border-white/10 my-2"></div>
+               <a
+                 href={loginLink.href}
+                 className="flex items-center gap-2 px-3 py-3 rounded-lg text-sm font-bold text-brand-copper hover:bg-brand-copper/10 transition-all uppercase tracking-wider"
+               >
+                 <LogIn className="h-4 w-4" />
+                 <span>{loginLink.name}</span>
+               </a>
                <a
                  href={submitLink.href}
                  onClick={(e) => handleNavClick(e, submitLink.href)}
