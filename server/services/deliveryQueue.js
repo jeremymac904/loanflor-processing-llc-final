@@ -19,6 +19,11 @@ export function backoffMs(attempts) {
 export async function attemptDelivery(store, record, { deliver = deliverToFlo, now = () => new Date(), log = console } = {}) {
   const attempts = (record.deliveryAttempts || 0) + 1;
   const outcome = await deliver(record.payload);
+  if (!outcome.ok && /not configured/.test(String(outcome.error))) {
+    const next = store.update(record.submissionId, { status: 'pending_delivery', deliveryAttempts: attempts, lastDeliveryError: String(outcome.error), nextAttemptAt: new Date(now().getTime() + BASE_DELAY_MS).toISOString() });
+    log.warn?.(`[loan-submissions] ${record.submissionId} pending delivery: ${next.lastDeliveryError}`);
+    return next;
+  }
   if (outcome.ok) {
     const next = store.update(record.submissionId, {
       status: 'delivered',
@@ -32,11 +37,14 @@ export async function attemptDelivery(store, record, { deliver = deliverToFlo, n
     appendSubmissionSummary(next).catch(() => undefined);
     return next;
   }
+  // Internal statuses: received -> pending_delivery (connector not configured) | failed_retrying (attempt failed) -> delivered.
+  // A non-retryable answer (4xx other than 409) still stays in the queue at the 15-minute cap so a human sees it in /api/health.
   const next = store.update(record.submissionId, {
-    status: outcome.retryable ? 'pending_delivery' : 'delivery_failed',
+    status: outcome.retryable ? 'failed_retrying' : 'failed_retrying',
+    needsAttention: !outcome.retryable,
     deliveryAttempts: attempts,
     lastDeliveryError: String(outcome.error || 'unknown').slice(0, 300),
-    nextAttemptAt: outcome.retryable ? new Date(now().getTime() + backoffMs(attempts)).toISOString() : null,
+    nextAttemptAt: new Date(now().getTime() + (outcome.retryable ? backoffMs(attempts) : MAX_DELAY_MS)).toISOString(),
   });
   log.warn?.(`[loan-submissions] ${record.submissionId} not delivered (attempt ${attempts}): ${next.lastDeliveryError}`);
   return next;

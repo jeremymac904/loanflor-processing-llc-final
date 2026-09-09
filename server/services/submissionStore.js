@@ -5,7 +5,10 @@
 // a submission is never lost because Flo was unreachable — it sits here as
 // `pending_delivery` until the retry worker delivers it.
 //
-// Status lifecycle: received -> delivered | pending_delivery -> delivered
+// Status lifecycle (internal, never shown to the LO):
+//   received -> delivered
+//   received -> pending_delivery (Flo connector not configured) -> delivered
+//   received -> failed_retrying (Flo unreachable / error, retried with backoff) -> delivered
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -75,7 +78,7 @@ export function createSubmissionStore(dir = process.env.SUBMISSIONS_DIR || DEFAU
         .readdirSync(dir)
         .filter((f) => f.endsWith('.json'))
         .map((f) => read(f.replace(/\.json$/, '')))
-        .filter((r) => r && r.status === 'pending_delivery')
+        .filter((r) => r && (r.status === 'pending_delivery' || r.status === 'failed_retrying'))
         .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
     },
   };

@@ -30,11 +30,11 @@ Refuses to start without a token. Binds to localhost by default. Body limit 1 MB
 5. stores the exact `message_agent` packet;
 6. starts one Flo turn in her Bot Chat (`hermes -p flo chat -c "Bot Chat" -Q --oneshot …`) unless `--no-spawn`.
 
-**Flo (`flo_intake` tool)** — `pending` lists submissions whose packet has not been sent; `dispatch submission_id=…` returns `send_with` (target Malcolm + message) and marks it dispatched (a second dispatch says "already dispatched; do not send again"); `get` shows the record. Flo sends the packet with `message_agent` and tells Ashley one line: *"NEW LOAN — Justinvil-Synthetic. Submitted by Matt Combs. Purchase • FHA. Expected close 2026-09-23. Malcolm is reviewing the file."*
+**Flo (`flo_intake` tool)** — `pending` lists submissions whose packet has not been sent; `dispatch submission_id=…` returns `send_with` (target Malcolm + message) and marks it dispatched (a second dispatch says "already dispatched; do not send again"); `get` shows the record. Flo sends the packet with `message_agent` and tells Ashley one line: *"New loan came in — Johnson. Malcolm is reviewing it now. 💚"*
 
 **Malcolm** receives the handoff like any other, runs `flo_readiness` (the workspace then shows readiness, missing items, best next move) and reports back to Flo. Sage is only involved if Malcolm asks Flo a guideline question.
 
-**Ashley's screens** (Flo desktop plugin): while the review is pending the Pipeline row shows **NEW LOAN · Working · Intake · New submission** with the line *"New loan from Matt Combs • Purchase • FHA • Expected close 2026-09-23. Malcolm is reviewing the file."*; after Malcolm's readiness report the same row shows readiness, missing items and **Request From Borrower**. Nothing technical (ids, tokens, JSON) is shown.
+**Ashley's screens** (Flo desktop plugin): Today shows a **NEW LOAN** card — *Johnson · Submitted by Matt Combs · FHA • Purchase · Expected closing September 23 · Malcolm is reviewing it. [Open File]* — and the Pipeline row reads **NEW LOAN · Working · Intake · New submission**. After Malcolm's readiness report the file shows *Needs 3 items*, AUS *Findings on file*, Income *Reviewed* / Assets *Needs attention*, the missing list, best next move *Request the missing documents.* and **Request From Borrower**. Nothing technical (ids, tokens, JSON, delivery states) is shown.
 
 ## Environment
 

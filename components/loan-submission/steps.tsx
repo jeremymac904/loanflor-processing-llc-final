@@ -416,7 +416,7 @@ const EXAMPLES = ['Rush closing', 'Special borrower situation', 'Upcoming travel
 export function NotesStep({ sub, set, errors }: StepProps) {
   return (
     <>
-      <SectionTitle icon={icon(MessageSquare)} title="Special Instructions" blurb="What else does processing need to know about this file?" />
+      <SectionTitle icon={icon(MessageSquare)} title="Important Notes" blurb="What else does processing need to know about this file?" />
       <TextArea id="notes" label="Important file information" value={sub.notes} onChange={(v) => set('notes', v)} error={errors.notes} rows={7} placeholder="Anything processing should know…" />
       <div className="mt-3 flex flex-wrap gap-2">
         {EXAMPLES.map((e) => (

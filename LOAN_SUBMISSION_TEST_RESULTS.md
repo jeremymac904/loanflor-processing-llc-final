@@ -39,6 +39,14 @@ Observed:
 
 Stopped the intake server, submitted a second synthetic loan (`sub_31d694aad9a770096ea82a5f`, borrower "Devon Synthetic-Retry") through the API: **202 received**, record `pending_delivery`, attempt 1 error "Flo intake unreachable", next attempt scheduled +60 s; an immediate resubmit with the same id answered `duplicate: true` and did not create a second record. Restarted the intake: the worker delivered on **attempt 2** (`loan_27eb587249a6`, `task_8aebd85ee24d`), Flo dispatched to Malcolm, Malcolm completed the review (6 missing items). Two submissions → exactly two Deal Rooms, two tasks.
 
+## Second pass (same day): Flo wording, Today card, live Flo screenshots
+
+After tightening the Ashley-facing copy: Flo's message is now exactly *"New loan came in — Johnson. Malcolm is reviewing it now. 💚"* (verified in Flo's Bot Chat for `sub_3e2a9dbeb6e4a0c4f480a5f6`, Deal Room `loan_ba6867ba7a25`, Malcolm task `task_bf272d49d85d`, delivered on attempt 1); Today shows a **NEW LOAN** card (borrower, submitted by, program • transaction, expected closing in words, "Malcolm is reviewing it.", Open File) until Malcolm's report lands; afterwards the file reads *Needs N items*, AUS, Income *Reviewed* / Assets *Needs attention*, the missing list and *Request the missing documents.* Internal delivery statuses are now `received` → `delivered` | `pending_delivery` | `failed_retrying`.
+
+Screenshots taken from the **running Flo desktop app** (dev build, real team state on this machine): `docs/screenshots/flo-today-new-loan.png` (Today with the NEW LOAN card), `flo-pipeline-new-loan.png` (the Johnson file right after Malcolm's review: Needs 6 items, Request From Borrower), `flo-file-after-review.png` (the first end-to-end loan, Needs 10 items), `flo-pipeline-list.png`.
+
+Totals for the day: 5 synthetic submissions → 5 Deal Rooms, 5 Malcolm tasks, 0 duplicates (two deliberate duplicate requests were answered `duplicate: true`).
+
 ## Responsive layout
 
 Screenshots in `docs/screenshots/` (headless Chrome, synthetic data): desktop 1440 px (loan officer, borrowers, program, income & assets, documents, review, confirmation) and mobile 390 px (loan officer, program, review, confirmation). On mobile the pills wrap, the grid collapses to one column, and Next/Back stack.

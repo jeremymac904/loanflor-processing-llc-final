@@ -72,7 +72,7 @@ Secure file storage is **not** wired on this site (the Express server has no obj
 
 ## Failure / retry behaviour
 
-If Flo is unreachable or slow, the record is saved as **pending_delivery** and the LO sees **"Your submission was received"** (HTTP 202) with a confirmation ID — never an error asking them to redo the form. A worker in the API process retries every minute with exponential backoff (1 → 15 min cap), records attempts and the last error on the record, and flips it to `delivered` when Flo accepts. A 4xx from Flo other than 409 means the payload is wrong and stops retrying (`delivery_failed`) for a human to look at. `GET /api/health` shows the pending count.
+The record is written **before** any delivery attempt with `submissionId`, `receivedAt` (created_at) and an internal `status`: `received` → `delivered`, or `pending_delivery` (Flo connector not configured yet) / `failed_retrying` (Flo unreachable or erroring) → `delivered`. The LO never sees those states: whenever the record is saved they see **"Loan Submitted Successfully"** with a confirmation ID (HTTP 202 while delivery is still pending) — never an error asking them to redo the form. A worker in the API process retries every minute with exponential backoff (1 → 15 min cap), records attempts and the last error on the record, and flips it to `delivered` when Flo accepts. A 4xx from Flo other than 409 is flagged `needsAttention` and kept at the 15-minute retry cadence so a human notices it in `GET /api/health` (`pendingDelivery` count).
 
 ## Security summary
 

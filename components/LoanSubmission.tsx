@@ -35,7 +35,7 @@ const STEPS = [
   { id: 'credit', title: 'Credit', short: 'Credit', prefixes: ['credit'] },
   { id: 'title', title: 'Title / Insurance / HOA', short: 'Title', prefixes: ['title', 'insurance', 'hoa'] },
   { id: 'agents', title: 'Agents', short: 'Agents', prefixes: ['agents'] },
-  { id: 'notes', title: 'Special Instructions', short: 'Notes', prefixes: ['notes'] },
+  { id: 'notes', title: 'Important Notes', short: 'Notes', prefixes: ['notes'] },
   { id: 'documents', title: 'Documents', short: 'Docs', prefixes: ['documents'] },
   { id: 'review', title: 'Review & Submit', short: 'Review', prefixes: [] },
 ] as const;

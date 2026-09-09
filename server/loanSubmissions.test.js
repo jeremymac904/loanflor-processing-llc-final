@@ -148,7 +148,7 @@ test('when Flo is unavailable the loan is kept as pending delivery, the LO sees 
     assert.equal(body.ok, true);
     assert.equal(body.status, 'received');
     const record = store.get(s.submissionId);
-    assert.equal(record.status, 'pending_delivery');
+    assert.equal(record.status, 'failed_retrying');
     assert.equal(record.deliveryAttempts, 1);
     assert.ok(record.nextAttemptAt);
     assert.equal(backoffMs(1), 60_000);
@@ -213,5 +213,9 @@ test('deliverToFlo sends the bearer token and idempotency key, treats 201/200/40
   const store = tmpStore();
   const { record } = store.create(payload, {});
   const after = await attemptDelivery(store, record, { deliver: async () => rejected, log: quiet });
-  assert.equal(after.status, 'delivery_failed');
+  assert.equal(after.status, 'failed_retrying');
+  assert.equal(after.needsAttention, true);
+  const waiting = await attemptDelivery(store, store.create(toPayload(syntheticSubmission()), {}).record, { deliver: async () => unconfigured, log: quiet });
+  assert.equal(waiting.status, 'pending_delivery');
+  assert.equal(store.pending().length, 2);
 });
