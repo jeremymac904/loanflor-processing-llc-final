@@ -19,6 +19,17 @@ function App() {
     document.title = "LoanFlow Processing LLC | High-Tech Mortgage Solutions";
   }, []);
 
+  // Dev-only: `?lfDemo=1` renders the submission form alone with synthetic data (screenshots, QA).
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('lfDemo') === '1') {
+    return (
+      <div className="min-h-screen bg-brand-dark selection:bg-brand-copper selection:text-brand-dark">
+        <main>
+          <LoanSubmission />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-brand-dark selection:bg-brand-copper selection:text-brand-dark">
       <Navbar />

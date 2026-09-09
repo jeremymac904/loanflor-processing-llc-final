@@ -41,3 +41,7 @@ Thumbs.db
 
 # Misc
 *.local
+
+# Loan submissions persisted by the API (idempotency + pending delivery) — never commit
+server/data/
+

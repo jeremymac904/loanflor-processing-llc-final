@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# LoanFlow Processing LLC — website
 
-# Run and deploy your AI Studio app
+Marketing site + the **Loan Submission** form that delivers new loans straight into Ashley's Flo (`#submit`).
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/drive/1_fngGDY3Bz3YfO6AOmtKQ7z6nbA36FVE
+```
+npm install
+cp .env.example .env        # fill FLO_INTAKE_URL / FLO_INTAKE_TOKEN for real delivery (optional locally)
+npm run start               # API on :3001  (POST /api/loan-submissions, GET /api/health)
+npm run dev                 # site on :3000, /api proxied to :3001
+npm test                    # server + shared-contract tests
+npm run typecheck && npm run build
+```
 
-## Run Locally
+Without `FLO_INTAKE_URL` the API still accepts submissions and keeps them as pending delivery (`server/data/submissions`, git-ignored) until Flo is configured.
 
-**Prerequisites:**  Node.js
+Dev demo of the form with synthetic data: `http://localhost:3000/?lfDemo=1&lfStep=review` (`lfStep` = lo | borrowers | loan | program | fees | setup | income | credit | title | agents | notes | documents | review | done).
 
+## Docs
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+* `LOAN_SUBMISSION_V2.md` — the form, changes from the paper sheet, duplicate protection, failure/retry, security
+* `LOAN_SUBMISSION_SCHEMA.md` — the v1.0 payload contract and validation rules
+* `FLO_INTAKE_INTEGRATION.md` — how it reaches Flo, environment, what production still needs
+* `LOAN_SUBMISSION_TEST_RESULTS.md` — automated + manual + end-to-end results
+
+The AI chat assistant uses `GEMINI_API_KEY` (see `services/geminiService.ts`).
