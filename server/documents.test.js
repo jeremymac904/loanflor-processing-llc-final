@@ -66,13 +66,16 @@ test('upload → clean key + display name, duplicate detection, list, remove, in
     assert.equal(docA.fileName, 'scan0042.PDF');
     assert.equal(docA.status, 'received');
     const recA = store.get(sid, docA.id);
-    assert.equal(recA.storageKey, `submissions/${sid}/income/${docA.displayName}`);
+    assert.equal(recA.storageKey, `submissions/${sid}/documents/${docA.id}.pdf`); // opaque: ids only
     assert.ok(await storage.exists(recA.storageKey));
-    // second paystub numbers _02; a bank statement lands under assets/
+    // second paystub numbers _02; keys never carry the category, the original name or a borrower
     const b = await (await upload(sid, { category: 'income', subcategory: 'paystub', filename: 'scan0043.pdf' }, pdf('paystub two'))).json();
     assert.equal(b.document.displayName.endsWith('_paystub_02.pdf'), true);
-    const c = await (await upload(sid, { category: 'assets', subcategory: 'bank_statement', filename: 'stmt.pdf' }, pdf('bank'))).json();
-    assert.ok(store.get(sid, c.document.id).storageKey.includes('/assets/'));
+    const c = await (await upload(sid, { category: 'assets', subcategory: 'bank_statement', filename: 'Ariana stmt.pdf' }, pdf('bank'))).json();
+    assert.match(store.get(sid, c.document.id).storageKey, /^submissions\/sub_[0-9a-f]{24}\/documents\/doc_[0-9a-f]{24}\.pdf$/);
+    // only PDF / JPG / PNG
+    assert.equal((await upload(sid, { category: 'other', filename: 'notes.docx' }, Buffer.from('PK'))).status, 415);
+    assert.equal((await upload(sid, { category: 'other', filename: 'bundle.zip' }, Buffer.from('PK'))).status, 415);
     // same bytes again → duplicate record, no second object
     const dup = await (await upload(sid, { category: 'income', subcategory: 'paystub', filename: 'scan0042 copy.pdf' }, pdf('paystub one'))).json();
     assert.equal(dup.document.status, 'duplicate');

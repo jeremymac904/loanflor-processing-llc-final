@@ -547,7 +547,7 @@ export function DocumentsStep({ sub, set, errors }: StepProps) {
 
   return (
     <>
-      <SectionTitle icon={icon(FileUp)} title="Documents" blurb="Add what you have for this file. Pick a category, then drop the files in — you can add more of any category. PDF preferred; JPG, PNG, TIFF, Word and Excel are fine too." />
+      <SectionTitle icon={icon(FileUp)} title="Documents" blurb="Add what you have for this file. Pick a category, then drop the files in — you can add more of any category. PDF preferred; JPG and PNG photos are fine too." />
       <div className="space-y-5">
         <Grid>
           <Select id="doc-category" label="Document category" value={category} onChange={(v) => { setCategory(v); setSubcategory(''); }} options={OPTIONS.documentCategory} placeholder="Choose a category" />

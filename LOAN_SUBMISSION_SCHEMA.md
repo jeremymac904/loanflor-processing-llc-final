@@ -88,7 +88,7 @@ Conventions: camelCase keys; enums are lowercase snake_case strings; money and p
       "subcategory": "paystub | w2 | 1099 | tax_return | profit_and_loss | k1 | bank_statement | retirement_statement | gift_documentation | other | null",
       "borrowerRef": "borrower | co_borrower | both | null",
       "originalFilename": "scan0042.pdf", "displayName": "2026-09-09_paystub_01.pdf",
-      "storageKey": "submissions/<sid>/income/2026-09-09_paystub_01.pdf",
+      "storageKey": "submissions/<sid>/documents/<documentId>.pdf",   // opaque
       "mimeType": "application/pdf", "sizeBytes": 752, "sha256": "<64 hex>",
       "uploadedAt": "2026-09-09T22:38:20.101Z", "uploadedBy": "loan_officer",
       "status": "received | duplicate", "classificationSource": "loan_officer",

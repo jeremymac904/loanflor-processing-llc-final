@@ -12,10 +12,10 @@ Two record sets describe the same file: the website's upload record (what the LO
 | Flo document id | `doc_<12 hex>` | `doc_caf4ad43e24c` |
 | Loan workspace id | `loan_<12 hex>` | `loan_eb74a54e9cc9` |
 | Display name | `<upload date>_<slug>_<nn>.<ext>` (slug = subtype if given, else category) | `2026-09-09_bank_statement_01.pdf` |
-| Website storage key | `submissions/<submission id>/<folder>/<display name>` | `submissions/sub_49bf…/assets/2026-09-09_bank_statement_01.pdf` |
+| Website storage key | `submissions/<submission id>/documents/<document id>.<ext>` (opaque: ids only) | `submissions/sub_49bf…/documents/doc_73c8bb9c8205c3292bfeb6ff.pdf` |
 | Flo private copy | `<hermes root>/flo/documents/<workspace>/<folder>/[borrower1|borrower2|joint]/<display name>` (+ `.txt` sidecar) | `…/loan_eb74a54e9cc9/assets/borrower1/2026-09-09_bank_statement_01.pdf` |
 
-Folders by category: `loan_application → application`, `credit_report → credit`, `aus_findings → aus`, `income`, `assets`, `purchase_contract → contract`, `title_property → title`, `insurance`, `identification`, `other`. Borrower sub-folders only for income and assets (`borrower → borrower1`, `co_borrower → borrower2`, `both → joint`).
+Flo's private copy is organised by category for Ashley (the website object key stays opaque). Folders: `loan_application → application`, `credit_report → credit`, `aus_findings → aus`, `income`, `assets`, `purchase_contract → contract`, `title_property → title`, `insurance`, `identification`, `other`. Borrower sub-folders only for income and assets (`borrower → borrower1`, `co_borrower → borrower2`, `both → joint`).
 
 The original filename is kept as metadata only (sanitised to `[\w.\- ()]`, 120 chars). The stored binary is byte-for-byte what the LO uploaded (sha256 verified on both sides); display names and classifications are metadata and never rename the object.
 
@@ -53,7 +53,7 @@ Only these values are accepted by `flo_documents action=update`; anything else (
   "category": "income", "subcategory": "w2", "borrowerRef": "borrower",
   "originalFilename": "w2_2025.pdf",
   "displayName": "2026-09-09_w2_01.pdf",
-  "storageKey": "submissions/sub_49bf…/income/2026-09-09_w2_01.pdf",
+  "storageKey": "submissions/sub_49bf…/documents/doc_0eea7ff162002d86abd12a3d.pdf",
   "mimeType": "application/pdf", "sizeBytes": 737, "sha256": "…",
   "uploadedAt": "2026-09-09T22:38:20.101Z", "uploadedBy": "loan_officer",
   "status": "received",                       // received | duplicate | removed
@@ -101,7 +101,7 @@ Editable through `flo_documents action=update`: `category`, `subcategory`, `borr
 
 ## Limits
 
-25 MB per file · 60 files per submission · extensions `pdf jpg jpeg png tif tiff heic docx xlsx` · magic bytes must match · HTML/script content refused whatever the extension · 300 upload requests per IP per hour · uploads closed once the submission is sent.
+25 MB per file · 60 files per submission · extensions `pdf jpg jpeg png` (owner decision: the practical mortgage formats; DOCX/TIFF/HEIC/ZIP/HTML/scripts/executables refused) · magic bytes must match · HTML/script content refused whatever the extension · 300 upload requests per IP per hour · uploads closed once the submission is sent.
 
 ## Retention / deletion
 

@@ -14,18 +14,6 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_DIR = path.resolve(HERE, '..', 'data', 'documents-meta');
 const ID_RE = /^sub_[0-9a-f]{24}$/;
 const DOC_ID_RE = /^doc_[0-9a-f]{24}$/;
-const CATEGORY_FOLDER = {
-  loan_application: 'application',
-  credit_report: 'credit',
-  aus_findings: 'aus',
-  income: 'income',
-  assets: 'assets',
-  purchase_contract: 'contract',
-  title_property: 'title',
-  insurance: 'insurance',
-  identification: 'identification',
-  other: 'other',
-};
 const SLUG = {
   loan_application: '1003',
   credit_report: 'credit_report',
@@ -53,11 +41,6 @@ const MAGIC = {
   jpg: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
   jpeg: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
   png: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
-  tif: (b) => ['II*\0', 'MM\0*'].includes(b.subarray(0, 4).toString('latin1')),
-  tiff: (b) => ['II*\0', 'MM\0*'].includes(b.subarray(0, 4).toString('latin1')),
-  heic: (b) => b.subarray(4, 8).toString('latin1') === 'ftyp',
-  docx: (b) => b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04,
-  xlsx: (b) => b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04,
 };
 
 export class UploadError extends Error {
@@ -79,7 +62,7 @@ export function extensionOf(name) {
 /** Validate an incoming file. Returns {ext, mimeType, sha256}. */
 export function validateUpload({ originalFilename, sizeBytes, buffer }) {
   const ext = extensionOf(originalFilename);
-  if (!DOCUMENT_UPLOAD.acceptedExtensions.includes(ext)) throw new UploadError(415, 'File type not accepted. Use PDF, JPG, PNG, TIFF, HEIC, DOCX or XLSX.');
+  if (!DOCUMENT_UPLOAD.acceptedExtensions.includes(ext)) throw new UploadError(415, 'File type not accepted. Use PDF, JPG or PNG.');
   if (!buffer || buffer.length === 0) throw new UploadError(400, 'Empty file');
   if (buffer.length > DOCUMENT_UPLOAD.maxFileBytes || sizeBytes > DOCUMENT_UPLOAD.maxFileBytes) throw new UploadError(413, 'File is larger than 25 MB');
   const magic = MAGIC[ext];
@@ -142,20 +125,21 @@ export function createDocumentStore(dir = process.env.DOCUMENTS_META_DIR || DEFA
       const active = doc.documents.filter((d) => d.status !== 'removed');
       if (active.length >= DOCUMENT_UPLOAD.maxFiles) throw new UploadError(400, `Up to ${DOCUMENT_UPLOAD.maxFiles} files per submission`);
       const existing = active.find((d) => d.sha256 === sha256 && d.status !== 'duplicate');
-      const folder = CATEGORY_FOLDER[category];
       const date = now.toISOString().slice(0, 10);
       const n = active.filter((d) => d.category === category && (d.subcategory || null) === sub).length + 1;
       const slug = slugFor(category, sub);
       const displayName = `${date}_${slug}_${pad(n)}.${ext}`;
+      const documentId = `doc_${crypto.randomBytes(12).toString('hex')}`;
+      // Opaque storage key: ids only, never a borrower name, category label or original filename.
       const record = {
-        documentId: `doc_${crypto.randomBytes(12).toString('hex')}`,
+        documentId,
         submissionId,
         category,
         subcategory: sub,
         borrowerRef: who,
         originalFilename: safeOriginalName(originalFilename),
         displayName,
-        storageKey: existing ? existing.storageKey : `submissions/${submissionId}/${folder}/${displayName}`,
+        storageKey: existing ? existing.storageKey : `submissions/${submissionId}/documents/${documentId}.${ext}`,
         mimeType,
         sizeBytes,
         sha256,

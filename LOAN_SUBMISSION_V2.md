@@ -64,7 +64,7 @@ Autosave: the draft is saved to the browser's localStorage on every change (rece
 
 ## Upload status
 
-Documents upload **from the browser to this site's API only** (`PUT /api/loan-submissions/:id/documents`, one file per request, validated server-side: extension allow-list, magic bytes, HTML/script sniff, 25 MB, filenames without SSN/account numbers) and land in private storage (Supabase private bucket in production, local disk in dev). Duplicates (same checksum) are kept once and shown as *Duplicate*. When the LO submits, the server attaches its own document records to the payload and Flo pulls each file through the authenticated connector into the Deal Room, where it is named cleanly, text-extracted, checked for missing pages and ready for Malcolm. Details: `DOCUMENT_UPLOAD_IMPLEMENTATION.md`, `DOCUMENT_STORAGE_SCHEMA.md`, `DOCUMENT_SECURITY_REVIEW.md`, `DOCUMENT_INTAKE_TEST_RESULTS.md`.
+Documents upload **from the browser to this site's API only** (`PUT /api/loan-submissions/:id/documents`, one file per request, validated server-side: PDF/JPG/PNG only, magic bytes, HTML/script sniff, 25 MB, filenames without SSN/account numbers) and land in private storage (Supabase private bucket in production, local disk in dev). Duplicates (same checksum) are kept once and shown as *Duplicate*. When the LO submits, the server attaches its own document records to the payload and Flo pulls each file through the authenticated connector into the Deal Room, where it is named cleanly, text-extracted, checked for missing pages and ready for Malcolm. Details: `DOCUMENT_UPLOAD_IMPLEMENTATION.md`, `DOCUMENT_STORAGE_SCHEMA.md`, `DOCUMENT_SECURITY_REVIEW.md`, `DOCUMENT_INTAKE_TEST_RESULTS.md`.
 
 ## Duplicate protection
 

@@ -174,18 +174,14 @@ export const DOCUMENT_STATUS = ['received', 'needs_review', 'reviewed', 'missing
 export const DOCUMENT_UPLOAD = {
   maxFileBytes: 25 * 1024 * 1024,
   maxFiles: 60,
-  // PDF and images first; Word/Excel accepted because lenders send worksheets that way. Never HTML, scripts or executables.
-  acceptedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'heic', 'docx', 'xlsx'],
+  // The practical mortgage formats only (owner decision 2026-09-09): PDF and photos. DOCX/XLSX/TIFF/HEIC, archives,
+  // HTML, scripts and executables are refused; add a type only with a real processing need and safe preview support.
+  acceptedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
   mimeByExtension: {
     pdf: 'application/pdf',
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
     png: 'image/png',
-    tif: 'image/tiff',
-    tiff: 'image/tiff',
-    heic: 'image/heic',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   },
 };
 
