@@ -2,8 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
+import { createDocumentsRouter } from './routes/documents.js';
 import { createLoanSubmissionsRouter } from './routes/loanSubmissions.js';
 import { startDeliveryWorker } from './services/deliveryQueue.js';
+import { createDocumentStorage } from './services/documentStorage.js';
+import { createDocumentStore } from './services/documentStore.js';
 import { intakeConfigured } from './services/floIntake.js';
 import { createSubmissionStore } from './services/submissionStore.js';
 
@@ -36,7 +39,10 @@ app.use(express.json({ limit: '512kb' }));
 
 // ── Routes ──────────────────────────────────────────────────────
 const store = createSubmissionStore();
-app.use('/api', createLoanSubmissionsRouter({ store, allowedOrigins: PRODUCTION ? ALLOWED_ORIGINS : [] }));
+const documents = createDocumentStore();
+const storage = createDocumentStorage();
+app.use('/api', createLoanSubmissionsRouter({ store, documents, allowedOrigins: PRODUCTION ? ALLOWED_ORIGINS : [] }));
+app.use('/api', createDocumentsRouter({ store: documents, storage, submissions: store }));
 
 // Health-check endpoint
 app.get('/api/health', (_req, res) => {
@@ -44,6 +50,7 @@ app.get('/api/health', (_req, res) => {
     status: 'ok',
     service: 'LoanFlow Processing API',
     floIntake: intakeConfigured() ? 'configured' : 'not configured (submissions are stored as pending delivery)',
+    documentStorage: storage.kind,
     pendingDelivery: store.pending().length,
     timestamp: new Date().toISOString(),
   });

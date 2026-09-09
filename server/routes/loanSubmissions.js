@@ -12,7 +12,7 @@
 
 import { Router } from 'express';
 
-import { toPayload, validateSubmission } from '../../shared/loanSubmission.js';
+import { documentRefsFromRecords, toPayload, validateSubmission } from '../../shared/loanSubmission.js';
 import { attemptDelivery } from '../services/deliveryQueue.js';
 import { deliverToFlo } from '../services/floIntake.js';
 import { publicStatus } from '../services/submissionStore.js';
@@ -43,7 +43,7 @@ export function originAllowed(req, allowed) {
   return allowed.includes(origin);
 }
 
-export function createLoanSubmissionsRouter({ store, deliver = deliverToFlo, allowedOrigins = [], rateLimiter = createRateLimiter(), log = console } = {}) {
+export function createLoanSubmissionsRouter({ store, documents = null, publicApiBase = process.env.PUBLIC_API_BASE_URL || '', deliver = deliverToFlo, allowedOrigins = [], rateLimiter = createRateLimiter(), log = console } = {}) {
   const router = Router();
 
   router.post('/loan-submissions', rateLimiter, async (req, res) => {
@@ -66,10 +66,18 @@ export function createLoanSubmissionsRouter({ store, deliver = deliverToFlo, all
       return res.status(400).json({ ok: false, error: 'Invalid submission' });
     }
 
+    // Documents: the server's own records are authoritative (uploaded through PUT .../documents).
+    if (documents) {
+      const base = (publicApiBase || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+      const records = documents.list(payload.submissionId).filter((d) => d.status !== 'removed');
+      payload.documentRefs = documentRefsFromRecords(records, { fetchUrlFor: (r) => `${base}/api/internal/documents/${r.submissionId}/${r.documentId}` });
+    }
+
     const meta = {
       borrowerName: payload.borrowers[0]?.name || null,
       expectedClosingDate: payload.loan.expectedClosingDate,
       loanOfficer: payload.loanOfficer.name,
+      documentsReceived: payload.documentRefs.filter((d) => d.status !== 'duplicate').length,
       ip: req.ip || null,
     };
     let record;
@@ -87,7 +95,8 @@ export function createLoanSubmissionsRouter({ store, deliver = deliverToFlo, all
       return res.status(200).json({ ok: true, duplicate: true, ...publicStatus(record) });
     }
 
-    log.info?.(`[loan-submissions] ${record.submissionId} received`);
+    log.info?.(`[loan-submissions] ${record.submissionId} received (${meta.documentsReceived} documents)`);
+    documents?.markSubmitted?.(record.submissionId);
     const after = await attemptDelivery(store, record, { deliver, log });
     const status = after.status === 'delivered' ? 200 : 202;
     return res.status(status).json({ ok: true, ...publicStatus(after) });

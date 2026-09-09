@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle, FileText, Loader2, Printer, RotateCcw, Send } from 'lucide-react';
 
-import { emptySubmission, primaryBorrowerName, summarize, validateSubmission } from '../shared/loanSubmission.js';
+import { emptySubmission, primaryBorrowerName, submissionReference, summarize, validateSubmission } from '../shared/loanSubmission.js';
 import { sampleSubmission } from './loan-submission/sample';
 import {
   AgentsStep,
@@ -91,7 +91,10 @@ function loadDraft(): { sub: Submission; savedAt: string } | null {
 
 function saveDraft(sub: Submission) {
   try {
-    window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ sub: { ...sub, documents: [] }, savedAt: new Date().toISOString() }));
+    // Document records (server ids, category, status) survive a refresh; the bytes are already in private storage.
+    // A file still uploading or failed is dropped — the LO picks it again.
+    const documents = (sub.documents || []).filter((d: { status?: string }) => d.status === 'received' || d.status === 'duplicate');
+    window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ sub: { ...sub, documents }, savedAt: new Date().toISOString() }));
   } catch {
     /* storage unavailable */
   }
@@ -113,6 +116,7 @@ interface Confirmation {
   submittedAt: string;
   expectedClosingDate: string | null;
   status: 'received' | 'delivered';
+  documentsReceived: number;
 }
 
 function demoParams(): { demo: boolean; step: number } {
@@ -141,7 +145,7 @@ export const LoanSubmission: React.FC = () => {
   const [serverFields, setServerFields] = useState<Errors>({});
   const [confirmation, setConfirmation] = useState<Confirmation | null>(
     demoDone
-      ? { submissionId: 'sub_0123456789abcdef01234567', borrowerName: 'Ariana Justinvil-Synthetic', submittedAt: new Date().toISOString(), expectedClosingDate: '2026-09-23', status: 'delivered' }
+      ? { submissionId: 'sub_0123456789abcdef01234567', borrowerName: 'Ariana Justinvil-Synthetic', submittedAt: new Date().toISOString(), expectedClosingDate: '2026-09-23', status: 'delivered', documentsReceived: 8 }
       : null
   );
   const inFlight = useRef(false);
@@ -164,7 +168,7 @@ export const LoanSubmission: React.FC = () => {
     }
   }, []);
 
-  // Autosave (documents are not persisted: the files live only in this session).
+  // Autosave (document records included; the bytes are already in private storage).
   useEffect(() => {
     if (status === 'success') return;
     const t = window.setTimeout(() => saveDraft(sub), 400);
@@ -230,6 +234,7 @@ export const LoanSubmission: React.FC = () => {
           submittedAt: json.receivedAt || new Date().toISOString(),
           expectedClosingDate: sub.loan.expectedClosingDate || null,
           status: json.status === 'delivered' ? 'delivered' : 'received',
+          documentsReceived: Number(json.documentsReceived) || sub.documents.filter((d: { status?: string }) => d.status === 'received').length,
         });
         clearDraft();
         setStatus('success');
@@ -514,16 +519,20 @@ function ConfirmationCard({ confirmation, onReset }: { confirmation: Confirmatio
           <dd className="text-white/90 print:text-black">{submitted}</dd>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 print:border-black">
+          <dt className="text-[11px] uppercase tracking-wider text-white/40 print:text-black">Documents received</dt>
+          <dd className="text-white/90 print:text-black">{confirmation.documentsReceived}</dd>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 print:border-black">
           <dt className="text-[11px] uppercase tracking-wider text-white/40 print:text-black">Expected closing</dt>
           <dd className="text-white/90 print:text-black">{closing}</dd>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 print:border-black">
-          <dt className="text-[11px] uppercase tracking-wider text-white/40 print:text-black">Confirmation ID</dt>
-          <dd className="break-all font-mono text-xs text-white/90 print:text-black">{confirmation.submissionId}</dd>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 print:border-black sm:col-span-2">
+          <dt className="text-[11px] uppercase tracking-wider text-white/40 print:text-black">Submission ID</dt>
+          <dd className="font-mono text-sm text-white/90 print:text-black">{submissionReference(confirmation.submissionId)}</dd>
         </div>
       </dl>
       <p className="mx-auto mt-6 max-w-md text-xs text-white/45 print:text-black">
-        Keep this ID for your records. Processing will reach out with anything still needed; if you listed documents, you will get a secure upload link for them.
+        Keep this ID for your records. Your documents are in LoanFlow&apos;s private storage and processing is reviewing the file now; we will reach out with anything still needed.
       </p>
       <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row print:hidden">
         <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-white/[0.08] border border-white/10 px-6 py-3 text-sm font-medium text-white/80 hover:bg-white/[0.12] hover:text-white transition">

@@ -92,5 +92,6 @@ export function publicStatus(record) {
     receivedAt: record.receivedAt,
     borrowerName: record.meta?.borrowerName || null,
     expectedClosingDate: record.meta?.expectedClosingDate || null,
+    documentsReceived: record.meta?.documentsReceived ?? 0,
   };
 }

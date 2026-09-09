@@ -44,12 +44,12 @@ Sections (a stepper with progress, clickable step chips, Back/Next, Enter advanc
 9. **Title / Insurance / HOA** — title and insurance company (or "Not selected yet"), HOA Yes/No/Unknown → company, contact, phone, email, condo questionnaire status (hidden for single-family)
 10. **Agents** — listing and buyer's agent (name, license #, phone, email, brokerage, brokerage license #); hidden for refinances
 11. **Special Instructions** — "What else does processing need to know about this file?" with one-tap example prompts
-12. **Documents** — drag/drop list per category (1003, credit report, AUS findings, income, assets, purchase contract, title/property, insurance, other) — **UI only**, see Upload status
+12. **Documents** — pick a category (Loan Application / 1003, Credit Report, AUS Findings, Income Documents → Paystub / W-2 / 1099 / Tax return / P&L / K-1 / Other, Asset Documents → Bank statement / Retirement statement / Gift documentation / Other, Purchase Contract, Title / Property, Insurance, Identification, Other), whose document when there is a co-borrower, then drag/drop or choose files; **each file uploads immediately** to LoanFlow's private storage (Uploading… → Received / Duplicate, or failed with **Retry**); multiple files per category; see Upload status
 13. **Review & Submit** — grouped summary (Borrowers, Loan, Program, Income, Assets, Orders, Title/Insurance, Agents, Credit, Notes, Documents), blocking errors linked to their step, **recommended-but-missing** fields highlighted in copper, **Back & Edit** / **Submit Loan to Processing**
 
-Then the confirmation: "Loan Submitted Successfully", borrower, submitted time, expected closing, confirmation ID, **Print / Save Confirmation**, Submit Another Loan. It says LoanFlow *received* the submission — never that Ashley reviewed it.
+Then the confirmation: "Loan Submitted Successfully", borrower, submitted time, **Documents received: N**, expected closing, **Submission ID: LF-XXXXXXXXXX**, **Print / Save Confirmation**, Submit Another Loan. It says LoanFlow *received* the submission — never that Ashley reviewed it.
 
-Autosave: the draft is saved to the browser's localStorage on every change (documents excluded) and restored after a refresh with a "Start over" option. Dev demo: `?lfDemo=1&lfStep=<step id|done>` renders the form alone with synthetic data.
+Autosave: the draft is saved to the browser's localStorage on every change (received document records included — the bytes are already in private storage; a file still uploading or failed is dropped and picked again) and restored after a refresh with a "Start over" option. Dev demo: `?lfDemo=1&lfStep=<step id|done>` renders the form alone with synthetic data.
 
 ## Changes from the PDF (Justinvil sub sheet)
 
@@ -64,7 +64,7 @@ Autosave: the draft is saved to the browser's localStorage on every change (docu
 
 ## Upload status
 
-Secure file storage is **not** wired on this site (the Express server has no object storage, virus scanning or retention policy), so the Documents step lists files client-side and sends only `{category, fileName, sizeBytes, contentType, status: "pending_secure_upload"}`. Files never leave the LO's computer from this page and the UI says so. Flo attaches those references to the Deal Room as *listed, not received*, and Malcolm treats each as missing until it arrives. What is needed to turn uploads on is in `FLO_INTAKE_INTEGRATION.md`.
+Documents upload **from the browser to this site's API only** (`PUT /api/loan-submissions/:id/documents`, one file per request, validated server-side: extension allow-list, magic bytes, HTML/script sniff, 25 MB, filenames without SSN/account numbers) and land in private storage (Supabase private bucket in production, local disk in dev). Duplicates (same checksum) are kept once and shown as *Duplicate*. When the LO submits, the server attaches its own document records to the payload and Flo pulls each file through the authenticated connector into the Deal Room, where it is named cleanly, text-extracted, checked for missing pages and ready for Malcolm. Details: `DOCUMENT_UPLOAD_IMPLEMENTATION.md`, `DOCUMENT_STORAGE_SCHEMA.md`, `DOCUMENT_SECURITY_REVIEW.md`, `DOCUMENT_INTAKE_TEST_RESULTS.md`.
 
 ## Duplicate protection
 

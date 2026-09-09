@@ -136,23 +136,69 @@ export const OPTIONS = {
     ['other', 'Other'],
   ],
   documentCategory: [
-    ['loan_application', '1003 / Loan application'],
-    ['credit_report', 'Credit report'],
-    ['aus_findings', 'AUS findings'],
-    ['income', 'Income documents'],
-    ['assets', 'Asset documents'],
-    ['purchase_contract', 'Purchase contract'],
-    ['title_property', 'Title / property documents'],
+    ['loan_application', 'Loan Application / 1003'],
+    ['credit_report', 'Credit Report'],
+    ['aus_findings', 'AUS Findings'],
+    ['income', 'Income Documents'],
+    ['assets', 'Asset Documents'],
+    ['purchase_contract', 'Purchase Contract'],
+    ['title_property', 'Title / Property'],
     ['insurance', 'Insurance'],
+    ['identification', 'Identification'],
     ['other', 'Other'],
+  ],
+  incomeSubtype: [
+    ['paystub', 'Paystub'],
+    ['w2', 'W-2'],
+    ['1099', '1099'],
+    ['tax_return', 'Tax return'],
+    ['profit_and_loss', 'P&L'],
+    ['k1', 'K-1'],
+    ['other', 'Other'],
+  ],
+  assetSubtype: [
+    ['bank_statement', 'Bank statement'],
+    ['retirement_statement', 'Retirement statement'],
+    ['gift_documentation', 'Gift documentation'],
+    ['other', 'Other'],
+  ],
+  documentBorrower: [
+    ['borrower', 'Borrower'],
+    ['co_borrower', 'Co-borrower'],
+    ['both', 'Both / joint'],
   ],
 };
 
+export const DOCUMENT_STATUS = ['received', 'needs_review', 'reviewed', 'missing_pages', 'unreadable', 'duplicate', 'not_needed'];
+
 export const DOCUMENT_UPLOAD = {
   maxFileBytes: 25 * 1024 * 1024,
-  maxFiles: 40,
-  acceptedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'doc', 'docx', 'xls', 'xlsx', 'heic'],
+  maxFiles: 60,
+  // PDF and images first; Word/Excel accepted because lenders send worksheets that way. Never HTML, scripts or executables.
+  acceptedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'heic', 'docx', 'xlsx'],
+  mimeByExtension: {
+    pdf: 'application/pdf',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
+    heic: 'image/heic',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  },
 };
+
+export function subtypeOptionsFor(category) {
+  if (category === 'income') return OPTIONS.incomeSubtype;
+  if (category === 'assets') return OPTIONS.assetSubtype;
+  return [];
+}
+
+/** Human-readable submission reference shown to the LO (the id itself stays the idempotency key). */
+export function submissionReference(submissionId) {
+  return `LF-${String(submissionId || '').replace(/^sub_/, '').slice(0, 10).toUpperCase()}`;
+}
 
 export const LIMITS = {
   text: 200,
@@ -527,6 +573,7 @@ export function validateSubmission(sub) {
       if (!(Number(d?.sizeBytes) >= 0 && Number(d?.sizeBytes) <= DOCUMENT_UPLOAD.maxFileBytes)) err(`documents.${i}.sizeBytes`, 'File is too large');
       const ext = text(d?.fileName).toLowerCase().split('.').pop();
       if (!DOCUMENT_UPLOAD.acceptedExtensions.includes(ext)) err(`documents.${i}.fileName`, 'File type not accepted');
+      if (d?.status === 'failed' || d?.status === 'uploading') err(`documents.${i}.status`, 'A file has not finished uploading — retry or remove it');
     });
     if (docs.length === 0) rec('documents', 'Documents (1003, credit, AUS, income, assets)');
   }
@@ -707,14 +754,41 @@ export function toPayload(sub, { submittedAt = new Date().toISOString() } = {}) 
     insurance: contactOut(sub.insurance),
     agents: purchase ? { listing: agentOut(sub.agents?.listing), buyer: agentOut(sub.agents?.buyer) } : { listing: null, buyer: null },
     notes: text(sub.notes),
+    // The server replaces this with its own document records (`documentRefsFromRecords`); the browser list is only a hint.
     documentRefs: (sub.documents || []).map((d) => ({
+      documentId: text(d.id),
       category: d.category,
+      subcategory: text(d.subcategory) || null,
+      borrowerRef: text(d.borrowerRef) || null,
       fileName: text(d.fileName),
       sizeBytes: Number(d.sizeBytes) || 0,
       contentType: text(d.contentType),
-      status: 'pending_secure_upload',
+      status: d.status || 'listed',
     })),
   };
+}
+
+/** Server-side: the authoritative document references for the Flo payload, from stored document records. */
+export function documentRefsFromRecords(records, { fetchUrlFor } = {}) {
+  return (records || [])
+    .filter((r) => r && r.status !== 'removed')
+    .map((r) => ({
+      documentId: r.documentId,
+      category: r.category,
+      subcategory: r.subcategory || null,
+      borrowerRef: r.borrowerRef || null,
+      originalFilename: r.originalFilename,
+      displayName: r.displayName,
+      storageKey: r.storageKey,
+      mimeType: r.mimeType,
+      sizeBytes: r.sizeBytes,
+      sha256: r.sha256,
+      uploadedAt: r.uploadedAt,
+      uploadedBy: r.uploadedBy || 'loan_officer',
+      status: r.status,
+      classificationSource: r.classificationSource || 'loan_officer',
+      fetchUrl: fetchUrlFor ? fetchUrlFor(r) : null,
+    }));
 }
 
 // ── Review-screen summary (also used for the confirmation) ──────────────────

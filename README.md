@@ -23,5 +23,8 @@ Dev demo of the form with synthetic data: `http://localhost:3000/?lfDemo=1&lfSte
 * `LOAN_SUBMISSION_SCHEMA.md` — the v1.0 payload contract and validation rules
 * `FLO_INTAKE_INTEGRATION.md` — how it reaches Flo, environment, what production still needs
 * `LOAN_SUBMISSION_TEST_RESULTS.md` — automated + manual + end-to-end results
+* `DOCUMENT_UPLOAD_IMPLEMENTATION.md` / `DOCUMENT_STORAGE_SCHEMA.md` / `DOCUMENT_SECURITY_REVIEW.md` / `DOCUMENT_INTAKE_TEST_RESULTS.md` — secure document upload → private storage → Flo Deal Room → Malcolm
+
+Documents: `PUT /api/loan-submissions/:id/documents` stores files in a private Supabase bucket (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, server-side only) or on local disk when those are blank (`server/data/documents`, git-ignored); Flo pulls them back through `GET /api/internal/documents/:id/:docId` with the intake token.
 
 The AI chat assistant uses `GEMINI_API_KEY` (see `services/geminiService.ts`).

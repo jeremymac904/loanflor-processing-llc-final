@@ -82,9 +82,18 @@ Conventions: camelCase keys; enums are lowercase snake_case strings; money and p
 
   "notes": "This is a rush file, closing in 2 weeks.",
 
-  "documentRefs": [                                  // listed by the LO; files are NOT transferred yet
-    { "category": "loan_application | credit_report | aus_findings | income | assets | purchase_contract | title_property | insurance | other",
-      "fileName": "synthetic-1003.pdf", "sizeBytes": 412000, "contentType": "application/pdf", "status": "pending_secure_upload" }
+  "documentRefs": [                                  // built by the SERVER from its upload records (the browser list is only a hint)
+    { "documentId": "doc_<24 hex>",
+      "category": "loan_application | credit_report | aus_findings | income | assets | purchase_contract | title_property | insurance | identification | other",
+      "subcategory": "paystub | w2 | 1099 | tax_return | profit_and_loss | k1 | bank_statement | retirement_statement | gift_documentation | other | null",
+      "borrowerRef": "borrower | co_borrower | both | null",
+      "originalFilename": "scan0042.pdf", "displayName": "2026-09-09_paystub_01.pdf",
+      "storageKey": "submissions/<sid>/income/2026-09-09_paystub_01.pdf",
+      "mimeType": "application/pdf", "sizeBytes": 752, "sha256": "<64 hex>",
+      "uploadedAt": "2026-09-09T22:38:20.101Z", "uploadedBy": "loan_officer",
+      "status": "received | duplicate", "classificationSource": "loan_officer",
+      "fetchUrl": "{PUBLIC_API_BASE_URL}/api/internal/documents/<sid>/<documentId>"   // Flo pulls the bytes with the shared bearer token
+    }
   ]
 }
 ```
@@ -93,7 +102,7 @@ Conventions: camelCase keys; enums are lowercase snake_case strings; money and p
 
 Required: loan officer name/email/phone/company; borrower name; co-borrower name when `hasCoBorrower = yes`; property address; loan amount; occupancy; transaction type; program (+ `programOther` for other, `homeTypeOther` for other); title-party name and will-be-on-title when the section applies; an explanation when a tradeline is omitted or "other issue" is selected.
 
-Format: emails; 10-digit phones; non-negative numbers (rates ≤ 30 %, LTV/CLTV ≤ 200 %); ISO dates; enum membership; AUS must apply to the program; refinance type must apply to the program; text ≤ 200 chars (notes ≤ 4,000); ≤ 12 income streams, ≤ 12 fund sources, ≤ 40 documents (≤ 25 MB, accepted extensions only).
+Format: emails; 10-digit phones; non-negative numbers (rates ≤ 30 %, LTV/CLTV ≤ 200 %); ISO dates; enum membership; AUS must apply to the program; refinance type must apply to the program; text ≤ 200 chars (notes ≤ 4,000); ≤ 12 income streams, ≤ 12 fund sources, ≤ 60 documents (≤ 25 MB, accepted extensions only; a submission is refused while any file is still `uploading` or `failed`).
 
 Refused anywhere in the payload: SSN-shaped values (`###-##-####`), contiguous digit runs of 8+ that are not phone-shaped (10–11), and 12+ digits joined by spaces/dashes. Account references may contain at most 4 consecutive digits. The Flo intake repeats the sensitive-data scan and the workspace store rejects NPI a third time.
 
@@ -107,7 +116,7 @@ Recommended (highlighted on the review screen, never blocking): borrower email o
 | `loan.program` | `program`; `agency` = fannie / freddie (from `conventionalAgency`) or fha / va / usda |
 | `loan.aus` | `aus` (label, e.g. "TOTAL") |
 | whole payload (normalized keys) | `submission` block (`loan_officer`, `borrowers`, `transaction_label`, `program_label`, `expected_closing_date`, `lo_stated_income`, `funds_to_close`, `credit`, `hoa`, `title`, `insurance`, `agents`, `notes`, `review_status: pending`) |
-| `documentRefs[]` | `document_refs[]` with `status: pending_secure_upload` |
+| `documentRefs[]` | pulled into the Deal Room: `document_refs[]` (`doc://<id>`, category, subtype, borrower, display name, status, note, pages, private path) + `documents_summary` (received, duplicates, missing, needs_clarification); a ref without `fetchUrl` stays `listed` — see `DOCUMENT_STORAGE_SCHEMA.md` |
 | `notes`, loan officer contact | `communication_refs[]` (`submission://<id>#notes`, `submission://<id>`) |
 | — | `milestone: Intake`, `status_summary`, `next_action: "Malcolm is reviewing the new submission."` |
 | summary facts | one `flo_handoff` task to Malcolm, `return_format: file_prep_report`, urgency from the expected closing (≤ 14 days → today) |

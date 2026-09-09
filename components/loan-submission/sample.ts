@@ -20,6 +20,10 @@ export function sampleSubmission() {
   s.agents.listing = { name: 'Michael Capo (synthetic)', license: '267977', phone: '(404) 555-0104', email: 'listing@synthetic.test', brokerage: 'Synthetic Realty', brokerageLicense: '62466' };
   s.agents.buyer = { name: 'Taylor Carroll (synthetic)', license: '416149', phone: '(404) 555-0105', email: 'buyer@synthetic.test', brokerage: 'Synthetic Realty', brokerageLicense: '78172' };
   s.notes = 'This is a rush file, closing in 2 weeks.';
-  s.documents = [{ id: 'demo-1', category: 'loan_application', fileName: 'synthetic-1003.pdf', sizeBytes: 412_000, contentType: 'application/pdf' }];
+  s.documents = [
+    { id: 'doc_0123456789abcdef01234567', category: 'loan_application', subcategory: '', borrowerRef: '', fileName: 'synthetic-1003.pdf', sizeBytes: 412_000, contentType: 'application/pdf', status: 'received' },
+    { id: 'doc_0123456789abcdef01234568', category: 'income', subcategory: 'paystub', borrowerRef: 'borrower', fileName: 'scan0042.pdf', sizeBytes: 88_000, contentType: 'application/pdf', status: 'received' },
+    { id: 'doc_0123456789abcdef01234569', category: 'assets', subcategory: 'bank_statement', borrowerRef: 'borrower', fileName: 'bank_statement_july.pdf', sizeBytes: 240_000, contentType: 'application/pdf', status: 'received' },
+  ];
   return s;
 }

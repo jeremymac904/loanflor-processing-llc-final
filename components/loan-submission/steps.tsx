@@ -28,6 +28,7 @@ import {
   newIncomeStream,
   OPTIONS,
   refinanceOptionsFor,
+  subtypeOptionsFor,
 } from '../../shared/loanSubmission.js';
 import {
   CheckboxGroup,
@@ -429,43 +430,132 @@ export function NotesStep({ sub, set, errors }: StepProps) {
   );
 }
 
-// ── Documents (UI only until secure upload storage exists — see FLO_INTAKE_INTEGRATION.md) ──
+// ── Documents (secure upload: browser → this site's API → private storage) ──
+// Each file goes up on its own the moment it is added, so one failed file
+// only needs a retry, never a restart. The files never leave through the
+// browser to anything but this site's own API, and nothing is stored in the
+// browser except the record (name, category, status, server id).
 
-interface DocRow {
+export interface DocRow {
   id: string;
   category: string;
+  subcategory: string;
+  borrowerRef: string;
   fileName: string;
   sizeBytes: number;
   contentType: string;
+  status: 'uploading' | 'received' | 'duplicate' | 'failed';
+  error?: string;
 }
 
-export const SECURE_UPLOAD_ENABLED = false;
+/** The File objects for retry live only in memory (never in the draft). */
+const pendingFiles = new Map<string, File>();
+
+export async function uploadDocument(submissionId: string, row: DocRow, file: File): Promise<DocRow> {
+  const qs = new URLSearchParams({ category: row.category, subcategory: row.subcategory, borrower: row.borrowerRef, filename: file.name });
+  try {
+    const res = await fetch(`/api/loan-submissions/${encodeURIComponent(submissionId)}/documents?${qs}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && json.ok && json.document) {
+      pendingFiles.delete(row.id);
+      return { ...row, id: json.document.documentId, status: json.document.status === 'duplicate' ? 'duplicate' : 'received', error: undefined };
+    }
+    return { ...row, status: 'failed', error: json.error || `Upload failed (${res.status}). Retry.` };
+  } catch {
+    return { ...row, status: 'failed', error: 'Could not reach the server. Retry when you are back online.' };
+  }
+}
 
 export function DocumentsStep({ sub, set, errors }: StepProps) {
   const docs: DocRow[] = sub.documents;
   const [category, setCategory] = useState('loan_application');
+  const [subcategory, setSubcategory] = useState('');
+  const [borrowerRef, setBorrowerRef] = useState('borrower');
   const [rejected, setRejected] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const docsRef = useRef(docs);
+  docsRef.current = docs;
+  const hasCoBorrower = sub.hasCoBorrower === 'yes';
+  const subtypes = subtypeOptionsFor(category);
+
+  // Uploads finish in any order; keep the ref current synchronously so two completions never clobber each other.
+  const patch = (id: string, next: Partial<DocRow> | ((row: DocRow) => DocRow)) => {
+    docsRef.current = docsRef.current.map((d) => (d.id === id ? (typeof next === 'function' ? next(d) : { ...d, ...next }) : d));
+    set('documents', docsRef.current);
+  };
+
+  const start = (row: DocRow, file: File) => {
+    pendingFiles.set(row.id, file);
+    void uploadDocument(sub.submissionId, row, file).then((done) => patch(row.id, () => done));
+  };
 
   const addFiles = (files: FileList | File[]) => {
     const bad: string[] = [];
-    const next = [...docs];
+    const next = [...docsRef.current];
+    const started: Array<[DocRow, File]> = [];
     for (const f of Array.from(files)) {
       const ext = f.name.toLowerCase().split('.').pop() || '';
       if (!DOCUMENT_UPLOAD.acceptedExtensions.includes(ext)) bad.push(`${f.name}: file type not accepted`);
       else if (f.size > DOCUMENT_UPLOAD.maxFileBytes) bad.push(`${f.name}: larger than 25 MB`);
       else if (next.length >= DOCUMENT_UPLOAD.maxFiles) bad.push(`${f.name}: too many files`);
-      else if (!next.some((d) => d.fileName === f.name && d.category === category)) next.push({ id: `${Date.now()}-${f.name}`, category, fileName: f.name, sizeBytes: f.size, contentType: f.type || 'application/octet-stream' });
+      else {
+        const row: DocRow = {
+          id: `local-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          category,
+          subcategory: subtypes.length ? subcategory : '',
+          borrowerRef: category === 'income' || category === 'assets' ? borrowerRef : '',
+          fileName: f.name,
+          sizeBytes: f.size,
+          contentType: f.type || 'application/octet-stream',
+          status: 'uploading',
+        };
+        next.push(row);
+        started.push([row, f]);
+      }
     }
     setRejected(bad);
     set('documents', next);
+    docsRef.current = next;
+    started.forEach(([row, f]) => start(row, f));
+    if (inputRef.current) inputRef.current.value = '';
   };
+
+  const retry = (row: DocRow) => {
+    const file = pendingFiles.get(row.id);
+    if (!file) {
+      patch(row.id, { status: 'failed', error: 'Please choose this file again.' });
+      return;
+    }
+    patch(row.id, { status: 'uploading', error: undefined });
+    start(row, file);
+  };
+
+  const remove = (row: DocRow) => {
+    pendingFiles.delete(row.id);
+    if (!row.id.startsWith('local-')) {
+      void fetch(`/api/loan-submissions/${encodeURIComponent(sub.submissionId)}/documents/${encodeURIComponent(row.id)}`, { method: 'DELETE' }).catch(() => undefined);
+    }
+    docsRef.current = docsRef.current.filter((d) => d.id !== row.id);
+    set('documents', docsRef.current);
+  };
+
+  const received = docs.filter((d) => d.status === 'received').length;
 
   return (
     <>
-      <SectionTitle icon={icon(FileUp)} title="Documents" blurb="List the documents you have for this file. PDF preferred; JPG, PNG, TIFF, Word and Excel are fine too." />
+      <SectionTitle icon={icon(FileUp)} title="Documents" blurb="Add what you have for this file. Pick a category, then drop the files in — you can add more of any category. PDF preferred; JPG, PNG, TIFF, Word and Excel are fine too." />
       <div className="space-y-5">
-        <Select id="doc-category" label="Document category" value={category} onChange={setCategory} options={OPTIONS.documentCategory} placeholder="Choose a category" />
+        <Grid>
+          <Select id="doc-category" label="Document category" value={category} onChange={(v) => { setCategory(v); setSubcategory(''); }} options={OPTIONS.documentCategory} placeholder="Choose a category" />
+          {subtypes.length > 0 && <Select id="doc-subtype" label="Type (optional)" value={subcategory} onChange={setSubcategory} options={subtypes} placeholder="Not sure — let processing sort it" />}
+          {(category === 'income' || category === 'assets') && hasCoBorrower && (
+            <Select id="doc-borrower" label="Whose document" value={borrowerRef} onChange={setBorrowerRef} options={OPTIONS.documentBorrower} placeholder="Borrower" />
+          )}
+        </Grid>
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -477,7 +567,10 @@ export function DocumentsStep({ sub, set, errors }: StepProps) {
         >
           <FileUp className="mx-auto mb-3 h-7 w-7 text-brand-copper" />
           <p className="text-sm text-white/80">Drag files here or click to choose</p>
-          <p className="mt-1 text-xs text-white/40">Up to 25 MB each · {labelFor('documentCategory', category)}</p>
+          <p className="mt-1 text-xs text-white/40">
+            Up to 25 MB each · {labelFor('documentCategory', category)}
+            {subcategory ? ` · ${labelFor(category === 'income' ? 'incomeSubtype' : 'assetSubtype', subcategory)}` : ''}
+          </p>
           <input ref={inputRef} type="file" multiple accept={DOCUMENT_UPLOAD.acceptedExtensions.map((e) => `.${e}`).join(',')} className="hidden" onChange={(e) => e.target.files && addFiles(e.target.files)} />
         </div>
         {rejected.length > 0 && (
@@ -491,25 +584,39 @@ export function DocumentsStep({ sub, set, errors }: StepProps) {
         {docs.length > 0 && (
           <ul className="divide-y divide-white/[0.06] rounded-xl border border-white/[0.08]">
             {docs.map((d) => (
-              <li key={d.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+              <li key={d.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
                 <Building2 className="h-4 w-4 shrink-0 text-white/30" />
                 <span className="min-w-0 flex-1 truncate text-white/85">{d.fileName}</span>
-                <span className="hidden text-xs text-white/40 sm:inline">{labelFor('documentCategory', d.category)}</span>
+                <span className="hidden text-xs text-white/40 sm:inline">
+                  {labelFor('documentCategory', d.category)}
+                  {d.subcategory ? ` · ${labelFor(d.category === 'income' ? 'incomeSubtype' : 'assetSubtype', d.subcategory)}` : ''}
+                  {d.borrowerRef && d.borrowerRef !== 'borrower' ? ` · ${labelFor('documentBorrower', d.borrowerRef)}` : ''}
+                </span>
                 <span className="text-xs text-white/40">{(d.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>
-                <button type="button" onClick={() => set('documents', docs.filter((x) => x.id !== d.id))} className="text-white/40 hover:text-red-300" aria-label="Remove file">
+                {d.status === 'uploading' && <span className="text-xs text-brand-copper">Uploading…</span>}
+                {d.status === 'received' && <span className="text-xs text-emerald-400">Received</span>}
+                {d.status === 'duplicate' && <span className="text-xs text-white/50">Duplicate — already have this one</span>}
+                {d.status === 'failed' && (
+                  <span className="flex items-center gap-2 text-xs text-red-300">
+                    {d.error || 'Upload failed'}
+                    <button type="button" onClick={() => retry(d)} className="rounded-md border border-red-300/40 px-2 py-0.5 text-red-200 hover:bg-red-400/10">
+                      Retry
+                    </button>
+                  </span>
+                )}
+                <button type="button" onClick={() => remove(d)} className="text-white/40 hover:text-red-300" aria-label="Remove file">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </li>
             ))}
           </ul>
         )}
-        {!SECURE_UPLOAD_ENABLED && (
-          <p className="rounded-xl border border-brand-copper/25 bg-brand-copper/[0.06] px-4 py-3 text-xs leading-relaxed text-white/60">
-            <Wallet className="mr-1 inline h-3.5 w-3.5 text-brand-copper" />
-            Files are listed with the submission so processing knows what you have. Secure file transfer is not enabled on this site yet, so
-            the files themselves stay on your computer; LoanFlow will send you a secure upload link for them. Nothing is uploaded from this page.
-          </p>
-        )}
+        <p className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-xs leading-relaxed text-white/55">
+          <Wallet className="mr-1 inline h-3.5 w-3.5 text-brand-copper" />
+          {received > 0 ? `${received} ${received === 1 ? 'document' : 'documents'} received. ` : ''}
+          Files go straight from this page to LoanFlow&apos;s private storage over an encrypted connection; nobody else gets a link. If a file is in the wrong
+          category, processing will sort it — no need to redo it. A duplicate is kept once.
+        </p>
       </div>
     </>
   );
