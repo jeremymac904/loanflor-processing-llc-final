@@ -27,4 +27,6 @@ Dev demo of the form with synthetic data: `http://localhost:3000/?lfDemo=1&lfSte
 
 Documents: `PUT /api/loan-submissions/:id/documents` stores files in a private Supabase bucket (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, server-side only) or on local disk when those are blank (`server/data/documents`, git-ignored); Flo pulls them back through `GET /api/internal/documents/:id/:docId` with the intake token.
 
+Electronic signatures: `POST /api/esign-webhook` receives Documenso's webhook (verifies `X-Documenso-Secret`, a shared secret — `DOCUMENSO_WEBHOOK_SECRET`), then forwards only the envelope id to Flo's existing private intake channel. This website never holds a Documenso API key — only that webhook secret. See `FLO_ESIGN.md` in the Flo repository for the full design, what's verified vs. inferred, and what's still an open decision.
+
 The AI chat assistant uses `GEMINI_API_KEY` (see `services/geminiService.ts`).

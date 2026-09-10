@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "start": "node server/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-timeout=20000 server/loanSubmissions.test.js server/documents.test.js"
+    "test": "node --test --test-timeout=20000 server/loanSubmissions.test.js server/documents.test.js server/esignWebhook.test.js"
   },
   "dependencies": {
     "@google/genai": "^1.39.0",

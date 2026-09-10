@@ -3,10 +3,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { createDocumentsRouter } from './routes/documents.js';
+import { createEsignWebhookRouter } from './routes/esignWebhook.js';
 import { createLoanSubmissionsRouter } from './routes/loanSubmissions.js';
 import { startDeliveryWorker } from './services/deliveryQueue.js';
 import { createDocumentStorage } from './services/documentStorage.js';
 import { createDocumentStore } from './services/documentStore.js';
+import { createEsignWebhookStore } from './services/esignWebhookStore.js';
 import { intakeConfigured } from './services/floIntake.js';
 import { createSubmissionStore } from './services/submissionStore.js';
 
@@ -43,6 +45,8 @@ const documents = createDocumentStore();
 const storage = createDocumentStorage();
 app.use('/api', createLoanSubmissionsRouter({ store, documents, allowedOrigins: PRODUCTION ? ALLOWED_ORIGINS : [] }));
 app.use('/api', createDocumentsRouter({ store: documents, storage, submissions: store }));
+const esignWebhookStore = createEsignWebhookStore();
+app.use('/api', createEsignWebhookRouter({ store: esignWebhookStore }));
 
 // Health-check endpoint
 app.get('/api/health', (_req, res) => {
@@ -52,6 +56,7 @@ app.get('/api/health', (_req, res) => {
     floIntake: intakeConfigured() ? 'configured' : 'not configured (submissions are stored as pending delivery)',
     documentStorage: storage.kind,
     pendingDelivery: store.pending().length,
+    esignWebhook: process.env.DOCUMENSO_WEBHOOK_SECRET ? 'configured' : 'not configured',
     timestamp: new Date().toISOString(),
   });
 });
