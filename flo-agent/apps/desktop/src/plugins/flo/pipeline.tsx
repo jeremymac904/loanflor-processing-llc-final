@@ -18,6 +18,7 @@ import {
   conditionStatus,
   conditionStatusTone,
   conditionsByOwner,
+  ctcReadiness,
   groupedOwnerCount,
   loRequestPrompt,
   ownerHasWaiting,
@@ -849,6 +850,14 @@ function FilePanel({
 
   const hasTitle = (ws.orders ?? []).some(o => o.order_type === 'title' && o.state !== 'cancelled')
   const hasHoi = (ws.orders ?? []).some(o => o.order_type === 'hoi' && o.state !== 'cancelled')
+
+  const ctcAll = ctcReadiness(ws)
+  const isCtcConfirmed = (ws: FileRecord) =>
+    ws.milestone === 'Clear to Close' && Boolean(ws.ctc_confirmed_at)
+  const ctcCelebrate = (ws: FileRecord) => {
+    const name = ws.display_name ?? ws.workspace_id ?? 'this file'
+    return `${name} is CTC. Boom. 💚`
+  }
   const drafts = (ws.drafts ?? []).filter(d => d.status === 'draft' || d.status === 'proposed')
   const isBusy = busy !== null
   const draft = missingDocumentDraft(ws)
@@ -920,7 +929,42 @@ function FilePanel({
         <Fact label="Assets" tone={summary.assets === 'Needs work' ? 'warn' : undefined} value={summary.assets} />
         <Fact label="Orders" value={summary.orders} />
         <Fact label="Conditions" value={summary.conditions} />
+        <Fact label="CTC" value={ctcAll.summary} />
       </div>
+
+      {isCtcConfirmed(ws) ? (
+        <div
+          className="rounded-md border border-(--ui-accent) bg-(--ui-bg-quaternary) p-3"
+          data-testid="ctc-confirmed-banner"
+        >
+          <p className="m-0 text-sm font-semibold">{ctcCelebrate(ws)}</p>
+          <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">
+            Next: prepare for closing.
+          </p>
+        </div>
+      ) : (
+        <div
+          className="rounded-md border border-(--ui-stroke-tertiary) p-3 text-sm"
+          data-testid="ctc-readiness"
+        >
+          <span className="text-[0.6875rem] uppercase tracking-wide text-(--ui-text-tertiary)">
+            CTC readiness
+          </span>
+          <p className="m-0 mt-1 text-sm">{ctcAll.summary}</p>
+          <ul className="m-0 mt-1 flex flex-wrap gap-2 p-0 text-xs">
+            {ctcAll.open_count > 0 ? <li><Pill tone="warn">{ctcAll.open_count} open</Pill></li> : null}
+            {ctcAll.waiting_count > 0 ? <li><Pill>{ctcAll.waiting_count} waiting</Pill></li> : null}
+            {ctcAll.needs_review_count > 0 ? <li><Pill tone="bad">{ctcAll.needs_review_count} need review</Pill></li> : null}
+            {ctcAll.cleared_count > 0 ? <li><Pill tone="good">{ctcAll.cleared_count} cleared</Pill></li> : null}
+          </ul>
+          {ctcAll.all_tracked ? (
+            <p className="m-0 mt-2 text-xs text-(--ui-text-secondary)">
+              Flo will mark Clear to Close once an actual lender / UW
+              notice arrives and you confirm.
+            </p>
+          ) : null}
+        </div>
+      )}
 
       <div className="rounded-md bg-(--ui-bg-quaternary) p-3">
         <span className="text-[0.6875rem] uppercase tracking-wide text-(--ui-text-tertiary)">Best next move</span>

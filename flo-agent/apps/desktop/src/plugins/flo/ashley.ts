@@ -157,6 +157,13 @@ export interface FileRecord extends WorkspaceRow {
     purpose?: string
   }>
   blockers?: Array<{ text?: string } | string>
+  /** CTC audit fields — only set when Ashley confirmed a real lender
+   * CTC notice. Flo itself never writes these from inference. */
+  ctc_confirmed_by?: string
+  ctc_confirmed_at?: string
+  ctc_source?: string
+  ctc_source_ref?: string
+  ctc_evidence?: string
 }
 
 const OPEN_ORDER_STATES = new Set(['requested', 'approved', 'ordered', 'vendor_confirmed', 'pending', 'overdue'])
@@ -1398,6 +1405,79 @@ export function groupedOwnerCount(ws: FileRecord, owner: string): number {
  * disable the consolidated button while a send is in flight. */
 export function ownerHasWaiting(ws: FileRecord, owner: string): boolean {
   return waitingConditionsByOwner(ws, owner).length > 0
+}
+
+// ── CTC readiness ─────────────────────────────────────────────────────────
+
+export type CtcReadiness = {
+  open_count: number
+  waiting_count: number
+  needs_review_count: number
+  cleared_count: number
+  all_tracked: boolean
+  /** One plain-English line for Ashley. Never says "you are CTC". */
+  summary: string
+}
+
+/** Plain-English CTC readiness derived from the workspace's conditions.
+ * Mirrors plugins/flo-team/ctc.ctc_readiness(). The summary deliberately
+ * uses words like "almost there" / "everything is cleared; waiting on
+ * the lender" — never "you are clear to close" — because Flo does not
+ * grant CTC. */
+export function ctcReadiness(ws: FileRecord): CtcReadiness {
+  const conditions = (ws.conditions ?? []).filter(
+    (c): c is FileCondition => typeof c === 'object' && c !== null
+  )
+  let openCount = 0
+  let waitingCount = 0
+  let needsReviewCount = 0
+  let clearedCount = 0
+  for (const c of conditions) {
+    const status = conditionStatus(c)
+    if (status === 'Cleared') clearedCount += 1
+    else if (status === 'Waiting') waitingCount += 1
+    else if (status === 'Needs Review') needsReviewCount += 1
+    else openCount += 1
+  }
+  const total = openCount + waitingCount + needsReviewCount + clearedCount
+  const allTracked = total > 0 && openCount + waitingCount + needsReviewCount === 0
+  let summary: string
+  if (total === 0) {
+    summary = 'CTC readiness: nothing tracked yet.'
+  } else if (allTracked) {
+    summary = "Everything we're tracking is cleared. Waiting on the lender for Clear to Close."
+  } else {
+    const bits: string[] = []
+    if (openCount) bits.push(`${openCount} open`)
+    if (waitingCount) bits.push(`${waitingCount} waiting`)
+    if (needsReviewCount) {
+      bits.push(`${needsReviewCount} need${needsReviewCount === 1 ? 's' : ''} review`)
+    }
+    summary = `CTC readiness: almost there (${bits.join(', ')}).`
+  }
+  return {
+    open_count: openCount,
+    waiting_count: waitingCount,
+    needs_review_count: needsReviewCount,
+    cleared_count: clearedCount,
+    all_tracked: allTracked,
+    summary
+  }
+}
+
+/** Has the lender / UW source actually issued CTC? Reads
+ * ``ws.ctc_confirmed_by`` set by the backend ``confirm_clear_to_close``
+ * path; only Ashley's confirmation (or another explicit authorized
+ * source) flips it. Flo itself never flips this from inference. */
+export function isLenderCtcConfirmed(ws: FileRecord): boolean {
+  return ws.milestone === 'Clear to Close' && Boolean(ws.ctc_confirmed_at)
+}
+
+/** Short celebration message once a real lender CTC lands. Mirrors
+ * plugins/flo-team/ctc.ctc_celebration(). */
+export function ctcCelebration(ws: FileRecord): string {
+  const name = ws.display_name ?? ws.workspace_id ?? 'this file'
+  return `${name} is CTC. Boom. 💚`
 }
 
 export const NEXT_MOVE_PROMPT =
