@@ -164,6 +164,77 @@ export interface FileRecord extends WorkspaceRow {
   ctc_source?: string
   ctc_source_ref?: string
   ctc_evidence?: string
+  /** Pending Gmail-connector proposals waiting for Ashley's
+   * confirmation. The desktop renders these as cards under the file. */
+  pending_email_ingests?: Array<EmailConditionsProposal>
+  pending_ctc_proposals?: Array<CtcProposal>
+}
+
+/** A proposal on a workspace from the Gmail-connector condition ingest. */
+export interface EmailConditionsProposal {
+  kind: 'conditions_email'
+  email_id: string
+  sender?: string
+  subject?: string
+  received_at?: string
+  workspace_match?: {
+    confidence: 'high' | 'medium' | 'none'
+    workspace_id?: string
+    candidates?: Array<{ workspace_id: string; signals?: string[] }>
+    reason?: string
+  }
+  proposed: Array<{
+    identity?: string
+    required_item?: string
+    owner?: string
+    condition_type?: string
+    plain_english?: string
+    needs_sage?: boolean
+  }>
+  duplicate_count?: number
+  email_already_applied?: boolean
+  status: 'pending' | 'applied' | 'dismissed'
+  stored_at?: string
+  decided_at?: string
+}
+
+/** A proposal on a workspace from the Gmail-connector CTC detector. */
+export interface CtcProposal {
+  kind: 'ctc_email'
+  email_id: string
+  sender?: string
+  subject?: string
+  received_at?: string
+  is_ctc: boolean
+  confidence: 'high' | 'medium' | 'low'
+  matched_phrase?: string
+  reason?: string
+  raw_text_excerpt?: string
+  status: 'pending' | 'confirmed' | 'dismissed'
+  stored_at?: string
+  decided_at?: string
+}
+
+/** Pending email-conditions proposal on this workspace (if any). */
+export function pendingEmailConditions(ws: FileRecord): EmailConditionsProposal | null {
+  const list = ws.pending_email_ingests ?? []
+
+  for (const p of list) {
+    if (p && p.status === 'pending') {return p}
+  }
+
+  return null
+}
+
+/** Pending CTC proposal on this workspace (if any). */
+export function pendingCtcProposal(ws: FileRecord): CtcProposal | null {
+  const list = ws.pending_ctc_proposals ?? []
+
+  for (const p of list) {
+    if (p && p.status === 'pending') {return p}
+  }
+
+  return null
 }
 
 const OPEN_ORDER_STATES = new Set(['requested', 'approved', 'ordered', 'vendor_confirmed', 'pending', 'overdue'])
@@ -213,22 +284,31 @@ export function waitingLabel(owner: string | null | undefined): string {
   switch ((owner ?? '').trim()) {
     case 'Borrower':
       return 'Waiting on borrower'
+
     case 'Loan Officer':
       return 'Waiting on loan officer'
+
     case 'Title':
       return 'Waiting on title'
+
     case 'Insurance':
       return 'Waiting on insurance'
+
     case 'Employer':
       return 'Waiting on employer'
+
     case 'Appraiser':
       return 'Waiting on appraiser'
+
     case 'Lender/UW':
       return 'Waiting on lender'
+
     case 'Processor':
       return 'Waiting on processor'
+
     case 'Other':
       return 'Waiting on third party'
+
     default:
       return owner ? `Waiting on ${owner.toLowerCase()}` : 'Waiting'
   }
@@ -238,8 +318,10 @@ export function waitingLabel(owner: string | null | undefined): string {
  * raw text when the curated ``required_item`` is missing. */
 export function conditionItem(c: FileCondition): string {
   const item = (c.required_item ?? '').trim()
-  if (item) return item
+
+  if (item) {return item}
   const text = (c.text ?? '').trim()
+
   return text.length > 80 ? text.slice(0, 77).trimEnd() + '…' : text
 }
 
@@ -247,9 +329,12 @@ export function conditionItem(c: FileCondition): string {
  * text when ``plain_english`` hasn't been back-filled. */
 export function conditionPlainEnglish(c: FileCondition): string {
   const pe = (c.plain_english ?? '').trim()
-  if (pe) return pe
+
+  if (pe) {return pe}
   const text = (c.text ?? '').trim()
-  if (!text) return conditionItem(c)
+
+  if (!text) {return conditionItem(c)}
+
   return text.length > 160 ? text.slice(0, 157).trimEnd() + '…' : text
 }
 
@@ -260,9 +345,13 @@ export type ConditionStatus = 'Open' | 'Waiting' | 'Needs Ashley' | 'Needs Revie
  * the ``needs_review`` flag into the five values Ashley sees. */
 export function conditionStatus(c: FileCondition): ConditionStatus {
   const state = String(c.state ?? c.status ?? 'open').toLowerCase()
-  if (state === 'cleared') return 'Cleared'
-  if (state === 'waiting') return 'Waiting'
-  if (c.needs_review) return 'Needs Review'
+
+  if (state === 'cleared') {return 'Cleared'}
+
+  if (state === 'waiting') {return 'Waiting'}
+
+  if (c.needs_review) {return 'Needs Review'}
+
   // Anything not cleared / waiting / needs_review is "Open". A condition
   // that needs Sage is flagged here so the file view shows [Why?] for it
   // (Sage is the path for guideline-interpretation items).
@@ -298,6 +387,7 @@ export function openConditions(ws: FileRecord): FileCondition[] {
  * Ashley (open or needs review — not already waiting, not cleared). */
 export function openConditionsByOwner(ws: FileRecord, owner: string): FileCondition[] {
   const want = (owner ?? '').trim().toLowerCase()
+
   return openConditions(ws).filter(
     c => String(c.owner ?? '').trim().toLowerCase() === want
   )
@@ -307,6 +397,7 @@ export function openConditionsByOwner(ws: FileRecord, owner: string): FileCondit
  * someone. Drives the "Waiting on …" lines in Today / Pipeline. */
 export function waitingConditionsByOwner(ws: FileRecord, owner: string): FileCondition[] {
   const want = (owner ?? '').trim().toLowerCase()
+
   return allConditions(ws).filter(
     c =>
       conditionStatus(c) === 'Waiting' &&
@@ -318,17 +409,24 @@ export function waitingConditionsByOwner(ws: FileRecord, owner: string): FileCon
  * empty buckets. Used by the Conditions section inside the file view. */
 export function conditionsByOwner(ws: FileRecord): Array<{ owner: string; items: FileCondition[] }> {
   const grouped = new Map<string, FileCondition[]>()
-  for (const owner of OWNER_ORDER) grouped.set(owner, [])
+
+  for (const owner of OWNER_ORDER) {grouped.set(owner, [])}
+
   for (const c of openConditions(ws)) {
     const o = String(c.owner ?? 'Other').trim() || 'Other'
-    if (!grouped.has(o)) grouped.set(o, [])
+
+    if (!grouped.has(o)) {grouped.set(o, [])}
     grouped.get(o)!.push(c)
   }
+
   const out: Array<{ owner: string; items: FileCondition[] }> = []
+
   for (const owner of OWNER_ORDER) {
     const items = grouped.get(owner) ?? []
-    if (items.length > 0) out.push({ owner, items })
+
+    if (items.length > 0) {out.push({ owner, items })}
   }
+
   return out
 }
 
@@ -336,9 +434,11 @@ export function conditionsByOwner(ws: FileRecord): Array<{ owner: string; items:
  * in canonical order. Used by Today's "Waiting on …" lines. */
 export function waitingOwners(ws: FileRecord): string[] {
   const set = new Set<string>()
+
   for (const c of allConditions(ws)) {
-    if (conditionStatus(c) === 'Waiting' && c.owner) set.add(String(c.owner))
+    if (conditionStatus(c) === 'Waiting' && c.owner) {set.add(String(c.owner))}
   }
+
   return OWNER_ORDER.filter(o => set.has(o))
 }
 
@@ -360,6 +460,7 @@ export function requestedMissingItems(ws: FileRecord): string[] {
       d.status === 'sent' &&
       (/missing document|missing item|document request|request/i.test(d.purpose ?? '') || Boolean(d.needed))
   )
+
   const latest = sent[sent.length - 1]
 
   return latest?.needed
@@ -649,6 +750,7 @@ export function documentBoard(ws: FileRecord): DocumentBoardGroup[] {
           missing: [],
           waiting: true
         }
+
         byCategory.set(category, group)
         groups.push(group)
       }
@@ -998,6 +1100,7 @@ export function reviewLine(ws: FileRecord): null | string {
   const blocker = riskLine(ws) ?? (missing.length > 0 ? short(missing[0].item, 80) : null)
   const n = missing.length
   const move = bestNextMove(ws) === 'Request the missing documents.' ? 'Request the missing docs.' : bestNextMove(ws)
+
   const parts = [
     `${fileName(ws)} is reviewed.`,
     `${docCount(docs)} received.`,
@@ -1218,6 +1321,7 @@ export function todayModel(
       : null
 
   const risky = ranked.find(s => s.status === 'Blocked' || s.status === 'At Risk')
+
   const biggestRisk = risky
     ? { line: `${fileName(risky.ws)}: ${riskLine(risky.ws) ?? 'needs a look'}.`, workspaceId: risky.ws.workspace_id }
     : null
@@ -1315,6 +1419,7 @@ export function approvalView(card: ApprovalCard, now = Date.now()): ApprovalView
 
 export function requestPrompt(ws: FileRecord): string {
   const items = missingItems(ws)
+
   const list =
     items.length > 0
       ? items.map(m => `${m.item}${m.owner ? ` (${m.owner})` : ''}`).join('\n- ')
@@ -1360,7 +1465,8 @@ export function editApprovalPrompt(view: ApprovalView): string {
 
 /** Item lines for one consolidated request draft, plain-English only. */
 function _conditionList(items: FileCondition[]): string {
-  if (items.length === 0) return 'whatever is still outstanding'
+  if (items.length === 0) {return 'whatever is still outstanding'}
+
   return items.map(c => `- ${conditionItem(c)}`).join('\n')
 }
 
@@ -1371,9 +1477,11 @@ function _conditionList(items: FileCondition[]): string {
 export function borrowerRequestPrompt(ws: FileRecord): string {
   const items = openConditionsByOwner(ws, 'Borrower')
   const list = _conditionList(items)
+
   const flag = items.some(c => c.needs_sage)
     ? ' Some of these look like they need a guideline check; if so, route that part to Sage and tell me what they said before drafting.'
     : ''
+
   return `Send ONE borrower message for ${fileName(ws)} (Deal Room ${ws.workspace_id}, ${ws.program ?? ''}). The Borrower-owned items are:\n${list}\nHave Whisper put together a single concise message with all of these. Do not create more than one draft; if an active or already-sent borrower request exists for this file, do not create a duplicate. Sending still stops at Ashley's approval. After the approved send, mark each of these items as Waiting on borrower.${flag}`
 }
 
@@ -1381,6 +1489,7 @@ export function borrowerRequestPrompt(ws: FileRecord): string {
 export function loRequestPrompt(ws: FileRecord): string {
   const items = openConditionsByOwner(ws, 'Loan Officer')
   const list = _conditionList(items)
+
   return `Send ONE concise loan-officer message for ${fileName(ws)} (Deal Room ${ws.workspace_id}) asking for these items:\n${list}\nKeep borrower requests and loan-officer requests separate. Sending stops at Ashley's approval. After the approved send, mark each of these items as Waiting on loan officer.`
 }
 
@@ -1389,6 +1498,7 @@ export function loRequestPrompt(ws: FileRecord): string {
  * next to the Request buttons. */
 export function conditionBulletList(ws: FileRecord, owner: string): string {
   const items = openConditionsByOwner(ws, owner)
+
   return _conditionList(items)
 }
 
@@ -1405,6 +1515,57 @@ export function groupedOwnerCount(ws: FileRecord, owner: string): number {
  * disable the consolidated button while a send is in flight. */
 export function ownerHasWaiting(ws: FileRecord, owner: string): boolean {
   return waitingConditionsByOwner(ws, owner).length > 0
+}
+
+// ── Email-conditions ingest (Gmail-connector cards) ────────────────────────
+
+/** Build the prompt Flo uses when Ashley clicks "Add to File" on the
+ * email-conditions card. The proposed rows came from the earlier
+ * propose call and are passed through verbatim. */
+export function emailConditionsApplyPrompt(ws: FileRecord, proposal: EmailConditionsProposal): string {
+  const items = (proposal.proposed ?? []).map(p => {
+    const owner = p.owner ? ` (${p.owner})` : ''
+
+    return `- ${p.required_item ?? p.plain_english ?? p.condition_type ?? 'item'}${owner}`
+  }).join('\n')
+
+  return `Add the conditions from this lender email to ${fileName(ws)} (Deal Room ${ws.workspace_id}):\n${items}\nUse flo_conditions_ingest action=apply with the proposed rows from the earlier propose call. After the apply, re-render the file's Conditions section and Today / Pipeline counts. The audit fields (source = lender_email, source_ref = email id) must be on every new condition.`
+}
+
+/** Prompt for "Not Now" on the email-conditions card. */
+export function emailConditionsDismissPrompt(ws: FileRecord, proposal: EmailConditionsProposal): string {
+  return `Dismiss the pending conditions-email card on ${fileName(ws)} (Deal Room ${ws.workspace_id}, email ${proposal.email_id}). Use flo_conditions_ingest action=dismiss so the card is marked dismissed and won't show again. Do not write any conditions to the file.`
+}
+
+/** Prompt for "Review Email" on either kind of card. Shows sender,
+ * subject, received time, and the relevant excerpt without forcing a
+ * raw Gmail page. */
+export function reviewEmailPrompt(ws: FileRecord, proposal: EmailConditionsProposal | CtcProposal): string {
+  const lines = [
+    `Show me the email that produced this card for ${fileName(ws)} (Deal Room ${ws.workspace_id}).`,
+    `Sender: ${proposal.sender ?? 'unknown'}`,
+    `Subject: ${proposal.subject ?? '(no subject)'}`,
+    `Received: ${proposal.received_at ?? 'unknown'}`,
+  ]
+
+  if (proposal.kind === 'conditions_email') {
+    const items = (proposal.proposed ?? []).map(p => `- ${p.required_item ?? p.plain_english ?? 'item'}`).join('\n')
+    lines.push(`Excerpt:`, items || '(no excerpt)')
+  } else {
+    lines.push(`Excerpt: ${(proposal.raw_text_excerpt ?? '').slice(0, 200) || '(no excerpt)'}`)
+  }
+
+  return lines.join('\n')
+}
+
+/** Prompt for "Confirm CTC" on the CTC card. */
+export function confirmCtcPrompt(ws: FileRecord, proposal: CtcProposal): string {
+  return `Confirm the Clear to Close milestone on ${fileName(ws)} (Deal Room ${ws.workspace_id}) based on this lender email (${proposal.email_id}). Use flo_ctc_email action=apply. Flo does not grant CTC; Ashley is the gate. After the apply, clear the pending card and show the celebration.`
+}
+
+/** Prompt for "Not Now" on the CTC card. */
+export function dismissCtcPrompt(ws: FileRecord, proposal: CtcProposal): string {
+  return `Dismiss the pending CTC card on ${fileName(ws)} (Deal Room ${ws.workspace_id}, email ${proposal.email_id}). Mark it dismissed. Do not change the milestone.`
 }
 
 // ── CTC readiness ─────────────────────────────────────────────────────────
@@ -1428,33 +1589,43 @@ export function ctcReadiness(ws: FileRecord): CtcReadiness {
   const conditions = (ws.conditions ?? []).filter(
     (c): c is FileCondition => typeof c === 'object' && c !== null
   )
+
   let openCount = 0
   let waitingCount = 0
   let needsReviewCount = 0
   let clearedCount = 0
+
   for (const c of conditions) {
     const status = conditionStatus(c)
-    if (status === 'Cleared') clearedCount += 1
-    else if (status === 'Waiting') waitingCount += 1
-    else if (status === 'Needs Review') needsReviewCount += 1
-    else openCount += 1
+
+    if (status === 'Cleared') {clearedCount += 1}
+    else if (status === 'Waiting') {waitingCount += 1}
+    else if (status === 'Needs Review') {needsReviewCount += 1}
+    else {openCount += 1}
   }
+
   const total = openCount + waitingCount + needsReviewCount + clearedCount
   const allTracked = total > 0 && openCount + waitingCount + needsReviewCount === 0
   let summary: string
+
   if (total === 0) {
     summary = 'CTC readiness: nothing tracked yet.'
   } else if (allTracked) {
     summary = "Everything we're tracking is cleared. Waiting on the lender for Clear to Close."
   } else {
     const bits: string[] = []
-    if (openCount) bits.push(`${openCount} open`)
-    if (waitingCount) bits.push(`${waitingCount} waiting`)
+
+    if (openCount) {bits.push(`${openCount} open`)}
+
+    if (waitingCount) {bits.push(`${waitingCount} waiting`)}
+
     if (needsReviewCount) {
       bits.push(`${needsReviewCount} need${needsReviewCount === 1 ? 's' : ''} review`)
     }
+
     summary = `CTC readiness: almost there (${bits.join(', ')}).`
   }
+
   return {
     open_count: openCount,
     waiting_count: waitingCount,
@@ -1477,6 +1648,7 @@ export function isLenderCtcConfirmed(ws: FileRecord): boolean {
  * plugins/flo-team/ctc.ctc_celebration(). */
 export function ctcCelebration(ws: FileRecord): string {
   const name = ws.display_name ?? ws.workspace_id ?? 'this file'
+
   return `${name} is CTC. Boom. 💚`
 }
 

@@ -284,4 +284,169 @@ def apply_proposed(
         workspace_doc.setdefault("conditions", []).append(cond)
         existing_identities.add(cond["identity"])
         written.append(cond)
+    # Clear any pending email-ingest proposal that produced these rows —
+    # once applied, the card has served its purpose.
+    if written:
+        clear_pending_email_ingest(workspace_doc, email_id=email_id)
     return written
+
+
+# ── Pending proposals (Ashley-facing UI state) ─────────────────────────────
+#
+# When the Gmail connector recognizes a lender / UW email, the tool
+# handler stores a "pending" card on the workspace so the desktop can
+# render it inline. Ashley's [Add to File] / [Confirm CTC] / [Not Now]
+# click clears the pending card and (for Add / Confirm) writes to the
+# file.
+
+def store_pending_email_ingest(
+    workspace_doc: Dict[str, Any],
+    *,
+    email_id: str,
+    sender: Optional[str],
+    subject: Optional[str],
+    received_at: Optional[str],
+    workspace_match: Dict[str, Any],
+    proposed: List[Dict[str, Any]],
+    duplicate_count: int = 0,
+    email_already_applied: bool = False,
+) -> Dict[str, Any]:
+    """Save a pending email-conditions proposal on the workspace. The
+    desktop reads this card and shows it under the file's Conditions
+    section. Idempotent on ``email_id`` — re-storing the same email
+    replaces the existing proposal rather than appending a second one.
+    """
+    card = {
+        "kind": "conditions_email",
+        "email_id": email_id,
+        "sender": sender,
+        "subject": subject,
+        "received_at": received_at,
+        "workspace_match": workspace_match,
+        "proposed": proposed,
+        "duplicate_count": duplicate_count,
+        "email_already_applied": email_already_applied,
+        "status": "pending",
+        "stored_at": datetime_now_iso(),
+    }
+    pendings = [c for c in (workspace_doc.get("pending_email_ingests") or [])
+                if isinstance(c, dict) and c.get("email_id") != email_id]
+    pendings.append(card)
+    workspace_doc["pending_email_ingests"] = pendings
+    return card
+
+
+def clear_pending_email_ingest(
+    workspace_doc: Dict[str, Any],
+    *,
+    email_id: Optional[str] = None,
+    status: str = "applied",
+) -> int:
+    """Mark pending email-ingest cards as decided. If ``email_id`` is
+    provided, only that one card is touched; otherwise every pending
+    card of the requested status is updated. Returns the count cleared."""
+    count = 0
+    for c in (workspace_doc.get("pending_email_ingests") or []):
+        if not isinstance(c, dict):
+            continue
+        if c.get("status") != "pending":
+            continue
+        if email_id is None or c.get("email_id") == email_id:
+            c["status"] = status
+            c["decided_at"] = datetime_now_iso()
+            count += 1
+    return count
+
+
+def pending_email_ingest(
+    workspace_doc: Dict[str, Any],
+    email_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Return pending email-ingest cards on this workspace. If
+    ``email_id`` is given, only that one."""
+    out: List[Dict[str, Any]] = []
+    for c in (workspace_doc.get("pending_email_ingests") or []):
+        if not isinstance(c, dict):
+            continue
+        if c.get("status") != "pending":
+            continue
+        if email_id is not None and c.get("email_id") != email_id:
+            continue
+        out.append(c)
+    return out
+
+
+def store_pending_ctc_proposal(
+    workspace_doc: Dict[str, Any],
+    *,
+    email_id: str,
+    sender: Optional[str],
+    subject: Optional[str],
+    received_at: Optional[str],
+    is_ctc: bool,
+    confidence: str,
+    matched_phrase: Optional[str],
+    reason: Optional[str],
+    raw_text_excerpt: Optional[str],
+) -> Dict[str, Any]:
+    """Save a pending CTC proposal on the workspace. Replaces any
+    existing pending CTC proposal for the same email_id."""
+    card = {
+        "kind": "ctc_email",
+        "email_id": email_id,
+        "sender": sender,
+        "subject": subject,
+        "received_at": received_at,
+        "is_ctc": is_ctc,
+        "confidence": confidence,
+        "matched_phrase": matched_phrase,
+        "reason": reason,
+        "raw_text_excerpt": (raw_text_excerpt or "")[:400],
+        "status": "pending",
+        "stored_at": datetime_now_iso(),
+    }
+    pendings = [c for c in (workspace_doc.get("pending_ctc_proposals") or [])
+                if isinstance(c, dict) and c.get("email_id") != email_id]
+    pendings.append(card)
+    workspace_doc["pending_ctc_proposals"] = pendings
+    return card
+
+
+def clear_pending_ctc_proposal(
+    workspace_doc: Dict[str, Any],
+    *,
+    email_id: Optional[str] = None,
+    status: str = "confirmed",
+) -> int:
+    count = 0
+    for c in (workspace_doc.get("pending_ctc_proposals") or []):
+        if not isinstance(c, dict):
+            continue
+        if c.get("status") != "pending":
+            continue
+        if email_id is None or c.get("email_id") == email_id:
+            c["status"] = status
+            c["decided_at"] = datetime_now_iso()
+            count += 1
+    return count
+
+
+def pending_ctc_proposals(
+    workspace_doc: Dict[str, Any],
+    email_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for c in (workspace_doc.get("pending_ctc_proposals") or []):
+        if not isinstance(c, dict):
+            continue
+        if c.get("status") != "pending":
+            continue
+        if email_id is not None and c.get("email_id") != email_id:
+            continue
+        out.append(c)
+    return out
+
+
+def datetime_now_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()

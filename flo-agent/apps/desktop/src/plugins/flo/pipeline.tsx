@@ -15,42 +15,48 @@ import {
   borrowerRequestWaiting,
   conditionItem,
   conditionPlainEnglish,
+  conditionsByOwner,
   conditionStatus,
   conditionStatusTone,
-  conditionsByOwner,
+  confirmCtcPrompt,
   ctcReadiness,
-  groupedOwnerCount,
-  loRequestPrompt,
-  ownerHasWaiting,
-  waitingLabel,
+  dismissCtcPrompt,
   documentBoard,
   documentsReceived,
   type DocumentView,
   editDraftPrompt,
   eligibleEsignTemplate,
+  emailConditionsApplyPrompt,
+  emailConditionsDismissPrompt,
   ESIGN_STATUS_LABEL,
   esignCancelPrompt,
   esignReminderPrompt,
   type EsignRequest,
-  type FileCondition,
   type FileRecord,
   fileSummary,
+  groupedOwnerCount,
+  loRequestPrompt,
   missingDocumentDraft,
   missingDocuments,
   notNeededDocumentPrompt,
   ORDER_TYPE_LABEL,
   orderPrompt,
   orderStateLabel,
+  ownerHasWaiting,
+  pendingCtcProposal,
+  pendingEmailConditions,
   prefillSignRecipients,
   reclassifyDocumentPrompt,
   requestedMissingItems,
   requestPrompt,
   reviewDraftPrompt,
+  reviewEmailPrompt,
   sendDraftPrompt,
   sendForSignaturePrompt,
   STATUS_TONE,
   teamHints,
   uploadDocumentsPrompt,
+  waitingLabel,
   type WhyKind,
   whyPrompt
 } from './ashley'
@@ -627,6 +633,157 @@ function DocumentsSection({
   )
 }
 
+function EmailConditionsCard({
+  ws,
+  isBusy,
+  ask
+}: {
+  ws: FileRecord
+  isBusy: boolean
+  ask: (id: string, title: string, prompt: string) => void
+}) {
+  const proposal = pendingEmailConditions(ws)
+
+  if (!proposal) {return null}
+  const name = ws.display_name ?? ws.workspace_id ?? 'this file'
+  const items = proposal.proposed ?? []
+
+  return (
+    <div
+      className="mb-2 flex flex-col gap-2 rounded-md border border-(--ui-accent) bg-(--ui-bg-quaternary) p-3"
+      data-testid="email-conditions-card"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[0.6875rem] uppercase tracking-wide text-(--ui-text-tertiary)">
+          New conditions · {name}
+        </span>
+      </div>
+      <p className="m-0 text-sm">
+        {items.length === 1
+          ? '1 new condition detected from a lender email.'
+          : `${items.length} new conditions detected from a lender email.`}
+      </p>
+      {proposal.email_already_applied ? (
+        <p className="m-0 text-xs text-(--ui-text-secondary)">
+          (Email was already applied — nothing new to add.)
+        </p>
+      ) : null}
+      {items.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0 pl-4 text-sm">
+          {items.map((c, i) => (
+            <li key={(c.identity ?? '') + '-' + i}>
+              {c.required_item ?? c.plain_english ?? c.condition_type ?? 'item'}
+              {c.owner ? <span className="ml-1 text-xs text-(--ui-text-tertiary)">· {c.owner}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          disabled={isBusy || proposal.email_already_applied}
+          onClick={() => ask('email-conditions-apply',
+                            `Add conditions · ${name}`,
+                            emailConditionsApplyPrompt(ws, proposal))}
+          size="xs"
+        >
+          Add to File
+        </Button>
+        <Button
+          disabled={isBusy}
+          onClick={() => ask('email-conditions-review',
+                            `Review email · ${name}`,
+                            reviewEmailPrompt(ws, proposal))}
+          size="xs"
+          variant="secondary"
+        >
+          Review
+        </Button>
+        <Button
+          disabled={isBusy}
+          onClick={() => ask('email-conditions-dismiss',
+                            `Dismiss conditions card · ${name}`,
+                            emailConditionsDismissPrompt(ws, proposal))}
+          size="xs"
+          variant="secondary"
+        >
+          Not Now
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function CtcEmailCard({
+  ws,
+  isBusy,
+  ask
+}: {
+  ws: FileRecord
+  isBusy: boolean
+  ask: (id: string, title: string, prompt: string) => void
+}) {
+  const proposal = pendingCtcProposal(ws)
+
+  if (!proposal) {return null}
+  const name = ws.display_name ?? ws.workspace_id ?? 'this file'
+  const ambiguous = !proposal.is_ctc
+
+  return (
+    <div
+      className="mb-2 flex flex-col gap-2 rounded-md border border-(--ui-accent) bg-(--ui-bg-quaternary) p-3"
+      data-testid="ctc-email-card"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[0.6875rem] uppercase tracking-wide text-(--ui-text-tertiary)">
+          {ambiguous ? 'Possible closing update' : 'Clear to Close?'}
+        </span>
+        <span className="text-xs text-(--ui-text-tertiary)">· {name}</span>
+      </div>
+      <p className="m-0 text-sm">
+        {ambiguous
+          ? 'Possible closing update — review email.'
+          : `Lender email appears to confirm Clear to Close (matched: "${proposal.matched_phrase ?? 'clear to close'}").`}
+      </p>
+      <p className="m-0 text-xs text-(--ui-text-secondary)">
+        Source: {proposal.sender ?? 'lender email'}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {!ambiguous ? (
+          <Button
+            disabled={isBusy}
+            onClick={() => ask('ctc-email-confirm',
+                              `Confirm CTC · ${name}`,
+                              confirmCtcPrompt(ws, proposal))}
+            size="xs"
+          >
+            Confirm CTC
+          </Button>
+        ) : null}
+        <Button
+          disabled={isBusy}
+          onClick={() => ask('ctc-email-review',
+                            `Review email · ${name}`,
+                            reviewEmailPrompt(ws, proposal))}
+          size="xs"
+          variant="secondary"
+        >
+          Review Email
+        </Button>
+        <Button
+          disabled={isBusy}
+          onClick={() => ask('ctc-email-dismiss',
+                            `Dismiss CTC card · ${name}`,
+                            dismissCtcPrompt(ws, proposal))}
+          size="xs"
+          variant="secondary"
+        >
+          Not Now
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function ConditionsSection({
   ws,
   isBusy,
@@ -654,19 +811,22 @@ function ConditionsSection({
       {groups.map(group => {
         const isBorrower = group.owner === 'Borrower'
         const isLO = group.owner === 'Loan Officer'
+
         const showConsolidated =
           (isBorrower || isLO) && groupedOwnerCount(ws, group.owner) >= 2 && !ownerHasWaiting(ws, group.owner)
+
         const buttonLabel =
           isBorrower
             ? `Request Borrower Items (${groupedOwnerCount(ws, 'Borrower')})`
             : isLO
               ? `Request LO Items (${groupedOwnerCount(ws, 'Loan Officer')})`
               : null
+
         return (
           <div
-            key={group.owner}
             className="rounded-md border border-(--ui-stroke-tertiary) p-2"
             data-testid={`conditions-group-${group.owner.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+            key={group.owner}
           >
             <div className="flex flex-wrap items-center gap-2">
               <Pill>{group.owner}</Pill>
@@ -688,6 +848,7 @@ function ConditionsSection({
             <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0">
               {group.items.map((c, i) => {
                 const status = conditionStatus(c)
+
                 return (
                   <li className="flex flex-col gap-0.5" key={(c.id ?? c.text) + '-' + i}>
                     <div className="flex flex-wrap items-center gap-2">
@@ -719,7 +880,7 @@ function ConditionsSection({
           </div>
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
             {waiting.map((c, i) => (
-              <li key={(c.id ?? c.text) + '-w-' + i} className="text-xs text-(--ui-text-secondary)">
+              <li className="text-xs text-(--ui-text-secondary)" key={(c.id ?? c.text) + '-w-' + i}>
                 {waitingLabel(c.owner)} · {conditionItem(c)}
               </li>
             ))}
@@ -734,7 +895,7 @@ function ConditionsSection({
           </div>
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
             {needsReview.map((c, i) => (
-              <li key={(c.id ?? c.text) + '-r-' + i} className="text-xs text-(--ui-text-secondary)">
+              <li className="text-xs text-(--ui-text-secondary)" key={(c.id ?? c.text) + '-r-' + i}>
                 <span className="font-medium">{conditionItem(c)}</span>
                 {c.needs_review_reason ? <> · {c.needs_review_reason}</> : null}
                 <WhyButton
@@ -852,12 +1013,16 @@ function FilePanel({
   const hasHoi = (ws.orders ?? []).some(o => o.order_type === 'hoi' && o.state !== 'cancelled')
 
   const ctcAll = ctcReadiness(ws)
+
   const isCtcConfirmed = (ws: FileRecord) =>
     ws.milestone === 'Clear to Close' && Boolean(ws.ctc_confirmed_at)
+
   const ctcCelebrate = (ws: FileRecord) => {
     const name = ws.display_name ?? ws.workspace_id ?? 'this file'
+
     return `${name} is CTC. Boom. 💚`
   }
+
   const drafts = (ws.drafts ?? []).filter(d => d.status === 'draft' || d.status === 'proposed')
   const isBusy = busy !== null
   const draft = missingDocumentDraft(ws)
@@ -875,6 +1040,7 @@ function FilePanel({
     if (!requestPanel || draft || borrowerRequestWaiting(ws)) {
       return
     }
+
     const timer = window.setInterval(reload, 1500)
 
     return () => window.clearInterval(timer)
@@ -1089,15 +1255,17 @@ function FilePanel({
         <summary className="cursor-pointer text-sm">
           Conditions {summary.conditions !== 'None open' ? `· ${summary.conditions}` : ''}
         </summary>
+        {pendingEmailConditions(ws) ? <EmailConditionsCard ask={ask} isBusy={isBusy} ws={ws} /> : null}
+        {pendingCtcProposal(ws) ? <CtcEmailCard ask={ask} isBusy={isBusy} ws={ws} /> : null}
         {(ws.conditions ?? []).length === 0 ? (
           <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">No conditions logged.</p>
         ) : (
           <ConditionsSection
-            ws={ws}
             isBusy={isBusy}
-            why={why}
             requestBorrower={() => ask('borrower-request', `Borrower items · ${summary.name}`, borrowerRequestPrompt(ws))}
             requestLO={() => ask('lo-request', `Loan-officer items · ${summary.name}`, loRequestPrompt(ws))}
+            why={why}
+            ws={ws}
           />
         )}
       </details>

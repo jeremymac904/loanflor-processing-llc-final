@@ -937,8 +937,9 @@ FLO_CONDITIONS_INGEST_SCHEMA = {
         "proposed conditions into the file with full source attribution."
     ),
     "parameters": {"type": "object", "properties": {
-        "action":           {"type": "string", "enum": ["propose", "apply"]},
+        "action":           {"type": "string", "enum": ["propose", "apply", "dismiss"]},
         "workspace_id":     {"type": "string", "description": "Required for action=apply; used as the high-confidence anchor when present"},
+        "email_id":         {"type": "string", "description": "Required for action=dismiss; identifies which pending card to remove"},
         "raw_text":         {"type": "string", "description": "Email body or letter text"},
         "sender":           {"type": "string"},
         "subject":          {"type": "string"},
@@ -949,7 +950,7 @@ FLO_CONDITIONS_INGEST_SCHEMA = {
         "property_address": {"type": "string"},
         "loan_number":      {"type": "string"},
         "proposed":         {"type": "array", "description": "Stage-2 only: the rows returned by the previous propose call"},
-    }, "required": ["action", "raw_text"]},
+    }, "required": ["action"]},
 }
 
 
@@ -1028,6 +1029,30 @@ def handle_flo_conditions_ingest(args: dict, **_kwargs: Any) -> str:
                     "source":         row.get("source"),
                     "source_date":    row.get("source_date"),
                 })
+            # If we have a high-confidence target workspace, persist a
+            # pending card on it so the desktop renders the Ashley-facing
+            # [Add to File] / [Review] / [Not Now] row inline. A medium-
+            # confidence match (no winner) is NOT auto-stored — Ashley has
+            # to pick the file first.
+            pending_card = None
+            if match.get("confidence") == "high" and target_wid and not diff["email_already_applied"]:
+                try:
+                    pending_card = ci_mod.store_pending_email_ingest(
+                        target_ws,
+                        email_id=email_id,
+                        sender=sender,
+                        subject=subject,
+                        received_at=received_at,
+                        workspace_match=match,
+                        proposed=proposed_items,
+                        duplicate_count=len(diff["duplicates"]),
+                        email_already_applied=diff["email_already_applied"],
+                    )
+                    ws_store.docs.update(target_wid, lambda d: d.update(target_ws))
+                    ws_store._activity(target_wid, "flo", "conditions.email_proposed",
+                                       {"email_id": email_id, "proposed": len(proposed_items)})
+                except Exception:  # noqa: BLE001 - card persistence is best-effort
+                    pending_card = None
             return _result({
                 "stage": "propose",
                 "email_id": email_id,
@@ -1041,6 +1066,7 @@ def handle_flo_conditions_ingest(args: dict, **_kwargs: Any) -> str:
                 "duplicate_count": len(diff["duplicates"]),
                 "duplicates": diff["duplicates"],
                 "email_already_applied": diff["email_already_applied"],
+                "pending_card": pending_card,
             })
 
         if action == "apply":
@@ -1065,13 +1091,16 @@ def handle_flo_conditions_ingest(args: dict, **_kwargs: Any) -> str:
             )
             # Re-normalize so plain_english / owner / required_item are
             # stamped on every freshly-added row.
-            from . import conditions_normalize as cn_mod
-            cn_mod.normalize_workspace(ws)
+            from . import conditions_normalize as cn_apply_mod
+            cn_apply_mod.normalize_workspace(ws)
             # Persist.
             ws_store.docs.update(workspace_id, lambda d: d.update(ws))
-            ws_store._activity(workspace_id, "ashley", "conditions.ingested",
-                               {"email_id": email_id, "sender": sender,
-                                "subject": subject, "written": len(written)})
+            # apply_proposed already cleared any pending card for this
+            # email_id (when written > 0). When the batch is a complete
+            # duplicate (written == 0), the card stays pending until
+            # Ashley hits Not Now or until the next real propose call.
+            ws_store._activity(workspace_id, "ashley", "conditions.email_applied",
+                                {"email_id": email_id, "written": len(written)})
             return _result({
                 "stage": "apply",
                 "workspace_id": workspace_id,
@@ -1079,9 +1108,180 @@ def handle_flo_conditions_ingest(args: dict, **_kwargs: Any) -> str:
                 "written_ids": [c.get("id") for c in written],
                 "email_id": email_id,
             })
+        if action == "dismiss":
+            if not workspace_id or not args.get("email_id"):
+                return _error("workspace_id and email_id are required for action=dismiss")
+            from .workspace import WorkspaceStore, WorkspaceError
+            ws_store = WorkspaceStore(_root())
+            try:
+                ws = ws_store.get(workspace_id)
+            except WorkspaceError as exc:
+                return _error(str(exc))
+            cleared = ci_mod.clear_pending_email_ingest(
+                ws, email_id=str(args["email_id"]), status="dismissed",
+            )
+            ws_store.docs.update(workspace_id, lambda d: d.update(ws))
+            ws_store._activity(workspace_id, "ashley", "conditions.email_dismissed",
+                                {"email_id": args["email_id"]})
+            return _result({"stage": "dismiss", "cleared": cleared,
+                            "email_id": args["email_id"]})
         return _error(f"unknown action: {action!r}")
     except Exception as exc:  # noqa: BLE001 - keep the tool failure-safe
         return _error(f"conditions ingest failed: {type(exc).__name__}: {exc}")
+
+
+# ── CTC email detection + Ashley-gated confirmation ───────────────────────
+#
+# Email can DESCRIBE a CTC notice. It can NOT promote a loan to Clear to
+# Close by itself. This tool surfaces the lender notice to Ashley
+# (propose) and records her confirmation (apply). The milestone write
+# stays behind the same Ashley-gate as ``confirm_clear_to_close`` in
+# ctc.py.
+#
+# Negative / ambiguous results are passed through unchanged so the
+# desktop surfaces a "possible closing update — review email" line
+# instead of a Confirm button.
+
+FLO_CTC_EMAIL_SCHEMA = {
+    "name": "flo_ctc_email",
+    "description": (
+        "Recognize a Clear-to-Close notice in a lender / UW / processor "
+        "email and (after Ashley confirms) record the milestone change on "
+        "the file. Stage 1: action=propose returns whether the email "
+        "looks like a real CTC notice, the matched phrase, and the "
+        "confidence (high / medium / low). Stage 2: action=apply is "
+        "called only after Ashley's explicit confirmation; it writes "
+        "milestone = 'Clear to Close' with the audit trail."
+    ),
+    "parameters": {"type": "object", "properties": {
+        "action":       {"type": "string", "enum": ["propose", "apply"]},
+        "workspace_id": {"type": "string"},
+        "raw_text":     {"type": "string"},
+        "subject":      {"type": "string"},
+        "sender":       {"type": "string"},
+        "received_at":  {"type": "string"},
+        "source":       {"type": "string"},
+        "source_ref":   {"type": "string"},
+    }, "required": ["action"]},
+}
+
+
+def handle_flo_ctc_email(args: dict, **_kwargs: Any) -> str:
+    """Two-stage lender email → CTC flow.
+
+    Flo never grants CTC. The lender / UW notice DESCRIBES the milestone
+    change; Ashley CONFIRMS the change. Stage 1 returns the recognition
+    verdict; stage 2 writes the milestone change with an audit trail.
+    Email content is untrusted at every step.
+    """
+    from . import ctc as ctc_mod
+    from . import conditions_ingest as ctc_mod_ingest
+    from datetime import datetime
+    try:
+        action = str(args.get("action") or "").strip().lower()
+        raw_text = str(args.get("raw_text") or "")
+        subject = args.get("subject") or None
+        sender = args.get("sender") or None
+
+        if action == "propose":
+            if not raw_text:
+                return _error("raw_text is required for action=propose")
+            verdict = ctc_mod.looks_like_lender_ctc(raw_text, sender=sender,
+                                                     subject=subject)
+            # If a workspace_id was supplied AND the verdict looks like a
+            # CTC notice, persist a pending proposal on the workspace so
+            # the desktop renders the Confirm-CTC card. For negative /
+            # ambiguous verdicts we never store a confirm card — Ashley
+            # sees a 'possible closing update — review email' note
+            # instead (handled in the desktop rendering).
+            pending_card = None
+            if verdict["is_ctc"] and args.get("workspace_id"):
+                from .workspace import WorkspaceStore, WorkspaceError
+                ws_store = WorkspaceStore(_root())
+                try:
+                    ws = ws_store.get(str(args["workspace_id"]))
+                    pending_card = ctc_mod_ingest.store_pending_ctc_proposal(
+                        ws,
+                        email_id=str(args.get("source_ref") or f"ctc-{datetime.now().timestamp()}"),
+                        sender=sender,
+                        subject=subject,
+                        received_at=args.get("received_at"),
+                        is_ctc=True,
+                        confidence=verdict["confidence"],
+                        matched_phrase=verdict.get("matched_phrase"),
+                        reason=verdict["reason"],
+                        raw_text_excerpt=raw_text,
+                    )
+                    ws_store.docs.update(str(args["workspace_id"]), lambda d: d.update(ws))
+                    ws_store._activity(str(args["workspace_id"]), "flo",
+                                         "ctc.email_proposed",
+                                         {"matched_phrase": verdict.get("matched_phrase"),
+                                          "confidence": verdict["confidence"]})
+                except WorkspaceError:
+                    pending_card = None
+            return _result({
+                "stage":       "propose",
+                "sender":      sender,
+                "subject":     subject,
+                "is_ctc":      verdict["is_ctc"],
+                "confidence":  verdict["confidence"],
+                "matched_phrase": verdict.get("matched_phrase"),
+                "reason":      verdict["reason"],
+                "pending_card": pending_card,
+            })
+
+        if action == "apply":
+            workspace_id = args.get("workspace_id")
+            if not workspace_id:
+                return _error("workspace_id is required for action=apply")
+            source = str(args.get("source") or "lender_email")
+            source_ref = args.get("source_ref") or None
+            # Re-run the recognition as a guardrail. If the email is
+            # not actually CTC-shaped, refuse the write even if Ashley
+            # tried to confirm — better to surface the ambiguity than
+            # to write a wrong milestone.
+            verdict = ctc_mod.looks_like_lender_ctc(raw_text, sender=sender,
+                                                     subject=subject)
+            if not verdict["is_ctc"]:
+                return _error(f"refusing CTC apply: {verdict['reason']}")
+            from .workspace import WorkspaceStore, WorkspaceError
+            ws_store = WorkspaceStore(_root())
+            try:
+                ws = ws_store.get(workspace_id)
+            except WorkspaceError as exc:
+                return _error(str(exc))
+            out = ctc_mod.confirm_clear_to_close(
+                ws,
+                confirmed_by="ashley",
+                source=source,
+                source_ref=source_ref,
+                evidence=(raw_text or "")[:400],
+            )
+            # Clear the pending CTC proposal card once Ashley confirms.
+            if source_ref:
+                ctc_mod_ingest.clear_pending_ctc_proposal(ws, email_id=str(source_ref))
+            else:
+                # Clear any pending CTC proposal (rare; usually there is
+                # exactly one). Safe no-op if there's none.
+                ctc_mod_ingest.clear_pending_ctc_proposal(ws)
+            # Persist the milestone + audit fields.
+            ws_store.docs.update(workspace_id, lambda d: d.update(ws))
+            ws_store._activity(workspace_id, "ashley", "ctc.confirmed",
+                               {"source": source, "source_ref": source_ref,
+                                "matched_phrase": verdict.get("matched_phrase"),
+                                "confidence": verdict["confidence"]})
+            return _result({
+                "stage": "apply",
+                "workspace_id": workspace_id,
+                "milestone": "Clear to Close",
+                "already_ctc": out.get("already_ctc"),
+                "celebration": ctc_mod.ctc_celebration(ws),
+                "matched_phrase": verdict.get("matched_phrase"),
+                "confidence": verdict["confidence"],
+            })
+        return _error(f"unknown action: {action!r}")
+    except Exception as exc:  # noqa: BLE001 - keep the tool failure-safe
+        return _error(f"ctc email handler failed: {type(exc).__name__}: {exc}")
 
 
 def handle_flo_marketing(args: dict, **_: Any) -> str:
@@ -1662,6 +1862,7 @@ TOOLS = (
     ("flo_workflow", FLO_WORKFLOW_SCHEMA, handle_flo_workflow, "🛟"),
     ("flo_guidance", FLO_GUIDANCE_SCHEMA, handle_flo_guidance, "📝"),
     ("flo_conditions_ingest", FLO_CONDITIONS_INGEST_SCHEMA, handle_flo_conditions_ingest, "📨"),
+    ("flo_ctc_email", FLO_CTC_EMAIL_SCHEMA, handle_flo_ctc_email, "✅"),
 )
 
 
