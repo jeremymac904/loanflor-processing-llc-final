@@ -11,7 +11,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   activeEsignRequest,
   askFloPrompt,
+  borrowerRequestPrompt,
   borrowerRequestWaiting,
+  conditionItem,
+  conditionPlainEnglish,
+  conditionStatus,
+  conditionStatusTone,
+  conditionsByOwner,
+  groupedOwnerCount,
+  loRequestPrompt,
+  ownerHasWaiting,
+  waitingLabel,
   documentBoard,
   documentsReceived,
   type DocumentView,
@@ -21,6 +31,7 @@ import {
   esignCancelPrompt,
   esignReminderPrompt,
   type EsignRequest,
+  type FileCondition,
   type FileRecord,
   fileSummary,
   missingDocumentDraft,
@@ -615,6 +626,135 @@ function DocumentsSection({
   )
 }
 
+function ConditionsSection({
+  ws,
+  isBusy,
+  requestBorrower,
+  requestLO,
+  why
+}: {
+  ws: FileRecord
+  isBusy: boolean
+  requestBorrower: () => void
+  requestLO: () => void
+  why: (subject: string, kind: WhyKind) => void
+}) {
+  const groups = conditionsByOwner(ws)
+  const waiting = (ws.conditions ?? []).filter(c => conditionStatus(c) === 'Waiting')
+  const needsReview = (ws.conditions ?? []).filter(c => conditionStatus(c) === 'Needs Review')
+  const openTotal = groups.reduce((n, g) => n + g.items.length, 0)
+
+  return (
+    <div className="m-0 mt-1 flex flex-col gap-2 text-sm" data-testid="conditions-section">
+      {groups.length === 0 && waiting.length === 0 ? (
+        <p className="m-0 text-xs text-(--ui-text-secondary)">No conditions logged.</p>
+      ) : null}
+
+      {groups.map(group => {
+        const isBorrower = group.owner === 'Borrower'
+        const isLO = group.owner === 'Loan Officer'
+        const showConsolidated =
+          (isBorrower || isLO) && groupedOwnerCount(ws, group.owner) >= 2 && !ownerHasWaiting(ws, group.owner)
+        const buttonLabel =
+          isBorrower
+            ? `Request Borrower Items (${groupedOwnerCount(ws, 'Borrower')})`
+            : isLO
+              ? `Request LO Items (${groupedOwnerCount(ws, 'Loan Officer')})`
+              : null
+        return (
+          <div
+            key={group.owner}
+            className="rounded-md border border-(--ui-stroke-tertiary) p-2"
+            data-testid={`conditions-group-${group.owner.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Pill>{group.owner}</Pill>
+              <span className="text-xs text-(--ui-text-tertiary)">
+                {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
+              </span>
+              {showConsolidated && buttonLabel ? (
+                isBorrower ? (
+                  <Button className="ml-auto" disabled={isBusy} onClick={requestBorrower} size="xs">
+                    {buttonLabel}
+                  </Button>
+                ) : (
+                  <Button className="ml-auto" disabled={isBusy} onClick={requestLO} size="xs">
+                    {buttonLabel}
+                  </Button>
+                )
+              ) : null}
+            </div>
+            <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0">
+              {group.items.map((c, i) => {
+                const status = conditionStatus(c)
+                return (
+                  <li className="flex flex-col gap-0.5" key={(c.id ?? c.text) + '-' + i}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{conditionItem(c)}</span>
+                      <Pill tone={conditionStatusTone(status)}>{status}</Pill>
+                      {c.needs_sage ? <Pill>Needs Sage</Pill> : null}
+                      <WhyButton
+                        busy={isBusy}
+                        onClick={() => why(c.text ?? conditionItem(c), 'condition')}
+                      />
+                    </div>
+                    {conditionPlainEnglish(c) !== conditionItem(c) ? (
+                      <p className="m-0 pl-0 text-xs text-(--ui-text-secondary)">
+                        {conditionPlainEnglish(c)}
+                      </p>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )
+      })}
+
+      {waiting.length > 0 ? (
+        <div className="flex flex-col gap-1 rounded-md border border-(--ui-stroke-tertiary) p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-(--ui-text-tertiary)">Waiting</span>
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+            {waiting.map((c, i) => (
+              <li key={(c.id ?? c.text) + '-w-' + i} className="text-xs text-(--ui-text-secondary)">
+                {waitingLabel(c.owner)} · {conditionItem(c)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {needsReview.length > 0 ? (
+        <div className="flex flex-col gap-1 rounded-md border border-(--ui-stroke-tertiary) p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-(--ui-text-tertiary)">Needs Review</span>
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {needsReview.map((c, i) => (
+              <li key={(c.id ?? c.text) + '-r-' + i} className="text-xs text-(--ui-text-secondary)">
+                <span className="font-medium">{conditionItem(c)}</span>
+                {c.needs_review_reason ? <> · {c.needs_review_reason}</> : null}
+                <WhyButton
+                  busy={isBusy}
+                  onClick={() => why(c.text ?? conditionItem(c), 'condition')}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {openTotal + waiting.length === 0 ? (
+        <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">
+          Nothing open here. Flo will flag the next step.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function MissingRequestPanel({
   ws,
   draft,
@@ -901,22 +1041,20 @@ function FilePanel({
         </div>
       </details>
 
-      <details>
+      <details open>
         <summary className="cursor-pointer text-sm">
           Conditions {summary.conditions !== 'None open' ? `· ${summary.conditions}` : ''}
         </summary>
         {(ws.conditions ?? []).length === 0 ? (
           <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">No conditions logged.</p>
         ) : (
-          <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0 text-sm">
-            {(ws.conditions ?? []).map((c, i) => (
-              <li className="flex flex-wrap items-center gap-2" key={`${c.text ?? ''}-${i}`}>
-                <span>{c.text ?? 'Condition'}</span>
-                {c.owner ? <Pill>{c.owner}</Pill> : null}
-                <WhyButton busy={isBusy} onClick={() => why(c.text ?? 'this condition', 'condition')} />
-              </li>
-            ))}
-          </ul>
+          <ConditionsSection
+            ws={ws}
+            isBusy={isBusy}
+            why={why}
+            requestBorrower={() => ask('borrower-request', `Borrower items · ${summary.name}`, borrowerRequestPrompt(ws))}
+            requestLO={() => ask('lo-request', `Loan-officer items · ${summary.name}`, loRequestPrompt(ws))}
+          />
         )}
       </details>
 

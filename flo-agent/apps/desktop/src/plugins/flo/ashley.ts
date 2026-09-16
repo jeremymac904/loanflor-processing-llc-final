@@ -40,6 +40,49 @@ interface Readiness {
   income_assets?: { income_prep_complete?: boolean | null; assets_prep_complete?: boolean | null }
 }
 
+/** Condition object on a workspace. The shape is curated by the backend
+ * normalizer (plugins/flo-team/conditions_normalize.py); older files may
+ * have only ``text`` / ``state`` populated. Ashley-facing helpers below
+ * tolerate both shapes. */
+export interface FileCondition {
+  id?: string
+  text?: string
+  /** Original lender / UW line, preserved verbatim for audit. */
+  original_text?: string
+  /** Plain-English rendering for Ashley. Falls back to ``text`` if absent. */
+  plain_english?: string
+  /** Canonical short noun phrase ("most recent paystub"). */
+  required_item?: string
+  /** paystub / w2 / bank_statement / insurance_declaration / … */
+  condition_type?: string
+  /** income / assets / insurance / … */
+  category?: string
+  /** Borrower / Loan Officer / Title / Insurance / Employer / Appraiser /
+   * Lender/UW / Processor / Other. */
+  owner?: string
+  /** Source of the condition (lender_email / aus / manual / approval_letter). */
+  source?: string
+  source_date?: string
+  /** Whether guideline interpretation is required (Sage). */
+  needs_sage?: boolean
+  /** Legacy / canonical state field. */
+  state?: string
+  /** Display label status ("Open" / "Waiting" / "Cleared" / "Needs Review"). */
+  status?: string
+  needs_review?: boolean
+  needs_review_reason?: string
+  needs_review_at?: string
+  cleared_at?: string
+  cleared_by?: string
+  cleared_by_document_id?: string
+  cleared_reason?: string
+  waiting_at?: string
+  waiting_by?: string
+  waiting_reason?: string
+  added_by?: string
+  added_at?: string
+}
+
 export interface DocumentRef {
   ref?: string
   document_id?: string
@@ -85,7 +128,7 @@ export interface FileRecord extends WorkspaceRow {
     expected_closing_date?: null | string
     review_status?: string
   }
-  conditions?: Array<{ text?: string; state?: string; owner?: string }>
+  conditions?: FileCondition[]
   /** Documents pulled into the Deal Room at intake (`plugins/flo-team/documents.py`). */
   document_refs?: DocumentRef[]
   documents_summary?: null | {
@@ -138,6 +181,158 @@ export function missingItems(ws: FileRecord): ReadinessItem[] {
 
 export function draftsForReview(ws: FileRecord) {
   return (ws.drafts ?? []).filter(d => d.status === 'draft' || d.status === 'proposed')
+}
+
+/** Canonical owner order for Ashley-facing grouping. UI consumers iterate
+ * through this list and stop when a group is empty. Matches the backend
+ * group_by_owner() order in plugins/flo-team/conditions_normalize.py. */
+export const OWNER_ORDER = [
+  'Borrower',
+  'Loan Officer',
+  'Title',
+  'Insurance',
+  'Employer',
+  'Appraiser',
+  'Lender/UW',
+  'Processor',
+  'Other'
+] as const
+
+export type ConditionOwner = (typeof OWNER_ORDER)[number]
+
+/** Plain-English phrase Ashley sees for a waiting condition grouped by
+ * owner. Mirrors conditions.waiting_label() on the backend. */
+export function waitingLabel(owner: string | null | undefined): string {
+  switch ((owner ?? '').trim()) {
+    case 'Borrower':
+      return 'Waiting on borrower'
+    case 'Loan Officer':
+      return 'Waiting on loan officer'
+    case 'Title':
+      return 'Waiting on title'
+    case 'Insurance':
+      return 'Waiting on insurance'
+    case 'Employer':
+      return 'Waiting on employer'
+    case 'Appraiser':
+      return 'Waiting on appraiser'
+    case 'Lender/UW':
+      return 'Waiting on lender'
+    case 'Processor':
+      return 'Waiting on processor'
+    case 'Other':
+      return 'Waiting on third party'
+    default:
+      return owner ? `Waiting on ${owner.toLowerCase()}` : 'Waiting'
+  }
+}
+
+/** Short noun phrase Ashley sees on a condition card. Falls back to the
+ * raw text when the curated ``required_item`` is missing. */
+export function conditionItem(c: FileCondition): string {
+  const item = (c.required_item ?? '').trim()
+  if (item) return item
+  const text = (c.text ?? '').trim()
+  return text.length > 80 ? text.slice(0, 77).trimEnd() + '…' : text
+}
+
+/** Plain-English line Ashley sees for a condition. Falls back to the raw
+ * text when ``plain_english`` hasn't been back-filled. */
+export function conditionPlainEnglish(c: FileCondition): string {
+  const pe = (c.plain_english ?? '').trim()
+  if (pe) return pe
+  const text = (c.text ?? '').trim()
+  if (!text) return conditionItem(c)
+  return text.length > 160 ? text.slice(0, 157).trimEnd() + '…' : text
+}
+
+export type ConditionStatus = 'Open' | 'Waiting' | 'Needs Ashley' | 'Needs Review' | 'Cleared'
+
+/** Per-condition status for the Conditions section inside the file view.
+ * Maps the workspace condition's ``state`` (open / cleared / waiting) and
+ * the ``needs_review`` flag into the five values Ashley sees. */
+export function conditionStatus(c: FileCondition): ConditionStatus {
+  const state = String(c.state ?? c.status ?? 'open').toLowerCase()
+  if (state === 'cleared') return 'Cleared'
+  if (state === 'waiting') return 'Waiting'
+  if (c.needs_review) return 'Needs Review'
+  // Anything not cleared / waiting / needs_review is "Open". A condition
+  // that needs Sage is flagged here so the file view shows [Why?] for it
+  // (Sage is the path for guideline-interpretation items).
+  return 'Open'
+}
+
+const CONDITION_TONE: Record<ConditionStatus, 'muted' | 'warn' | 'bad' | 'good'> = {
+  Open: 'warn',
+  Waiting: 'muted',
+  'Needs Review': 'bad',
+  'Needs Ashley': 'warn',
+  Cleared: 'good'
+}
+
+export function conditionStatusTone(s: ConditionStatus) {
+  return CONDITION_TONE[s]
+}
+
+/** All non-cleared conditions on the workspace, with their canonical
+ * status. Used by the Conditions section inside the file view and by
+ * Today. Preserves insertion order. */
+export function allConditions(ws: FileRecord): FileCondition[] {
+  return (ws.conditions ?? []).filter(
+    (c): c is FileCondition => typeof c === 'object' && c !== null
+  )
+}
+
+export function openConditions(ws: FileRecord): FileCondition[] {
+  return allConditions(ws).filter(c => conditionStatus(c) !== 'Cleared')
+}
+
+/** Conditions owned by a particular owner that are still actionable for
+ * Ashley (open or needs review — not already waiting, not cleared). */
+export function openConditionsByOwner(ws: FileRecord, owner: string): FileCondition[] {
+  const want = (owner ?? '').trim().toLowerCase()
+  return openConditions(ws).filter(
+    c => String(c.owner ?? '').trim().toLowerCase() === want
+  )
+}
+
+/** Conditions owned by a particular owner that are currently waiting on
+ * someone. Drives the "Waiting on …" lines in Today / Pipeline. */
+export function waitingConditionsByOwner(ws: FileRecord, owner: string): FileCondition[] {
+  const want = (owner ?? '').trim().toLowerCase()
+  return allConditions(ws).filter(
+    c =>
+      conditionStatus(c) === 'Waiting' &&
+      String(c.owner ?? '').trim().toLowerCase() === want
+  )
+}
+
+/** Open conditions grouped by owner, in the canonical OWNER_ORDER. Drops
+ * empty buckets. Used by the Conditions section inside the file view. */
+export function conditionsByOwner(ws: FileRecord): Array<{ owner: string; items: FileCondition[] }> {
+  const grouped = new Map<string, FileCondition[]>()
+  for (const owner of OWNER_ORDER) grouped.set(owner, [])
+  for (const c of openConditions(ws)) {
+    const o = String(c.owner ?? 'Other').trim() || 'Other'
+    if (!grouped.has(o)) grouped.set(o, [])
+    grouped.get(o)!.push(c)
+  }
+  const out: Array<{ owner: string; items: FileCondition[] }> = []
+  for (const owner of OWNER_ORDER) {
+    const items = grouped.get(owner) ?? []
+    if (items.length > 0) out.push({ owner, items })
+  }
+  return out
+}
+
+/** Owner categories that currently have at least one Waiting condition,
+ * in canonical order. Used by Today's "Waiting on …" lines. */
+export function waitingOwners(ws: FileRecord): string[] {
+  const set = new Set<string>()
+  for (const c of allConditions(ws)) {
+    if (conditionStatus(c) === 'Waiting' && c.owner) set.add(String(c.owner))
+  }
+  return OWNER_ORDER.filter(o => set.has(o))
 }
 
 /** The one borrower-request draft that powers Ashley's inline request panel. */
@@ -1154,6 +1349,55 @@ export function editDraftPrompt(ws: FileRecord, draftId: string, body: string): 
 
 export function editApprovalPrompt(view: ApprovalView): string {
   return `I want to edit the pending approval ${view.proposalId} (${view.what.toLowerCase()}${view.who ? ` to ${view.who}` : ''}). Show me what it says now and ask me what to change; re-propose it after the edit.`
+}
+
+/** Item lines for one consolidated request draft, plain-English only. */
+function _conditionList(items: FileCondition[]): string {
+  if (items.length === 0) return 'whatever is still outstanding'
+  return items.map(c => `- ${conditionItem(c)}`).join('\n')
+}
+
+/** Build the prompt that creates ONE Whisper draft covering every open
+ * Borrower-owned condition on this file. Reuses the existing single-request
+ * pipeline (flo_draft + Approvals gate); the difference is that the draft
+ * is bundled, not per-item. */
+export function borrowerRequestPrompt(ws: FileRecord): string {
+  const items = openConditionsByOwner(ws, 'Borrower')
+  const list = _conditionList(items)
+  const flag = items.some(c => c.needs_sage)
+    ? ' Some of these look like they need a guideline check; if so, route that part to Sage and tell me what they said before drafting.'
+    : ''
+  return `Send ONE borrower message for ${fileName(ws)} (Deal Room ${ws.workspace_id}, ${ws.program ?? ''}). The Borrower-owned items are:\n${list}\nHave Whisper put together a single concise message with all of these. Do not create more than one draft; if an active or already-sent borrower request exists for this file, do not create a duplicate. Sending still stops at Ashley's approval. After the approved send, mark each of these items as Waiting on borrower.${flag}`
+}
+
+/** Same shape, but for Loan Officer-owned items. */
+export function loRequestPrompt(ws: FileRecord): string {
+  const items = openConditionsByOwner(ws, 'Loan Officer')
+  const list = _conditionList(items)
+  return `Send ONE concise loan-officer message for ${fileName(ws)} (Deal Room ${ws.workspace_id}) asking for these items:\n${list}\nKeep borrower requests and loan-officer requests separate. Sending stops at Ashley's approval. After the approved send, mark each of these items as Waiting on loan officer.`
+}
+
+/** A short plain-English list of one owner's open conditions — used both
+ * as the body of a one-click request draft and as the bullet list shown
+ * next to the Request buttons. */
+export function conditionBulletList(ws: FileRecord, owner: string): string {
+  const items = openConditionsByOwner(ws, owner)
+  return _conditionList(items)
+}
+
+/** Are there enough open conditions of one owner that the consolidated
+ * one-click button is the right primary CTA? Returns the count. The UI
+ * shows the consolidated button whenever the count is >= 2 and switches
+ * to the per-item pattern only for single-item cases (so existing flow
+ * keeps working). */
+export function groupedOwnerCount(ws: FileRecord, owner: string): number {
+  return openConditionsByOwner(ws, owner).length
+}
+
+/** Are any open conditions of this owner currently waiting? Used to
+ * disable the consolidated button while a send is in flight. */
+export function ownerHasWaiting(ws: FileRecord, owner: string): boolean {
+  return waitingConditionsByOwner(ws, owner).length > 0
 }
 
 export const NEXT_MOVE_PROMPT =

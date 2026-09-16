@@ -568,3 +568,121 @@ def recompute_next_action(workspace_doc: Dict[str, Any], applied: List[Dict[str,
         summary += f". {fresh_open} still open."
     workspace_doc["next_action"] = summary
     return summary
+
+
+# ── Waiting state ───────────────────────────────────────────────────────────
+#
+# When a request is sent (Whisper draft → Ashley approves), the conditions
+# that were bundled into that draft switch from "Open" to "Waiting". This
+# lets Today/Pipeline and the file view show "Waiting on borrower" / "Waiting
+# on title" instead of still saying "Needs N items". The state is mutable:
+# a cancel reverts to "open"; an auto-clear flips to "cleared"; a duplicate
+# arriving does not change "waiting".
+
+WAITING_STATUSES = {"waiting", "sent", "requested", "ordered"}
+
+
+def is_waiting(condition: Dict[str, Any]) -> bool:
+    state = _norm(condition.get("state") or condition.get("status") or "open")
+    return state == "waiting"
+
+
+def mark_waiting(workspace_doc: Dict[str, Any], condition_ids: Iterable[str], *,
+                 actor: str = "whisper", reason: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Flip conditions to ``state: waiting``. Idempotent: a condition
+    that's already waiting is left alone. Returns the list of conditions
+    actually transitioned (for activity logging)."""
+    ids = {str(i) for i in condition_ids}
+    out: List[Dict[str, Any]] = []
+    for cond in workspace_doc.get("conditions") or []:
+        if not isinstance(cond, dict):
+            continue
+        cid = str(cond.get("id"))
+        if cid not in ids:
+            continue
+        if is_waiting(cond):
+            continue
+        if _norm(cond.get("state") or cond.get("status") or "open") == "cleared":
+            continue
+        cond["state"] = "waiting"
+        cond["status"] = "Waiting"
+        cond["waiting_at"] = datetime.utcnow().isoformat() + "Z"
+        cond["waiting_by"] = actor
+        if reason:
+            cond["waiting_reason"] = reason[:200]
+        out.append({"condition_id": cid, "owner": cond.get("owner"),
+                    "required_item": cond.get("required_item")})
+    return out
+
+
+def mark_waiting_by_owner(workspace_doc: Dict[str, Any], owner: str, *,
+                          actor: str = "whisper",
+                          reason: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Flip every open, non-cleared condition owned by ``owner`` to waiting.
+    Used by the borrower / LO / title one-click request workflows."""
+    owner_norm = (owner or "").strip()
+    if not owner_norm:
+        return []
+    open_ids: List[str] = []
+    for cond in workspace_doc.get("conditions") or []:
+        if not isinstance(cond, dict):
+            continue
+        if _norm(cond.get("state") or cond.get("status") or "open") == "cleared":
+            continue
+        if is_waiting(cond):
+            continue
+        if _norm(cond.get("owner")) == _norm(owner_norm):
+            open_ids.append(str(cond.get("id")))
+    return mark_waiting(workspace_doc, open_ids, actor=actor, reason=reason)
+
+
+def clear_waiting(workspace_doc: Dict[str, Any], condition_ids: Iterable[str]) -> List[str]:
+    """Revert waiting conditions back to open. Used when Ashley cancels a
+    request (Not Now) after the draft was already approved, or when an
+    auto-clear handler explicitly wants to undo a Waiting state."""
+    ids = {str(i) for i in condition_ids}
+    out: List[str] = []
+    for cond in workspace_doc.get("conditions") or []:
+        if not isinstance(cond, dict):
+            continue
+        cid = str(cond.get("id"))
+        if cid not in ids:
+            continue
+        if not is_waiting(cond):
+            continue
+        cond["state"] = "open"
+        cond["status"] = "Open"
+        cond.pop("waiting_at", None)
+        cond.pop("waiting_by", None)
+        cond.pop("waiting_reason", None)
+        out.append(cid)
+    return out
+
+
+def waiting_conditions(workspace_doc: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return [c for c in (workspace_doc.get("conditions") or [])
+            if isinstance(c, dict) and is_waiting(c)]
+
+
+def waiting_owners(workspace_doc: Dict[str, Any]) -> List[str]:
+    """Owner categories that have at least one waiting condition, in the
+    canonical order used by the UI."""
+    order = ("Borrower", "Loan Officer", "Title", "Insurance", "Employer",
+             "Appraiser", "Lender/UW", "Processor", "Other")
+    seen = {c.get("owner") for c in waiting_conditions(workspace_doc)}
+    return [o for o in order if o in seen]
+
+
+def waiting_label(owner: str) -> str:
+    """Short 'Waiting on …' phrase for the Ashley-facing summary."""
+    return {
+        "Borrower":   "Waiting on borrower",
+        "Loan Officer": "Waiting on loan officer",
+        "Title":      "Waiting on title",
+        "Insurance":  "Waiting on insurance",
+        "Employer":   "Waiting on employer",
+        "Appraiser":  "Waiting on appraiser",
+        "Lender/UW":  "Waiting on lender",
+        "Processor":  "Waiting on processor",
+        "Other":      "Waiting on third party",
+    }.get(owner, f"Waiting on {owner.lower()}")
