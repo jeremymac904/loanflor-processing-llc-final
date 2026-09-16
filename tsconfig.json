@@ -25,5 +25,23 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "App.tsx",
+    "index.tsx",
+    "components/**/*",
+    "services/**/*",
+    "server/**/*",
+    "shared/**/*",
+    "types.ts",
+    "constants.ts",
+    "vite.config.ts",
+    "vite-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "flo-agent",
+    "server/data"
+  ]
 }
