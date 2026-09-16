@@ -57,6 +57,15 @@ def _evaluate_conditions(team_root, workspace_id: str, document: Dict[str, Any],
     open_conditions = [c for c in (doc.get("conditions") or []) if isinstance(c, dict) and (c.get("state") or "open") != "cleared"]
     if not open_conditions:
         return []
+    # Back-fill the curated UI fields (owner, plain_english, required_item,
+    # category) on any condition that's missing them. Cheap; runs once per
+    # ingest, ensures the Ashley-facing UI always has the canonical shape.
+    try:
+        from . import conditions_normalize as _conditions_normalize
+        _conditions_normalize.normalize_workspace(doc)
+    except Exception:  # noqa: BLE001 - normalize is best-effort
+        pass
+
     decisions = _conditions.evaluate_document_for_conditions(open_conditions, document)
     applied = _conditions.apply_decisions(doc, decisions, actor=actor)
     if applied:
