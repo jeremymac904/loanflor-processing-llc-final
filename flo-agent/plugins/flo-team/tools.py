@@ -907,6 +907,183 @@ FLO_MARKETING_SCHEMA = {
 }
 
 
+# ── Conditions email ingest (Gmail connector path) ────────────────────────
+#
+# Stage 1 (propose):  flo_conditions_ingest  action=propose
+#   - parses the email body into structured conditions
+#   - matches the email to a workspace
+#   - dedupes against the workspace's existing conditions
+#   - returns the diff for Ashley to confirm
+#   - does NOT mutate the workspace
+#
+# Stage 2 (apply):    flo_conditions_ingest  action=apply
+#   - Ashley has confirmed the diff
+#   - writes the proposed conditions into the workspace with full
+#     source attribution
+#
+# Email content is untrusted. Conditions may be DESCRIBED in email; the
+# milestone change for CTC, sending, ordering, deleting all stay behind
+# the Flo policy + Approvals gate, never self-authorized from email.
+
+FLO_CONDITIONS_INGEST_SCHEMA = {
+    "name": "flo_conditions_ingest",
+    "description": (
+        "Recognize conditions inside a lender / UW / approval-letter "
+        "message, match the message to a workspace, dedupe against the "
+        "workspace's existing conditions, and (after Ashley confirms) "
+        "write the proposed conditions to the file. Stage 1: action=propose "
+        "returns a diff without mutating the workspace. Stage 2: action=apply "
+        "(called only after Ashley's explicit confirmation) writes the "
+        "proposed conditions into the file with full source attribution."
+    ),
+    "parameters": {"type": "object", "properties": {
+        "action":           {"type": "string", "enum": ["propose", "apply"]},
+        "workspace_id":     {"type": "string", "description": "Required for action=apply; used as the high-confidence anchor when present"},
+        "raw_text":         {"type": "string", "description": "Email body or letter text"},
+        "sender":           {"type": "string"},
+        "subject":          {"type": "string"},
+        "received_at":      {"type": "string"},
+        "source":           {"type": "string", "description": "Defaults to lender_email"},
+        "source_ref":       {"type": "string", "description": "Opaque email id; used for dedupe"},
+        "borrower_name":    {"type": "string", "description": "Used to match the email to a workspace when workspace_id is not provided"},
+        "property_address": {"type": "string"},
+        "loan_number":      {"type": "string"},
+        "proposed":         {"type": "array", "description": "Stage-2 only: the rows returned by the previous propose call"},
+    }, "required": ["action", "raw_text"]},
+}
+
+
+def handle_flo_conditions_ingest(args: dict, **_kwargs: Any) -> str:
+    """Two-stage lender/UW email → conditions flow.
+
+    Email content may describe conditions. It may NOT authorize sends,
+    orders, deletions, or milestone changes — those still go through
+    the Flo policy + Approvals gate. The result of propose() is a diff;
+    apply() is what writes to the workspace, gated on Ashley's prior
+    confirmation.
+    """
+    from . import conditions_ingest as ci_mod
+    try:
+        action = str(args.get("action") or "").strip().lower()
+        raw_text = str(args.get("raw_text") or "")
+        if not raw_text.strip():
+            return _error("raw_text is required")
+        source = str(args.get("source") or "lender_email")
+        source_ref = args.get("source_ref") or None
+        subject = args.get("subject") or None
+        sender = args.get("sender") or None
+        received_at = args.get("received_at") or None
+        email_id = ci_mod.email_identity(source, str(source_ref) if source_ref else None, raw_text)
+        workspace_id = args.get("workspace_id") or None
+
+        # ----- parse --------------------------------------------------------
+        parsed = ci_mod.parse_email_to_conditions(
+            raw_text, source=source, source_date=received_at,
+        )
+        if action == "propose":
+            # ----- workspace match -------------------------------------------
+            from .workspace import WorkspaceStore
+            ws_store = WorkspaceStore(_root())
+            workspaces = []
+            for wid in ws_store.docs.ids():
+                try:
+                    workspaces.append(ws_store.get(wid))
+                except Exception:  # noqa: BLE001 - tolerate malformed workspaces
+                    continue
+            if workspace_id:
+                match = {"confidence": "high", "workspace_id": workspace_id,
+                          "candidates": [{"workspace_id": workspace_id,
+                                           "signals": ["explicit_workspace_id"]}],
+                          "reason": "explicit workspace_id"}
+            else:
+                match = ci_mod.match_workspace(
+                    workspaces,
+                    borrower_name=args.get("borrower_name"),
+                    property_address=args.get("property_address"),
+                    loan_number=args.get("loan_number"),
+                    sender=sender,
+                )
+            # ----- dedupe against the (candidate or proposed) workspace ----
+            target_ws = None
+            target_wid = match.get("workspace_id")
+            if target_wid:
+                try:
+                    target_ws = ws_store.get(target_wid)
+                except Exception:  # noqa: BLE001
+                    target_ws = None
+            diff = ci_mod.diff_against_workspace(
+                parsed, target_ws or {"conditions": []},
+                email_id=email_id,
+            )
+            # ----- propose_card for the desktop -------------------------------
+            proposed_items = []
+            for row in diff["new"]:
+                proposed_items.append({
+                    "identity":       row.get("identity"),
+                    "required_item":  row.get("required_item"),
+                    "owner":          row.get("owner"),
+                    "condition_type": row.get("condition_type"),
+                    "plain_english":  row.get("plain_english"),
+                    "needs_sage":     row.get("needs_sage"),
+                    "source":         row.get("source"),
+                    "source_date":    row.get("source_date"),
+                })
+            return _result({
+                "stage": "propose",
+                "email_id": email_id,
+                "sender": sender,
+                "subject": subject,
+                "received_at": received_at,
+                "workspace_match": match,
+                "ignored_lines": [],  # parse_conditions_blob already drops them
+                "parsed_count": len(parsed),
+                "new_conditions": proposed_items,
+                "duplicate_count": len(diff["duplicates"]),
+                "duplicates": diff["duplicates"],
+                "email_already_applied": diff["email_already_applied"],
+            })
+
+        if action == "apply":
+            if not workspace_id:
+                return _error("workspace_id is required for action=apply")
+            proposed = args.get("proposed") or []
+            if not isinstance(proposed, list) or not proposed:
+                return _error("proposed (the rows from the propose call) is required for action=apply")
+            from .workspace import WorkspaceStore, WorkspaceError
+            ws_store = WorkspaceStore(_root())
+            try:
+                ws = ws_store.get(workspace_id)
+            except WorkspaceError as exc:
+                return _error(str(exc))
+            written = ci_mod.apply_proposed(
+                ws, proposed,
+                actor="ashley",
+                source=source,
+                source_ref=source_ref,
+                email_id=email_id,
+                source_date=received_at,
+            )
+            # Re-normalize so plain_english / owner / required_item are
+            # stamped on every freshly-added row.
+            from . import conditions_normalize as cn_mod
+            cn_mod.normalize_workspace(ws)
+            # Persist.
+            ws_store.docs.update(workspace_id, lambda d: d.update(ws))
+            ws_store._activity(workspace_id, "ashley", "conditions.ingested",
+                               {"email_id": email_id, "sender": sender,
+                                "subject": subject, "written": len(written)})
+            return _result({
+                "stage": "apply",
+                "workspace_id": workspace_id,
+                "written_count": len(written),
+                "written_ids": [c.get("id") for c in written],
+                "email_id": email_id,
+            })
+        return _error(f"unknown action: {action!r}")
+    except Exception as exc:  # noqa: BLE001 - keep the tool failure-safe
+        return _error(f"conditions ingest failed: {type(exc).__name__}: {exc}")
+
+
 def handle_flo_marketing(args: dict, **_: Any) -> str:
     try:
         me = _me()
@@ -1484,6 +1661,7 @@ TOOLS = (
     ("flo_sage_response", FLO_SAGE_RESPONSE_SCHEMA, handle_flo_sage_response, "🧷"),
     ("flo_workflow", FLO_WORKFLOW_SCHEMA, handle_flo_workflow, "🛟"),
     ("flo_guidance", FLO_GUIDANCE_SCHEMA, handle_flo_guidance, "📝"),
+    ("flo_conditions_ingest", FLO_CONDITIONS_INGEST_SCHEMA, handle_flo_conditions_ingest, "📨"),
 )
 
 
