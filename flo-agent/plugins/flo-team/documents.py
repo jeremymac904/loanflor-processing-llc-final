@@ -32,6 +32,41 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from .store import JsonDocStore, JsonlLog, new_id, now_iso
 
+
+def _evaluate_conditions(team_root, workspace_id: str, document: Dict[str, Any], *, actor: str = "malcolm") -> List[Dict[str, Any]]:
+    """Run the conditions auto-clear hook against a newly-arrived document.
+
+    Loads the workspace, asks ``conditions.evaluate_document_for_conditions``
+    what to do with each open condition, applies the decisions, logs the
+    outcome, and writes the workspace back. Returns the list of decisions
+    actually applied (caller can surface them as activity hints).
+    """
+    try:
+        from . import conditions as _conditions
+        from .workspace import WorkspaceStore, WorkspaceError
+    except Exception:  # noqa: BLE001 - keep documents importable without workspace
+        return []
+    workspace_path = Path(team_root) / "workspaces"
+    if not (workspace_path / f"{workspace_id}.json").exists():
+        return []
+    ws_store = WorkspaceStore(Path(team_root))
+    try:
+        doc = ws_store.get(workspace_id)
+    except WorkspaceError:
+        return []
+    open_conditions = [c for c in (doc.get("conditions") or []) if isinstance(c, dict) and (c.get("state") or "open") != "cleared"]
+    if not open_conditions:
+        return []
+    decisions = _conditions.evaluate_document_for_conditions(open_conditions, document)
+    applied = _conditions.apply_decisions(doc, decisions, actor=actor)
+    if applied:
+        _conditions.recompute_next_action(doc, applied)
+        ws_store.docs.update(workspace_id, lambda d: d.update(doc))
+        ws_store._activity(workspace_id, actor, "conditions.evaluated",
+                           {"document_id": document.get("document_id"),
+                            "applied": [{"condition_id": a["condition_id"], "decision": a["decision"], "reason": a["reason"]} for a in applied]})
+    return applied
+
 STATUSES = ("received", "needs_review", "reviewed", "missing_pages", "unreadable", "duplicate", "not_needed")
 STATUS_LABEL = {"received": "Received", "needs_review": "Needs review", "reviewed": "Reviewed", "missing_pages": "Missing pages",
                 "unreadable": "Unreadable", "duplicate": "Duplicate", "not_needed": "Not needed"}
@@ -296,6 +331,10 @@ def ingest(team_root, workspace_id: str, submission_id: str, refs: Iterable[Dict
         seen_sha[digest] = rec
         store.add(workspace_id, rec)
         results.append(rec)
+        # Conditions auto-clear — only run for newly-arrived docs, not duplicates,
+        # and only when the document is in a usable status (received, missing_pages).
+        if rec.get("status") != "duplicate":
+            _evaluate_conditions(team_root, workspace_id, rec, actor=actor)
     store.log.append({"event": "documents.ingested", "actor": actor, "workspace_id": workspace_id, "submission_id": submission_id, "count": len(results),
                       "statuses": {s: sum(1 for r in results if r["status"] == s) for s in STATUSES if any(r["status"] == s for r in results)}})
     return {"workspace_id": workspace_id, "documents": results, "received": sum(1 for r in results if r["status"] != "duplicate"), "duplicates": sum(1 for r in results if r["status"] == "duplicate")}
@@ -322,7 +361,10 @@ def refetch(team_root, workspace_id: str, document_id: str, *, fetch: Optional[C
     if rec["checks"]["pages"]["missing"]:
         fields = {"status": "missing_pages", "notes": f"Pages {', '.join(map(str, rec['checks']['pages']['missing']))} of {rec['checks']['pages']['expected']} not in the file"}
     store._save(workspace_id, [rec if d.get("document_id") == document_id else d for d in store.list(workspace_id)])
-    return store.update(workspace_id, document_id, fields, by=by)
+    updated = store.update(workspace_id, document_id, fields, by=by)
+    if updated.get("status") not in {"duplicate", "unreadable"}:
+        _evaluate_conditions(team_root, workspace_id, updated, actor=by)
+    return updated
 
 
 def add_local(team_root, workspace_id: str, path: str, *, category: str, subcategory: Optional[str] = None, borrower_ref: Optional[str] = None, by: str = "ashley") -> Dict[str, Any]:
@@ -362,7 +404,10 @@ def add_local(team_root, workspace_id: str, path: str, *, category: str, subcate
             rec["status"], rec["notes"] = "missing_pages", f"Pages {', '.join(map(str, pages['missing']))} of {pages['expected']} not in the file"
     else:
         rec["local_path"] = twin.get("local_path")
-    return store.add(workspace_id, rec)
+    rec = store.add(workspace_id, rec)
+    if rec.get("status") != "duplicate":
+        _evaluate_conditions(team_root, workspace_id, rec, actor=by)
+    return rec
 
 
 # ── Inventory: what arrived vs what the submission and activated rules expect ─────────────
