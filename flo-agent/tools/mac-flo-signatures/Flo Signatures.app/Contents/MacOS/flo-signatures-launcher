@@ -1,0 +1,38 @@
+#!/bin/bash
+# Flo Signatures — Mac launcher
+#
+# Ashley-facing behavior:
+#   - If Flo Signatures (Documenso) is already running locally, open it in the
+#     default browser and exit.
+#   - If it isn't running, show one plain-English message and exit. No Terminal,
+#     no Docker jargon, no localhost typing.
+#
+# The URL is configurable via the DOCUMENSO_URL env var (default
+# http://localhost:3000). Anything else stays the same — we don't expose any of
+# this plumbing to Ashley; if the URL changes, edit the .app's launcher script
+# or set DOCUMENSO_URL before launch (LaunchAgent wrapper, future work).
+
+set -u
+
+URL="${DOCUMENSO_URL:-http://localhost:3000}"
+TIMEOUT_SECONDS=2
+
+# Probe the URL — Documenso's root redirects to /signin or /dashboard and
+# answers 200 on /api/health. Either is a fine liveness signal.
+if curl --silent --fail --max-time "$TIMEOUT_SECONDS" --output /dev/null \
+        --resolve "$(echo "$URL" | sed -E 's|^https?://||; s|/.*$||'):443:127.0.0.1" \
+        "$URL" 2>/dev/null \
+   || curl --silent --fail --max-time "$TIMEOUT_SECONDS" --output /dev/null "$URL" 2>/dev/null \
+   || curl --silent --fail --max-time "$TIMEOUT_SECONDS" --output /dev/null "$URL/api/health" 2>/dev/null; then
+    open "$URL"
+    exit 0
+fi
+
+# Documenso isn't up. Ashley-friendly message — no "Documenso", no "Docker",
+# no "localhost", no shell commands. The wording matches the rest of Flo.
+osascript <<'EOF'
+display dialog "Flo Signatures isn't running yet.
+
+Start it from where you usually start Flo and try again." with title "Flo Signatures" buttons {"OK"} default button "OK" giving up after 15
+EOF
+exit 0
