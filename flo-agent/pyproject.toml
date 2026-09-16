@@ -57,6 +57,13 @@ dependencies = [
   # self-heal path for lean/broken installs — keep the pin below and the
   # lazy pin in lockstep.
   "firecrawl-anydoc==0.2.4",
+  # PDF text-layer extraction for the LoanFlow document intake path
+  # (plugins/flo-team/documents.py:extract_text — drives the Malcolm intake
+  # contract, "Page N of M" missing-pages detection, and Ashley's per-document
+  # search/preview). Pure-Python, no compiled extensions; safe as a core dep.
+  # Bundled in core because it's exercised on every PDF upload; the lazy-only
+  # arrangement leaves synthetic PDFs failing tests silently with empty text.
+  "pypdf==5.7.0",
   # Bumped from 2.12.5 to 2.13.4 to pull in pydantic-core 2.46.4.
   # pydantic-core 2.41.5 (pulled by 2.12.5) segfaults when the OpenAI SDK's
   # Responses API resource is exercised from a non-main thread, which is the
