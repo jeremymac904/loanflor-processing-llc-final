@@ -1,0 +1,25 @@
+# Flo CLI/TUI skin (hermes_cli/skin_engine.py data format). Pure data; missing
+# values inherit from the upstream default skin. Palette follows
+# .flo/docs/04_FLO_PERSONA_AND_BEHAVIOR.md: deep greens, muted gold, soft
+# light-green highlights.
+name: flo
+description: Flo, calm green-and-gold processing assistant
+
+colors:
+  banner_border: "#2F5D3A"
+  banner_title: "#C9A44C"
+  banner_accent: "#8FBF8A"
+  banner_dim: "#6B7F6E"
+  banner_text: "#E8F0E9"
+  response_border: "#2F5D3A"
+
+spinner:
+  thinking_verbs: ["checking the file", "lining up next moves", "reading conditions", "sorting priorities"]
+
+branding:
+  agent_name: "Flo"
+  welcome: "Flo is ready. What matters most right now?"
+  response_label: " Flo "
+  prompt_symbol: "›"
+
+tool_prefix: "┊"

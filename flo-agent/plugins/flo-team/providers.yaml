@@ -1,0 +1,71 @@
+# Provider candidates for discovery (plugins/flo-team/providers.py).
+# Logical, not machine-specific: every candidate is probed; profiles receive
+# whatever is healthy at install time and can re-check with flo_model_health.
+#
+# pii_allowed: whether borrower data may be sent there under the current
+# organization policy. Cloud stays false until the owner answers
+# FLO_TEAM_OPEN_QUESTIONS #6 — a sensitive task then FAILS CLOSED rather than
+# using cloud. (The live tests in this pass ran on synthetic data only.)
+version: 1
+max_latency_ms: 15000        # local health probe (5 checks incl. a 4-token completion) slower than this = "slow"
+min_prompt_tps: 250          # prompt-processing throughput needed for a ~20K-token agent turn to finish in ~80s; below = "slow"
+
+candidates:
+  - id: ollama_local
+    kind: local
+    hermes_provider: ollama
+    config_key: flo_local
+    base_url: http://localhost:11434/v1
+    model: qwen3-flo
+    context_length: 65536
+    pii_allowed: true
+    classes: [local_fast, local_reasoning]
+    timeout: 8
+
+  - id: unsloth_studio
+    kind: local
+    hermes_provider: custom
+    config_key: flo_unsloth
+    base_url: http://127.0.0.1:8888/v1
+    model: null                # set providers.flo_unsloth.model (e.g. unsloth/Qwen3.8-27B-GGUF) on the Mac
+    context_length: 65536
+    pii_allowed: true
+    classes: [local_fast, local_reasoning]
+    timeout: 8
+
+  - id: lmstudio_local
+    kind: local
+    hermes_provider: custom
+    config_key: flo_lmstudio
+    base_url: http://localhost:1234/v1
+    model: null
+    context_length: 65536
+    pii_allowed: true
+    classes: [local_fast, local_reasoning]
+    timeout: 5
+
+  - id: openai_codex
+    kind: cloud
+    hermes_provider: openai-codex
+    model: gpt-6-astra
+    context_length: 200000
+    pii_allowed: false
+    observed_latency_ms: 14000   # one-line smoke on 2026-09-08 (whole CLI round trip)
+    classes: [cloud_reasoning]
+
+  - id: opencode_free
+    kind: cloud
+    hermes_provider: opencode-free
+    model: deepseek-v4-flash-free
+    context_length: 128000
+    pii_allowed: false
+    classes: [cloud_reasoning]
+
+  - id: nous_portal
+    kind: cloud
+    hermes_provider: nous
+    model: openai/gpt-6-astra
+    context_length: 200000
+    pii_allowed: false
+    observed_latency_ms: 24000   # one-line smoke on 2026-09-09 (whole CLI round trip); deepseek/deepseek-v4-flash-0731 ~15 s
+    classes: [cloud_reasoning]

@@ -1,0 +1,10 @@
+{
+  "loe": {
+    "label": "Letter of Explanation",
+    "category": "other",
+    "expected_page_count": 1,
+    "signers": ["borrower"],
+    "template_id_env": "DOCUMENSO_LOE_TEMPLATE_ID",
+    "notes": "The one approved template for this first release (owner directive 2026-09-10). documenso_template_id is resolved at runtime from DOCUMENSO_LOE_TEMPLATE_ID — it is only known once the business-approved LOE wording has been built as a template in the Documenso editor on a real self-hosted instance; see FLO_ESIGN.md."
+  }
+}

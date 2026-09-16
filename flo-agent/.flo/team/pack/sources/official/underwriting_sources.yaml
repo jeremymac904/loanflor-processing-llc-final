@@ -1,0 +1,94 @@
+registry_version: 1
+reviewed: 2026-09-08
+
+sources:
+  - id: fannie_selling_guide
+    owner: Fannie Mae
+    program: conventional_fannie
+    title: Fannie Mae Selling Guide
+    official_url: https://selling-guide.fanniemae.com/
+    observed_published_date: 2026-09-02
+    tier: authoritative
+    owner_agent: sage
+    ingestion: metadata_plus_approved_private_cache
+    status: current
+
+  - id: freddie_single_family_guide
+    owner: Freddie Mac
+    program: conventional_freddie
+    title: Freddie Mac Single-Family Seller/Servicer Guide
+    official_url: https://guide.freddiemac.com/
+    tier: authoritative
+    owner_agent: sage
+    ingestion: metadata_plus_approved_private_cache
+    status: current
+
+  - id: fha_handbook_4000_1
+    owner: HUD/FHA
+    program: fha
+    title: FHA Single Family Housing Policy Handbook 4000.1
+    official_url: https://www.hud.gov/hud-partners/single-family-handbook-4000-1
+    observed_update_date: 2026-08-12
+    tier: authoritative
+    owner_agent: sage
+    status: current
+
+  - id: fha_info
+    owner: HUD/FHA
+    program: fha
+    title: FHA INFO Messages
+    official_url: https://www.hud.gov/hud-partners/single-family-fha-info
+    tier: authoritative_update_feed
+    owner_agent: sage
+    status: current
+
+  - id: va_pamphlet_26_7
+    owner: U.S. Department of Veterans Affairs
+    program: va
+    title: VA Pamphlet 26-7 Lenders Handbook
+    official_url: https://www.benefits.va.gov/WARMS/pam26_7.asp
+    direct_pdf_url: https://www.benefits.va.gov/WARMS/docs/admin26/m26-07/Lender_Handbook_VA_Pamphlet_Complete.pdf
+    tier: authoritative
+    owner_agent: sage
+    status: current
+
+  - id: usda_hb_1_3555
+    owner: USDA Rural Development
+    program: usda_guaranteed
+    title: HB-1-3555 SFH Guaranteed Loan Program Technical Handbook
+    official_url: https://www.rd.usda.gov/resources/directives/handbooks
+    tier: authoritative
+    owner_agent: sage
+    status: current
+
+  - id: usda_procedure_notices
+    owner: USDA Rural Development
+    program: usda_guaranteed
+    title: Procedures Notices
+    official_url: https://www.rd.usda.gov/resources/directives/procedures-notices
+    tier: authoritative_update_feed
+    owner_agent: sage
+    status: current
+
+  - id: usda_lender_training
+    owner: USDA Rural Development
+    program: usda_guaranteed
+    title: SFHGLP Lender Training
+    official_url: https://www.rd.usda.gov/resources/usda-linc-training-resource-library/lender-training
+    tier: authoritative_training
+    owner_agent: sage
+    status: current
+
+lender_overlays:
+  loan_factory:
+    status: source_gap
+    note: "Current supplied TPO source only says to follow agency rules and confirm overlays with AE. Actual overlays not yet loaded."
+
+specialty_programs:
+  jumbo: source_required
+  non_qm: source_required
+  dscr: source_required
+  bank_statement: source_required
+  asset_depletion: source_required
+  foreign_national: source_required
+  itin: source_required

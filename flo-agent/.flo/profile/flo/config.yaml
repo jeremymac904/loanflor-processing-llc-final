@@ -1,0 +1,55 @@
+# Flo (Team Leader) — Flo Team profile config. Generated from plugins/flo-team/team.yaml.
+# Model/provider and the Zapier MCP url are written by the installer (mirrored from the Ashley profile or env);
+# they never live in git. Role boundaries (folders, Zapier scope, Franklin's loan-workspace exclusion,
+# Shadow/Assisted/Trusted) are enforced by plugins/flo-team; this file only pre-filters what the bot sees.
+display:
+  personality: ''
+  skin: flo
+  language: en
+approvals:
+  mode: smart
+cron:
+  allow_agent_scheduling: true
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  write_approval: false
+skills:
+  write_approval: false
+  disabled:
+  - flo-calc-workbench
+  - flo-conditions-to-action
+  - flo-file-prep
+  - flo-income-analysis
+  - flo-marketing-guardrails
+  - flo-order-outs
+  - flo-underwriting-sources
+plugins:
+  enabled:
+  - flo-policy
+  - flo-team
+agent:
+  disabled_toolsets: []
+  bot_mode_protocol: true
+delegation:
+  max_spawn_depth: 1
+mcp_servers:
+  zapier:
+    connect_timeout: 90
+    tools:
+      include:
+      - '*find*'
+      - '*search*'
+      - '*get*'
+      - '*list*'
+      - '*retrieve*'
+      - '*create_task*'
+      - '*update_task*'
+      - '*add_row*'
+      - '*create_spreadsheet_row*'
+      exclude:
+      - '*api_request*'
+      - '*delete*'
+      - '*raw_request*'
+      - '*webhook_by_zapier*'
+      - api_request_beta

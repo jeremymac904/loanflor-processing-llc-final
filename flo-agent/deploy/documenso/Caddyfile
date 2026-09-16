@@ -1,0 +1,13 @@
+# Reverse proxy for sign.lfprocessing.net: normal trusted HTTPS (Let's Encrypt, automatic) in front of the
+# Documenso container on :3000. This is deliberately separate from the PDF-signing certificate (cert.p12,
+# see provision.sh / FLO_ESIGN.md) — HTTPS/TLS trust and PDF-signature trust are two different things.
+#
+# Requires DNS for sign.lfprocessing.net to already point at this host before Caddy can get a certificate.
+#
+#   apt-get install -y caddy   (or run Caddy itself in Docker — either is fine; not scripted here since it
+#                                depends on whether this host already runs another proxy)
+#   cp Caddyfile /etc/caddy/Caddyfile && systemctl reload caddy
+
+sign.lfprocessing.net {
+	reverse_proxy localhost:3000
+}

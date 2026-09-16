@@ -1,0 +1,41 @@
+{
+  "pack_id": "freddie",
+  "program": "conventional",
+  "agency": "freddie",
+  "version": "0.1.0-scaffold",
+  "status": "SOURCE_GAP",
+  "underwriting_methods": [
+    "LPA",
+    "manual"
+  ],
+  "required_topics": [
+    "borrower_eligibility",
+    "employment",
+    "income",
+    "self_employment",
+    "rental_income",
+    "assets",
+    "reserves",
+    "liabilities",
+    "dti",
+    "credit",
+    "derogatory_credit",
+    "property",
+    "appraisal",
+    "occupancy",
+    "transaction_type",
+    "ltv_cltv",
+    "gifts",
+    "interested_party_contributions",
+    "documentation",
+    "verification_reverification",
+    "freddie_specific_rules"
+  ],
+  "source_ids": [
+    "freddie-guide"
+  ],
+  "rule_ids": [],
+  "calculator_ids": [],
+  "active": false,
+  "notes": "Coverage requirements, not a claim of loaded underwriting rules or program eligibility."
+}

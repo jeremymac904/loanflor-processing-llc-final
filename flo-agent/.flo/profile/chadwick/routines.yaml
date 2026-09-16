@@ -1,0 +1,16 @@
+# Chadwick's routines (Hermes cron jobs in this profile). Created once by the installer; edit in the Cron page.
+# Every routine is read/analysis + proposal only. External side effects still stop at Ashley's approval.
+routines:
+- name: Chadwick outstanding orders sweep
+  schedule: 30 8 * * 1-5
+  skills:
+  - flo-order-outs
+  prompt: 'Outstanding orders sweep: for each workspace, call flo_order action=tracker. Flag anything
+    ordered/pending past its expected turn time as overdue via flo_order transition, and propose the cleanest
+    vendor follow-up as a draft. Never send.'
+- name: Chadwick vendor follow-up queue
+  schedule: 0 14 * * 1-5
+  skills:
+  - flo-order-outs
+  prompt: 'Vendor follow-up queue: list overdue orders and prepare one follow-up proposal per vendor for
+    Ashley''s approval.'

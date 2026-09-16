@@ -1,0 +1,36 @@
+version: 1
+
+principles:
+  - deterministic_math_over_llm_math
+  - deterministic_policy_over_llm_authority
+  - local_first_when_quality_and_policy_allow
+  - cloud_only_when_approved
+  - never_route_secrets_by_accident
+
+classes:
+  local_fast:
+    purpose: extraction_classification_drafting_routines
+    provider: unsloth_local
+    requires_context_min: 65536
+
+  local_reasoning:
+    purpose: deeper_private_analysis
+    provider: unsloth_local
+    requires_context_min: 65536
+
+  cloud_reasoning:
+    purpose: difficult_reasoning_and_research
+    provider: configurable
+    pii_allowed: false_until_organization_approves
+
+  deterministic:
+    purpose: calculations_policy_schema_validation
+    provider: code
+
+profile_preferences:
+  flo: [local_reasoning, cloud_reasoning]
+  malcolm: [local_fast, local_reasoning, deterministic]
+  chadwick: [local_fast, deterministic]
+  whisper: [local_fast, local_reasoning]
+  sage: [local_reasoning, cloud_reasoning, deterministic]
+  franklin: [local_fast, cloud_reasoning]

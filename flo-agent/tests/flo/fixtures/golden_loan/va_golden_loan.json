@@ -1,0 +1,118 @@
+{
+  "fixture": "va_golden_loan",
+  "synthetic": true,
+  "warning": "Entirely synthetic. Veteran, employer, bank, amounts, ids and findings are invented for tests. No real person, account or LIN.",
+  "workspace": {
+    "display_name": "Synthetic-Reyes",
+    "program": "va",
+    "agency": "va",
+    "milestone": "Processing",
+    "transaction_type": "purchase",
+    "occupancy": "primary_one_unit",
+    "application_date": "2026-08-24",
+    "estimated_note_date": "2026-10-09",
+    "estimated_closing_date": "2026-10-09",
+    "loan_amount": "285000.00",
+    "purchase_price": "285000.00",
+    "funds_needed": "6400.00",
+    "pitia": "2150.00"
+  },
+  "borrower": {
+    "display_name": "Reyes, Marisol (synthetic)",
+    "first_name": "Marisol",
+    "employer": "Gulf Coast Logistics Partners (synthetic)",
+    "position": "Operations Analyst",
+    "pay_frequency": "monthly",
+    "employment_start": "2022-01-10",
+    "income_type": "salaried"
+  },
+  "va": {
+    "family_size": 4,
+    "state": "Texas",
+    "federal_income_tax": "620.00",
+    "state_income_tax": "0.00",
+    "social_security_and_other_deductions": "474.30",
+    "gross_living_area_sqft": "1800",
+    "monthly_debts": "1650.00"
+  },
+  "intentional_issues": [
+    "debt-to-income ratio exceeds 41 percent and residual income does not exceed the Chapter 4 guideline by 20 percent, so a supervisor-signed justification is required (Chapter 4 Topic 10)",
+    "the VOE is dated 2026-05-01, more than 120 days before the estimated closing date (Chapter 4 Topic 2)",
+    "only one bank statement is in the file; VA requires a VOD or the last two bank statements (Chapter 4 Topic 4)"
+  ],
+  "documents": [
+    {
+      "ref": "doc://synthetic-reyes/paystub-2026-08-15",
+      "type": "paystub",
+      "employer": "Gulf Coast Logistics Partners (synthetic)",
+      "pay_date": "2026-08-15",
+      "period_start": "2026-07-16",
+      "period_end": "2026-08-15",
+      "pay_frequency": "monthly",
+      "gross_current": "6200.00",
+      "ytd_gross": "46500.00",
+      "ytd_through": "2026-08-15",
+      "hours": null,
+      "computer_generated": true,
+      "page": "1 of 1"
+    },
+    {
+      "ref": "doc://synthetic-reyes/w2-2025",
+      "type": "w2",
+      "tax_year": 2025,
+      "employer": "Gulf Coast Logistics Partners (synthetic)",
+      "employee": "Reyes, Marisol (synthetic)",
+      "box1_wages": "73200.00"
+    },
+    {
+      "ref": "doc://synthetic-reyes/voe-26-8497-2026-05-01",
+      "type": "va_voe",
+      "form": "VA Form 26-8497",
+      "date": "2026-05-01",
+      "employer": "Gulf Coast Logistics Partners (synthetic)",
+      "probability_of_continued_employment": "good"
+    },
+    {
+      "ref": "doc://synthetic-reyes/bank-2026-07",
+      "type": "bank_statement",
+      "institution": "Bayou State Bank (synthetic)",
+      "account_holder": "Marisol Reyes",
+      "last_four": "5570",
+      "account_type": "checking",
+      "statement_start": "2026-07-01",
+      "statement_end": "2026-07-31",
+      "pages_present": 3,
+      "pages_total": 3,
+      "ending_balance": "11240.87",
+      "deposits": [
+        {"date": "2026-07-15", "amount": "6200.00", "description": "GULF COAST LOGISTICS PAYROLL"}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-reyes/aus-findings-2026-08-26",
+      "type": "va_aus_findings",
+      "aus_system": "DU",
+      "date": "2026-08-26",
+      "casefile_id": "SYN-VA-DU-000001",
+      "submission_number": 1,
+      "recommendation": "Approve/Eligible",
+      "aus_version": "DU for VA (synthetic findings)",
+      "dti": "61.3",
+      "ltv": "100.00",
+      "funds_required_to_close": "6400.00",
+      "reserves_required_to_be_verified": "0.00",
+      "documentation_messages": [
+        {"id": "SYN-VA-INC-01", "text": "Income: obtain paystubs covering at least one full month with year-to-date information and telephone verification of the current employer."},
+        {"id": "SYN-VA-AST-01", "text": "Assets: provide bank statements covering the most recent 1-month period in lieu of a VOD for the account ending 5570."},
+        {"id": "SYN-VA-CR-01", "text": "Credit: the credit report used for this submission is dated 2026-08-21."}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-reyes/application-1003",
+      "type": "application",
+      "date": "2026-08-24",
+      "stated_monthly_income": "6200.00",
+      "stated_assets": "11240.87"
+    }
+  ]
+}

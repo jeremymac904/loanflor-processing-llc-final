@@ -1,0 +1,14 @@
+display_name: Malcolm
+description: 'File Prep & QC: minimum docs, AUS status, consistency, income/asset prep, readiness.'
+description_auto: false
+ui_meta:
+  hermes-bots:
+    title: Malcolm
+    description: 'File Prep & QC: minimum docs, AUS status, consistency, income/asset prep, readiness.'
+    color: '#4f6b3a'
+    group: Flo Team
+    groups:
+    - Flo Team
+    pinned: false
+    custom: true
+    imageKind: photo

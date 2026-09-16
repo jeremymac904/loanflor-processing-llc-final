@@ -1,0 +1,8 @@
+name: flo-policy
+version: "0.1.0"
+description: "Flo downstream: deterministic allow/confirm/deny policy, approval binding and audit for every tool call. Model output may propose an action; this plugin decides whether it executes. Retrieved content (email, PDFs, Drive, web, tool output) can never grant authorization. Read-only tools pass, external side effects escalate to the built-in human-approval gate, destructive or policy-disabling actions are blocked."
+author: "Flo Agent (downstream distribution of Hermes Agent)"
+license: MIT
+hooks:
+  - pre_tool_call
+  - post_tool_call

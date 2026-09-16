@@ -1,0 +1,141 @@
+{
+  "fixture": "golden_loan",
+  "synthetic": true,
+  "warning": "Entirely synthetic. Borrower, employer, bank, amounts, ids and findings are invented for tests. No real person, account or casefile.",
+  "workspace": {
+    "display_name": "Synthetic-Harper",
+    "program": "conventional",
+    "agency": "fannie",
+    "milestone": "Processing",
+    "transaction_type": "purchase",
+    "occupancy": "primary_one_unit",
+    "application_date": "2026-08-24",
+    "estimated_note_date": "2026-10-09",
+    "loan_amount": "312000.00",
+    "purchase_price": "390000.00",
+    "funds_needed": "84250.00",
+    "pitia": "2610.00"
+  },
+  "borrower": {
+    "display_name": "Harper, Jordan (synthetic)",
+    "employer": "Northwind Logistics LLC (synthetic)",
+    "position": "Dispatch Coordinator",
+    "pay_frequency": "biweekly",
+    "employment_start": "2023-02-13",
+    "income_type": "fixed_base_salary"
+  },
+  "intentional_issues": [
+    "bank statement for July 2026 is missing page 5 of 5",
+    "paystub YTD implies ~66,000/yr while the 2025 W-2 shows 58,900 (base) - discrepancy to reconcile",
+    "no verbal VOE / Form 1005 in the file",
+    "one deposit of 4,000 on 2026-07-14 exceeds 50% of monthly qualifying income and is unsourced"
+  ],
+  "documents": [
+    {
+      "ref": "doc://synthetic-harper/paystub-2026-08-21",
+      "type": "paystub",
+      "employer": "Northwind Logistics LLC (synthetic)",
+      "pay_date": "2026-08-21",
+      "period_start": "2026-08-01",
+      "period_end": "2026-08-14",
+      "pay_frequency": "biweekly",
+      "gross_current": "2538.46",
+      "ytd_gross": "42653.00",
+      "ytd_through": "2026-08-14",
+      "hours": null,
+      "computer_generated": true,
+      "page": "1 of 1"
+    },
+    {
+      "ref": "doc://synthetic-harper/paystub-2026-08-07",
+      "type": "paystub",
+      "employer": "Northwind Logistics LLC (synthetic)",
+      "pay_date": "2026-08-07",
+      "period_start": "2026-07-18",
+      "period_end": "2026-07-31",
+      "pay_frequency": "biweekly",
+      "gross_current": "2538.46",
+      "ytd_gross": "40114.54",
+      "ytd_through": "2026-07-31",
+      "computer_generated": true,
+      "page": "1 of 1"
+    },
+    {
+      "ref": "doc://synthetic-harper/w2-2025",
+      "type": "w2",
+      "tax_year": 2025,
+      "employer": "Northwind Logistics LLC (synthetic)",
+      "employee": "Harper, Jordan (synthetic)",
+      "box1_wages": "58900.00",
+      "box5_medicare_wages": "58900.00"
+    },
+    {
+      "ref": "doc://synthetic-harper/w2-2024",
+      "type": "w2",
+      "tax_year": 2024,
+      "employer": "Northwind Logistics LLC (synthetic)",
+      "employee": "Harper, Jordan (synthetic)",
+      "box1_wages": "55200.00"
+    },
+    {
+      "ref": "doc://synthetic-harper/bank-2026-07",
+      "type": "bank_statement",
+      "institution": "Cascade Community Bank (synthetic)",
+      "account_holder": "Jordan Harper",
+      "last_four": "4471",
+      "account_type": "checking",
+      "statement_start": "2026-07-01",
+      "statement_end": "2026-07-31",
+      "pages_present": 4,
+      "pages_total": 5,
+      "ending_balance": "91340.18",
+      "deposits": [
+        {"date": "2026-07-03", "amount": "2538.46", "description": "NORTHWIND LOGISTICS PAYROLL"},
+        {"date": "2026-07-14", "amount": "4000.00", "description": "MOBILE DEPOSIT", "sourced": false},
+        {"date": "2026-07-17", "amount": "2538.46", "description": "NORTHWIND LOGISTICS PAYROLL"},
+        {"date": "2026-07-31", "amount": "2538.46", "description": "NORTHWIND LOGISTICS PAYROLL"}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-harper/bank-2026-06",
+      "type": "bank_statement",
+      "institution": "Cascade Community Bank (synthetic)",
+      "account_holder": "Jordan Harper",
+      "last_four": "4471",
+      "account_type": "checking",
+      "statement_start": "2026-06-01",
+      "statement_end": "2026-06-30",
+      "pages_present": 5,
+      "pages_total": 5,
+      "ending_balance": "84212.90",
+      "deposits": [
+        {"date": "2026-06-05", "amount": "2538.46", "description": "NORTHWIND LOGISTICS PAYROLL"},
+        {"date": "2026-06-19", "amount": "2538.46", "description": "NORTHWIND LOGISTICS PAYROLL"}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-harper/du-findings-2026-08-25",
+      "type": "du_findings",
+      "date": "2026-08-25",
+      "casefile_id": "SYN-DU-000001",
+      "submission_number": 2,
+      "recommendation": "Approve/Eligible",
+      "dti": "38.4",
+      "ltv": "80.00",
+      "funds_required_to_close": "84250.00",
+      "reserves_required_to_be_verified": "0.00",
+      "documentation_messages": [
+        {"id": "SYN-INC-01", "text": "Income: obtain the most recent paystub with year-to-date earnings and the most recent W-2 for the borrower."},
+        {"id": "SYN-AST-01", "text": "Assets: obtain the most recent two months of bank statements (all pages) for the checking account ending 4471."},
+        {"id": "SYN-CR-01", "text": "Credit: the credit report used for this submission is dated 2026-08-20."}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-harper/application-1003",
+      "type": "application",
+      "date": "2026-08-24",
+      "stated_monthly_income": "5500.00",
+      "stated_assets": "175553.08"
+    }
+  ]
+}

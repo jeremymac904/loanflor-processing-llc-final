@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flo Action Proposal",
+  "type": "object",
+  "required": [
+    "proposal_id",
+    "agent",
+    "action_type",
+    "summary",
+    "policy_result"
+  ],
+  "properties": {
+    "proposal_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agent": {
+      "type": "string"
+    },
+    "action_type": {
+      "type": "string"
+    },
+    "recipient_or_destination": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "payload_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data_categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy_result": {
+      "enum": [
+        "allow",
+        "confirm",
+        "deny"
+      ]
+    },
+    "approval_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

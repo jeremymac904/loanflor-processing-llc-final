@@ -1,0 +1,26 @@
+{
+  "$comment": "Flo downstream brand + release-channel configuration. Single source of truth for user-visible identity in the desktop app (electron main, renderer, exe metadata). Fields marked placeholder must be replaced by the project owner before any release; see .flo/docs/15_OPEN_QUESTIONS.md.",
+  "productName": "Flo",
+  "displayName": "Flo Agent",
+  "assistantName": "Flo",
+  "protocolScheme": "flo",
+  "protocolName": "Flo Protocol",
+  "appId": "com.example.flo",
+  "appIdIsPlaceholder": true,
+  "artifactPrefix": "Flo",
+  "publisher": "LoanFlow Processing LLC",
+  "companyName": "LoanFlow Processing LLC",
+  "copyright": "Copyright (c) 2026 LoanFlow Processing LLC. Built on Hermes Agent, Copyright (c) 2026 Nous Research, MIT License.",
+  "upstream": {
+    "engineName": "Hermes Agent",
+    "vendor": "Nous Research",
+    "pinnedTag": "v2026.8.31",
+    "license": "MIT"
+  },
+  "updates": {
+    "$comment": "mode: 'disabled' | 'flo-release'. 'flo-release' requires a Flo-owned git source (never the upstream NousResearch/hermes-agent repository). bootstrapSource is the raw-content base URL used for first-run runtime install scripts; null refuses the upstream installer download.",
+    "mode": "disabled",
+    "source": null,
+    "bootstrapSource": null
+  }
+}

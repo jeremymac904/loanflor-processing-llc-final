@@ -1,0 +1,26 @@
+version: 1
+
+defaults:
+  external_side_effects: confirm
+  destructive_actions: deny
+  arbitrary_host_shell: deny
+  computer_use: deny
+  unreviewed_plugins: deny
+
+capabilities:
+  email_search: allow
+  email_read: allow
+  email_draft: allow
+  email_send: confirm
+  email_modify: confirm
+  drive_search: allow
+  drive_read: allow
+  drive_upload: confirm
+  drive_move_or_rename: confirm
+  drive_share_external: deny
+  drive_delete_permanent: deny
+  calendar_read: allow
+  calendar_write: confirm
+  portal_submit: deny
+  terminal_host: deny
+  computer_use: deny

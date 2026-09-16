@@ -1,0 +1,36 @@
+# Flo / Ashley profile — configuration.
+#
+# Owner directive (2026-09-08): keep Flo easy and unrestricted for Ashley.
+# Ashley gets the full Hermes toolset (terminal, files, web, browser, cron,
+# subagents, skills) exactly like a stock install. Upstream defaults apply for
+# anything not listed here. The Flo policy plugin stays on only to keep an
+# audit trail and to ask once before the handful of actions that cannot be
+# undone (sending email, permanent deletion, external sharing, mass sends).
+#
+# Model/provider: run `hermes -p ashley setup` (or the desktop onboarding) to
+# pick one; keys live in .env, never in this file.
+
+display:
+  personality: ""
+  skin: flo
+  language: en
+
+# Upstream default approval mode ("smart": an auxiliary model auto-approves
+# routine dangerous-looking shell commands; hard-line patterns still prompt).
+approvals:
+  mode: smart
+
+cron:
+  allow_agent_scheduling: true
+
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  write_approval: false
+
+skills:
+  write_approval: false
+
+plugins:
+  enabled:
+    - flo-policy

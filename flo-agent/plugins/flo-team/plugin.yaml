@@ -1,0 +1,34 @@
+name: flo-team
+version: 0.1.0
+description: "Flo Team runtime: six-profile roles, structured handoffs with recursion protection, Loan Workspaces / Deal Rooms, the Ashley Approval Center queue, role-scoped folders and Zapier scopes, deterministic readiness / order / draft / guideline-card / calculation tools, local-model health checks."
+author: "Flo Agent (LoanFlow Processing), Claude Code team-build pass 2026-09-08"
+license: MIT
+kind: backend
+hooks:
+  - pre_tool_call
+  - post_tool_call
+provides_tools:
+  - flo_team
+  - flo_handoff
+  - flo_workspace
+  - flo_approvals
+  - flo_readiness
+  - flo_order
+  - flo_draft
+  - flo_guideline_card
+  - flo_calc
+  - flo_assets
+  - flo_du
+  - flo_fileprep
+  - flo_knowledge
+  - flo_marketing
+  - flo_model_health
+  - flo_sage_response
+  - flo_workflow
+  - flo_guidance
+  - flo_intake
+  - flo_documents
+  - flo_esign
+  - flo_esign_send
+  - flo_esign_remind
+  - flo_esign_cancel

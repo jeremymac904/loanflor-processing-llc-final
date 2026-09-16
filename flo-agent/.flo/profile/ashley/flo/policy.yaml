@@ -1,0 +1,14 @@
+# Flo policy for the Ashley profile — least-restrictive by owner directive.
+#
+# Everything is allowed and audited. Flo asks once (one click) only before
+# actions that cannot be undone. Loaded by plugins/flo-policy from
+# <HERMES_HOME>/flo/policy.yaml. Decisions: allow | confirm | deny
+version: 1
+mass_outbound_threshold: 10
+capabilities:
+  email_send: confirm
+  mass_outbound: confirm
+  drive_share_external: confirm
+  drive_delete_permanent: confirm
+  policy_disable: confirm
+  credential_exposure: confirm

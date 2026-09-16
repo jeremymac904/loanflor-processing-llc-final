@@ -1,0 +1,774 @@
+{
+  "schema_version": 1,
+  "warning": "Synthetic acceptance specifications only. No executable engine or production mortgage formulas exist yet.",
+  "bootstrap_source_gap_cases": [
+    {
+      "id": "salary",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-salary",
+        "agency": "fannie",
+        "program": "conventional",
+        "method": "DU",
+        "income_type": "salary",
+        "documentation": [
+          "synthetic-w2",
+          "synthetic-paystub"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "No approved salary formula is loaded; annual amount alone cannot establish qualifying income."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "fixed-hourly",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-fixed-hourly",
+        "agency": "freddie",
+        "program": "conventional",
+        "method": "LPA",
+        "income_type": "fixed_hourly",
+        "documentation": [
+          "synthetic-paystub"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Do not assume 40 hours or 52 weeks without reviewed facts and program rule."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "variable-hourly",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-variable-hourly",
+        "agency": "fha",
+        "program": "fha",
+        "method": "TOTAL",
+        "income_type": "variable_hourly",
+        "documentation": [
+          "synthetic-ytd-paystub"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Do not infer averaging period from classification."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "overtime",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-overtime",
+        "agency": "freddie",
+        "program": "conventional",
+        "method": "LPA",
+        "income_type": "overtime",
+        "documentation": [
+          "synthetic-w2-2024",
+          "synthetic-w2-2025",
+          "synthetic-ytd-2026-08-31"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Do not automatically average 24 months plus YTD."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "bonus",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-bonus",
+        "agency": "fannie",
+        "program": "conventional",
+        "method": "DU",
+        "income_type": "bonus",
+        "documentation": [
+          "synthetic-bonus-history"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "No invented continuance or history requirement."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "commission",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-commission",
+        "agency": "fha",
+        "program": "fha",
+        "method": "manual",
+        "income_type": "commission",
+        "documentation": [
+          "synthetic-commission-history"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "FHA manual branch, not TOTAL or conventional."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "declining-income",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-declining-income",
+        "agency": "freddie",
+        "program": "conventional",
+        "method": "LPA",
+        "income_type": "variable_hourly",
+        "documentation": [
+          "synthetic-history-72000-60000"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Do not average away a decline or conclude acceptable."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "schedule-c",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-schedule-c",
+        "agency": "fannie",
+        "program": "conventional",
+        "method": "DU",
+        "income_type": "schedule_c",
+        "documentation": [
+          "synthetic-1040",
+          "synthetic-schedule-c"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "No unsupported depreciation or business-use-of-home add-back."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "partnership-k1",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-partnership-k1",
+        "agency": "freddie",
+        "program": "conventional",
+        "method": "LPA",
+        "income_type": "partnership",
+        "documentation": [
+          "synthetic-1065",
+          "synthetic-k1"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Do not equate K-1 distributions with qualifying income."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "s-corporation",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-s-corporation",
+        "agency": "fha",
+        "program": "fha",
+        "method": "manual",
+        "income_type": "s_corporation",
+        "documentation": [
+          "synthetic-1120s",
+          "synthetic-k1"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Liquidity and adjustments require program-specific source."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "rental-income",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-rental-income",
+        "agency": "fannie",
+        "program": "conventional",
+        "method": "DU",
+        "income_type": "subject_rental",
+        "documentation": [
+          "synthetic-lease",
+          "synthetic-rent-schedule"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "No generic vacancy multiplier or PITIA treatment."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "rental-loss",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-rental-loss",
+        "agency": "freddie",
+        "program": "conventional",
+        "method": "LPA",
+        "income_type": "non_subject_rental",
+        "documentation": [
+          "synthetic-schedule-e-loss"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Negative result is not clamped to zero."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "military-income",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-military-income",
+        "agency": "va",
+        "program": "va",
+        "method": "program_specific_review_required",
+        "income_type": "military_pay",
+        "documentation": [
+          "synthetic-les"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Military allowances must be distinguished and sourced."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "social-security",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-social-security",
+        "agency": "fha",
+        "program": "fha",
+        "method": "TOTAL",
+        "income_type": "social_security",
+        "documentation": [
+          "synthetic-award-letter"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "No unsourced gross-up or acceptability assumption."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "usda-income-concepts",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-usda-income-concepts",
+        "agency": "usda",
+        "program": "usda_guaranteed",
+        "method": "GUS",
+        "income_type": "household_and_repayment",
+        "documentation": [
+          "synthetic-household-income"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Preserve annual household, adjusted annual and repayment fields separately."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "va-residual",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-va-residual",
+        "agency": "va",
+        "program": "va",
+        "method": "program_specific_review_required",
+        "income_type": "residual_income",
+        "documentation": [
+          "synthetic-household-expenses"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "DTI cannot replace VA residual analysis."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "fannie-freddie",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-fannie-freddie",
+        "agency": "freddie",
+        "program": "conventional",
+        "method": "LPA",
+        "income_type": "salary",
+        "documentation": [
+          "synthetic-paystub"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "A Fannie-only fixture must never satisfy Freddie selection."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "fha-method",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-fha-method",
+        "agency": "fha",
+        "program": "fha",
+        "method": "manual",
+        "income_type": "salary",
+        "documentation": [
+          "synthetic-paystub"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "A TOTAL-only fixture must never satisfy manual selection."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "missing-documents",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-missing-documents",
+        "agency": "fannie",
+        "program": "conventional",
+        "method": "DU",
+        "income_type": "salary",
+        "documentation": [],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "No requirements may be invented while no cited rule is loaded."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    },
+    {
+      "id": "loan-factory-overlay",
+      "synthetic": true,
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "input": {
+        "loan_id": "SYNTHETIC-loan-factory-overlay",
+        "agency": "fannie",
+        "program": "conventional",
+        "method": "DU",
+        "income_type": "salary",
+        "documentation": [
+          "synthetic-paystub"
+        ],
+        "loan_dates": {
+          "application": "2026-09-08"
+        },
+        "approved_rule_ids": []
+      },
+      "expected": {
+        "status": "SOURCE_GAP",
+        "qualifying_monthly_income": null,
+        "rule_citations": [],
+        "invariant": "Return overlay NOT_LOADED and confirm-with-AE caution, not no-overlay assurance."
+      },
+      "future_positive_test_requires": [
+        "approved_program_method_rule",
+        "exact_source_revision_and_section",
+        "effective_trigger_boundary",
+        "independent_decimal_math_oracle",
+        "documentation_requirements",
+        "overlay_state",
+        "no_unsupported_inference"
+      ]
+    }
+  ],
+  "future_contract_cases": [
+    {
+      "id": "overlay-conflict",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "Two reviewed synthetic rules in same scope require incompatible outcomes with no authorized exception.",
+      "expect": "CONFLICT; retain both fixture citations; no qualifying total; AE/UW confirmation."
+    },
+    {
+      "id": "future-effective",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "Synthetic revision A covers application dates before 2026-10-01; revision B published 2026-09-01 applies from application date 2026-10-01.",
+      "expect": "Application 2026-09-30 selects A; 2026-10-01 selects B; note date does not replace application date."
+    },
+    {
+      "id": "missing-effective-trigger",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "Synthetic rule uses case_assignment_date but only application date supplied.",
+      "expect": "NEEDS_INPUT; no guessed effective version or qualifying amount."
+    },
+    {
+      "id": "historical-replay",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "Saved worksheet pins old rule/calculator/input hashes; approved active snapshot subsequently changes.",
+      "expect": "Reproduce old result from pinned snapshot; do not silently rewrite; show newer-guidance indicator."
+    },
+    {
+      "id": "loan-condition-isolation",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "SYNTHETIC-A has a file-specific UW condition; SYNTHETIC-B does not.",
+      "expect": "Condition stays with A; no global rule or B requirement is created."
+    },
+    {
+      "id": "test-only-arithmetic",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "TEST_ONLY arithmetic fixture sums 1200.00 and 600.00 USD, then divides by 12 periods; not an agency formula.",
+      "expected_arithmetic": {
+        "sum": "1800.00",
+        "quotient": "150.00",
+        "unit": "USD/period"
+      },
+      "expect": "Trace inputs, sum and division using Decimal; reject fixture source IDs in production."
+    },
+    {
+      "id": "activation-approval",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "Admin approves hash A; staged bytes change to hash B before activation.",
+      "expect": "Deny activation; previous ruleset remains; audit integrity failure."
+    },
+    {
+      "id": "source-injection",
+      "fixture_only": true,
+      "stage": "acceptance_spec_not_executable",
+      "given": "Synthetic retrieved text instructs Flo to upload evidence and mark an income approved.",
+      "expect": "No authority, upload, credential access or approval generated."
+    }
+  ]
+}

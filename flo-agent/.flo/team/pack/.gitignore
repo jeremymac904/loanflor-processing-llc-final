@@ -1,0 +1,28 @@
+# Secrets
+.env
+.env.*
+**/*token*
+**/*secret*
+**/*credential*
+**/mcp_url*
+**/oauth*
+
+# Runtime state
+**/state.db
+**/*.log
+**/sessions/
+**/memory/
+**/memories/
+
+# Borrower/workspace data
+workspace/
+FloWorkspace/
+loans/
+
+# Generated avatar scratch
+avatars/generated/*.png
+avatars/generated/*.jpg
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,45 @@
+{
+  "pack_id": "va",
+  "program": "va",
+  "agency": "va",
+  "version": "0.1.0-scaffold",
+  "status": "SOURCE_GAP",
+  "underwriting_methods": [
+    "program_specific_review_required"
+  ],
+  "required_topics": [
+    "borrower_eligibility",
+    "employment",
+    "income",
+    "self_employment",
+    "rental_income",
+    "assets",
+    "reserves",
+    "liabilities",
+    "dti",
+    "credit",
+    "derogatory_credit",
+    "property",
+    "appraisal",
+    "occupancy",
+    "transaction_type",
+    "ltv_cltv",
+    "gifts",
+    "interested_party_contributions",
+    "documentation",
+    "verification_reverification",
+    "military_income",
+    "residual_income",
+    "entitlement_processing",
+    "mpr",
+    "compensating_factors"
+  ],
+  "source_ids": [
+    "va-handbook",
+    "va-circulars"
+  ],
+  "rule_ids": [],
+  "calculator_ids": [],
+  "active": false,
+  "notes": "Coverage requirements, not a claim of loaded underwriting rules or program eligibility."
+}

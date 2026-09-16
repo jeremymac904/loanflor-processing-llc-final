@@ -1,0 +1,105 @@
+{
+  "fixture": "fha_golden_loan",
+  "synthetic": true,
+  "warning": "Entirely synthetic. Borrower, employer, bank, amounts, ids and findings are invented for tests. No real person, account or FHA case number.",
+  "workspace": {
+    "display_name": "Synthetic-Okafor",
+    "program": "fha",
+    "agency": "fha",
+    "underwriting_method": "total",
+    "case_number_assignment_date": "2026-08-25",
+    "milestone": "Processing",
+    "transaction_type": "purchase",
+    "occupancy": "primary_one_unit",
+    "application_date": "2026-08-24",
+    "estimated_note_date": "2026-10-09",
+    "loan_amount": "241850.00",
+    "purchase_price": "245000.00",
+    "funds_needed": "15200.00",
+    "pitia": "1910.00"
+  },
+  "borrower": {
+    "display_name": "Okafor, Chidi (synthetic)",
+    "first_name": "Chidi",
+    "employer": "Brightwater School District (synthetic)",
+    "position": "Facilities Coordinator",
+    "pay_frequency": "monthly",
+    "employment_start": "2021-09-01",
+    "income_type": "salaried"
+  },
+  "intentional_issues": [
+    "only the 2025 W-2 is in the file; alternative documentation requires original W-2s from the previous two years (II.A.4.c)",
+    "one unsourced deposit of 3,000 on 2026-07-22 exceeds 50 percent of total monthly Effective Income (II.A.4.d checking and savings)",
+    "no Reverification of Employment / WVOE in the file (II.A.4.c traditional documentation)",
+    "only one bank statement and it does not show the previous month's ending balance; two months are required (II.A.4.d alternative documentation)"
+  ],
+  "documents": [
+    {
+      "ref": "doc://synthetic-okafor/paystub-2026-08-15",
+      "type": "paystub",
+      "employer": "Brightwater School District (synthetic)",
+      "pay_date": "2026-08-15",
+      "period_start": "2026-07-16",
+      "period_end": "2026-08-15",
+      "pay_frequency": "monthly",
+      "gross_current": "4800.00",
+      "ytd_gross": "36000.00",
+      "ytd_through": "2026-08-15",
+      "hours": null,
+      "computer_generated": true,
+      "page": "1 of 1"
+    },
+    {
+      "ref": "doc://synthetic-okafor/w2-2025",
+      "type": "w2",
+      "tax_year": 2025,
+      "employer": "Brightwater School District (synthetic)",
+      "employee": "Okafor, Chidi (synthetic)",
+      "box1_wages": "56400.00"
+    },
+    {
+      "ref": "doc://synthetic-okafor/bank-2026-07",
+      "type": "bank_statement",
+      "institution": "Lakeshore Federal Credit Union (synthetic)",
+      "account_holder": "Chidi Okafor",
+      "last_four": "3106",
+      "account_type": "checking",
+      "statement_start": "2026-07-01",
+      "statement_end": "2026-07-31",
+      "pages_present": 4,
+      "pages_total": 4,
+      "prior_ending_balance_shown": false,
+      "ending_balance": "19875.60",
+      "deposits": [
+        {"date": "2026-07-15", "amount": "4800.00", "description": "BRIGHTWATER SD PAYROLL"},
+        {"date": "2026-07-22", "amount": "3000.00", "description": "COUNTER DEPOSIT", "sourced": false}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-okafor/total-findings-2026-08-26",
+      "type": "total_findings",
+      "aus_system": "TOTAL",
+      "date": "2026-08-26",
+      "casefile_id": "SYN-TOTAL-000001",
+      "submission_number": 1,
+      "recommendation": "Accept",
+      "aus_version": "TOTAL Mortgage Scorecard via DU (synthetic feedback certificate)",
+      "dti": "41.8",
+      "ltv": "96.50",
+      "funds_required_to_close": "15200.00",
+      "reserves_required_to_be_verified": "0.00",
+      "documentation_messages": [
+        {"id": "SYN-TOTAL-INC-01", "text": "Income: obtain the most recent pay stub with year-to-date earnings and W-2s for the previous two years."},
+        {"id": "SYN-TOTAL-AST-01", "text": "Assets: obtain the most recent bank statement (or VOD) for the checking account ending 3106."},
+        {"id": "SYN-TOTAL-CR-01", "text": "Credit: the credit report used for this submission is dated 2026-08-21."}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-okafor/application-1003",
+      "type": "application",
+      "date": "2026-08-24",
+      "stated_monthly_income": "4800.00",
+      "stated_assets": "19875.60"
+    }
+  ]
+}

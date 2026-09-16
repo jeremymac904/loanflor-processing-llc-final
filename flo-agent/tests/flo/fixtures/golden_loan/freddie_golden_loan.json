@@ -1,0 +1,121 @@
+{
+  "fixture": "freddie_golden_loan",
+  "synthetic": true,
+  "warning": "Entirely synthetic. Borrower, employer, bank, amounts, ids and findings are invented for tests. No real person, account or Loan Product Advisor key number.",
+  "workspace": {
+    "display_name": "Synthetic-Bellamy",
+    "program": "conventional",
+    "agency": "freddie",
+    "milestone": "Processing",
+    "transaction_type": "purchase",
+    "occupancy": "primary_one_unit",
+    "application_date": "2026-08-24",
+    "estimated_note_date": "2026-10-09",
+    "loan_amount": "296000.00",
+    "purchase_price": "370000.00",
+    "funds_needed": "79800.00",
+    "pitia": "2480.00",
+    "documentation_level": "standard"
+  },
+  "borrower": {
+    "display_name": "Bellamy, Riley (synthetic)",
+    "first_name": "Riley",
+    "employer": "Harborline Medical Group (synthetic)",
+    "position": "Patient Services Lead",
+    "pay_frequency": "biweekly",
+    "employment_start": "2022-05-02",
+    "income_type": "base_non_fluctuating"
+  },
+  "intentional_issues": [
+    "most recent paystub is dated 2026-07-20, more than 30 days before the Application Received Date (5302.2(a))",
+    "one unsourced deposit of 3,200 on 2026-08-01 exceeds 50% of stable monthly income and falls within 60 days of the Application Received Date (5501.1(f)(ii))",
+    "no 10-day pre-closing verification of employment in the file (5302.2(d))"
+  ],
+  "documents": [
+    {
+      "ref": "doc://synthetic-bellamy/paystub-2026-07-20",
+      "type": "paystub",
+      "employer": "Harborline Medical Group (synthetic)",
+      "pay_date": "2026-07-20",
+      "period_start": "2026-07-04",
+      "period_end": "2026-07-17",
+      "pay_frequency": "biweekly",
+      "gross_current": "2307.69",
+      "ytd_gross": "32307.66",
+      "ytd_through": "2026-07-17",
+      "hours": null,
+      "computer_generated": true,
+      "page": "1 of 1"
+    },
+    {
+      "ref": "doc://synthetic-bellamy/w2-2025",
+      "type": "w2",
+      "tax_year": 2025,
+      "employer": "Harborline Medical Group (synthetic)",
+      "employee": "Bellamy, Riley (synthetic)",
+      "box1_wages": "59400.00"
+    },
+    {
+      "ref": "doc://synthetic-bellamy/bank-2026-07",
+      "type": "bank_statement",
+      "institution": "Pinecrest Savings Bank (synthetic)",
+      "account_holder": "Riley Bellamy",
+      "last_four": "8823",
+      "account_type": "checking",
+      "statement_start": "2026-07-01",
+      "statement_end": "2026-07-31",
+      "pages_present": 6,
+      "pages_total": 6,
+      "ending_balance": "82910.44",
+      "deposits": [
+        {"date": "2026-07-06", "amount": "2307.69", "description": "HARBORLINE MED PAYROLL"},
+        {"date": "2026-07-20", "amount": "2307.69", "description": "HARBORLINE MED PAYROLL"}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-bellamy/bank-2026-08",
+      "type": "bank_statement",
+      "institution": "Pinecrest Savings Bank (synthetic)",
+      "account_holder": "Riley Bellamy",
+      "last_four": "8823",
+      "account_type": "checking",
+      "statement_start": "2026-08-01",
+      "statement_end": "2026-08-31",
+      "pages_present": 6,
+      "pages_total": 6,
+      "ending_balance": "88418.13",
+      "deposits": [
+        {"date": "2026-08-01", "amount": "3200.00", "description": "MOBILE DEPOSIT", "sourced": false},
+        {"date": "2026-08-03", "amount": "2307.69", "description": "HARBORLINE MED PAYROLL"},
+        {"date": "2026-08-17", "amount": "2307.69", "description": "HARBORLINE MED PAYROLL"}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-bellamy/lpa-feedback-2026-08-26",
+      "type": "lpa_findings",
+      "aus_system": "LPA",
+      "date": "2026-08-26",
+      "key_number": "SYN-LPA-000001",
+      "submission_number": 1,
+      "risk_class": "Accept",
+      "documentation_level": "Standard",
+      "aus_version": "Loan Product Advisor (synthetic feedback certificate)",
+      "dti": "40.1",
+      "ltv": "80.00",
+      "funds_required_to_close": "79800.00",
+      "reserves_required_to_be_verified": "0.00",
+      "documentation_messages": [
+        {"id": "SYN-LPA-INC-01", "text": "Income: provide the year-to-date paystub and W-2 for the most recent calendar year for the borrower."},
+        {"id": "SYN-LPA-AST-01", "text": "Assets: provide account statements covering a two-month period for the checking account ending 8823."},
+        {"id": "SYN-LPA-CR-01", "text": "Credit: the credit report used for this submission is dated 2026-08-21."}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-bellamy/application-65",
+      "type": "application",
+      "date": "2026-08-24",
+      "stated_monthly_income": "5000.00",
+      "stated_assets": "171328.57"
+    }
+  ]
+}

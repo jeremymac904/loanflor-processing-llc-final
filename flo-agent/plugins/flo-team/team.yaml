@@ -1,0 +1,201 @@
+# Flo Team manifest — the single source of truth for the six-profile team.
+#
+# Derived from Flo_Team_Agents_Pack (team/team_manifest.yaml,
+# implementation/TOOL_BOUNDARY_MATRIX.yaml, shared/LOCAL_FOLDER_POLICY.md,
+# shared/MCP_ZAPIER_POLICY.md, runtime/MODEL_ROUTING.yaml). A copy of the
+# pack lives at .flo/team/pack/ for provenance; tests assert this file and the
+# pack agree on names, roles and delegation edges.
+#
+# Consumed by plugins/flo-team (runtime enforcement), the profile installer
+# (scripts/flo/install_flo_team.py) and the desktop Team page.
+version: 1
+team_name: Flo Team
+leader: flo
+
+# Recursion protection: a handoff chain may be at most this deep
+# (Ashley -> Flo = depth 0, Flo -> specialist = depth 1). Specialists return
+# work to Flo; they do not build their own sub-teams.
+max_delegation_depth: 1
+
+# Autonomy level per team (initial production level per the pack).
+# shadow   -> external side effects are DENIED (propose only)
+# assisted -> external side effects go to the Ashley Approval Center (CONFIRM)
+# trusted  -> capabilities listed in trusted_capabilities may run (ALLOW)
+autonomy_level: assisted
+
+profiles:
+  flo:
+    display_name: Flo
+    title: Team Leader
+    role: orchestration
+    description: "Team Leader: triage, delegation, synthesis, approvals, daily brief."
+    color: "#1f5a2d"
+    delegates_to: [malcolm, chadwick, whisper, sage, franklin]
+    loan_workspace: read_write
+    deal_rooms: always
+    folders:
+      loans: [intake, aus, income, assets, title, insurance, conditions, correspondence, exports]
+      other: [templates, sources, team]
+    zapier:
+      include:
+        - "*find*"
+        - "*search*"
+        - "*get*"
+        - "*list*"
+        - "*retrieve*"
+        - "*create_task*"
+        - "*update_task*"
+        - "*add_row*"
+        - "*create_spreadsheet_row*"
+      exclude: ["api_request_beta", "*api_request*", "*delete*"]
+    model_classes: [local_reasoning, cloud_reasoning]
+    external_writes: confirm
+
+  malcolm:
+    display_name: Malcolm
+    title: File Prep & QC
+    role: file_prep
+    description: "File Prep & QC: minimum docs, AUS status, consistency, income/asset prep, readiness."
+    color: "#4f6b3a"
+    reports_to: flo
+    loan_workspace: read_write
+    deal_rooms: when_needed
+    folders:
+      loans: [intake, aus, income, assets, conditions, exports]
+      other: [templates, sources]
+    zapier:
+      include: ["*find*", "*search*", "*get*", "*list*", "*retrieve*"]
+      exclude: ["*send*", "*create*", "*update*", "*delete*", "*api_request*"]
+    model_classes: [local_fast, local_reasoning, deterministic]
+    external_writes: deny
+
+  chadwick:
+    display_name: Chadwick
+    title: Order Outs
+    role: order_outs
+    description: "Order Outs: title, HOI, WVOE/VOE, LOE request workflow, vendor follow-up."
+    color: "#7a5c2e"
+    reports_to: flo
+    loan_workspace: read_write
+    deal_rooms: when_needed
+    folders:
+      loans: [title, insurance, correspondence, exports]
+      other: [templates]
+    zapier:
+      include:
+        - "*find*"
+        - "*search*"
+        - "*get*"
+        - "*list*"
+        - "gmail_send_email"
+        - "gmail_create_draft"
+        - "*create_event*"
+        - "*create_task*"
+        - "*add_row*"
+        - "*create_spreadsheet_row*"
+      exclude: ["*delete*", "*api_request*"]
+    model_classes: [local_fast, deterministic]
+    external_writes: confirm
+
+  whisper:
+    display_name: Whisper
+    title: Processing Assistant
+    role: communications
+    description: "Processing Assistant: inbox triage, borrower/LO/lender drafts, milestone updates, condition translation."
+    color: "#3f8f7a"
+    reports_to: flo
+    loan_workspace: read
+    deal_rooms: throughout
+    folders:
+      loans: [correspondence, conditions, exports]
+      other: [templates]
+    zapier:
+      include:
+        - "gmail_*"
+        - "google_calendar_*"
+        - "*find*"
+        - "*search*"
+        - "*get*"
+        - "*list*"
+      exclude: ["*delete*", "*api_request*", "*trash*"]
+    model_classes: [local_fast, local_reasoning]
+    external_writes: confirm
+
+  sage:
+    display_name: Sage
+    title: Underwriting
+    role: underwriting
+    description: "Underwriting & guideline intelligence: source-backed answers, Guideline Cards, calculation rules, conflicts."
+    color: "#123d2a"
+    reports_to: flo
+    loan_workspace: read
+    deal_rooms: when_needed
+    folders:
+      loans: [aus, income, assets, conditions]
+      other: [sources]
+    zapier:
+      include: ["*find*", "*search*", "*get*", "*list*", "*retrieve*"]
+      exclude: ["*send*", "*create*", "*update*", "*delete*", "*api_request*"]
+    model_classes: [local_reasoning, cloud_reasoning, deterministic]
+    external_writes: deny
+
+  franklin:
+    display_name: Franklin
+    title: Marketing & Growth
+    role: marketing
+    description: "Marketing & Growth: social, LO newsletters, Google Business Profile, blog, content calendar. No borrower data."
+    color: "#6b8f3a"
+    reports_to: flo
+    loan_workspace: deny
+    deal_rooms: never
+    folders:
+      loans: []
+      other: [marketing]
+    zapier:
+      include:
+        - "*mailchimp*"
+        - "*buffer*"
+        - "*hootsuite*"
+        - "*linkedin*"
+        - "*facebook_pages*"
+        - "*instagram*"
+        - "*google_business*"
+        - "*wordpress*"
+        - "*canva*"
+        - "*find*"
+        - "*search*"
+      exclude: ["gmail_*", "google_drive_*", "google_calendar_*", "*delete*", "*api_request*"]
+    model_classes: [local_fast, cloud_reasoning]
+    external_writes: confirm
+
+# Local folder layout (shared/LOCAL_FOLDER_POLICY.md). Roots resolve under
+# the workspace root chosen at install (default ~/FloWorkspace). Opaque loan
+# ids only — never SSNs or account numbers in folder names.
+workspace:
+  root_env: FLO_WORKSPACE_ROOT
+  default_root: "~/FloWorkspace"
+  loan_subfolders: [intake, aus, income, assets, title, insurance, conditions, correspondence, exports]
+  # Original borrower-provided documents live in intake/. They are never
+  # overwritten, renamed in place or deleted by any bot; edits go to exports/.
+  protected_subfolders: [intake]
+  other_roots: [marketing, templates, sources, team]
+
+# Model classes (runtime/MODEL_ROUTING.yaml). Providers map to Hermes
+# config: `providers.<name>` blocks in the profile's config.yaml. The local
+# provider is selected through one adapter (plugins/flo-team/models.py) — no
+# per-profile prefix workarounds.
+model_classes:
+  local_fast:
+    provider: flo_local
+    requires_context_min: 65536
+    pii_allowed: true
+  local_reasoning:
+    provider: flo_local
+    requires_context_min: 65536
+    pii_allowed: true
+  cloud_reasoning:
+    provider: configurable
+    pii_allowed: false
+  deterministic:
+    provider: code
+    pii_allowed: true

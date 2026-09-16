@@ -1,0 +1,73 @@
+version: 3
+status: complete
+visual_authority: Flo-AI-Assistant-Branding.PNG
+agents:
+  flo:
+    source: avatars/generated/flo/flo_master_1024.png
+    status: approved
+    sizes:
+      512: avatars/generated/flo/flo_512.png
+      256: avatars/generated/flo/flo_256.png
+      128: avatars/generated/flo/flo_128.png
+      64: avatars/generated/flo/flo_64.png
+  malcolm:
+    source: avatars/generated/malcolm/malcolm_master_1024.png
+    status: approved
+    sizes:
+      512: avatars/generated/malcolm/malcolm_512.png
+      256: avatars/generated/malcolm/malcolm_256.png
+      128: avatars/generated/malcolm/malcolm_128.png
+      64: avatars/generated/malcolm/malcolm_64.png
+  chadwick:
+    source: avatars/generated/chadwick/chadwick_master_1024.png
+    status: approved
+    sizes:
+      512: avatars/generated/chadwick/chadwick_512.png
+      256: avatars/generated/chadwick/chadwick_256.png
+      128: avatars/generated/chadwick/chadwick_128.png
+      64: avatars/generated/chadwick/chadwick_64.png
+  whisper:
+    source: avatars/generated/whisper/whisper_master_1024.png
+    status: approved
+    sizes:
+      512: avatars/generated/whisper/whisper_512.png
+      256: avatars/generated/whisper/whisper_256.png
+      128: avatars/generated/whisper/whisper_128.png
+      64: avatars/generated/whisper/whisper_64.png
+  sage:
+    source: avatars/generated/sage/sage_master_1024.png
+    status: approved
+    sizes:
+      512: avatars/generated/sage/sage_512.png
+      256: avatars/generated/sage/sage_256.png
+      128: avatars/generated/sage/sage_128.png
+      64: avatars/generated/sage/sage_64.png
+  franklin:
+    source: avatars/generated/franklin/franklin_master_1024.png
+    status: approved
+    sizes:
+      512: avatars/generated/franklin/franklin_512.png
+      256: avatars/generated/franklin/franklin_256.png
+      128: avatars/generated/franklin/franklin_128.png
+      64: avatars/generated/franklin/franklin_64.png
+derivatives: [512, 256, 128, 64]
+requirements:
+  format: png
+  master_size: 1024
+  circular_crop_safe: true
+  transparent_background_optional: false
+app_icon:
+  status: complete
+  source: avatars/generated/app_icon/flo_app_icon_1024.png
+  windows_ico: avatars/generated/app_icon/flo.ico
+  macos_iconset: avatars/generated/app_icon/flo.iconset
+  png_sizes: [16, 24, 32, 48, 64, 128, 256, 512, 1024]
+  alpha: true
+team_banner:
+  status: complete
+  source: avatars/generated/flo_team_banner_16x9.png
+  width: 2048
+  height: 1152
+review_sheet: avatars/generated/team_portrait_review.png
+
+

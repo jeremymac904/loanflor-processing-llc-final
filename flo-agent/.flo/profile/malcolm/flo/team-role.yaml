@@ -1,0 +1,40 @@
+# Malcolm's slice of plugins/flo-team/team.yaml (informational copy; the plugin reads the manifest).
+name: malcolm
+display_name: Malcolm
+title: File Prep & QC
+role: file_prep
+reports_to: flo
+delegates_to: []
+loan_workspace: read_write
+deal_rooms: when_needed
+folders:
+  loans:
+  - intake
+  - aus
+  - income
+  - assets
+  - conditions
+  - exports
+  other:
+  - templates
+  - sources
+zapier:
+  include:
+  - '*find*'
+  - '*search*'
+  - '*get*'
+  - '*list*'
+  - '*retrieve*'
+  exclude:
+  - '*send*'
+  - '*create*'
+  - '*update*'
+  - '*delete*'
+  - '*api_request*'
+model_classes:
+- local_fast
+- local_reasoning
+- deterministic
+external_writes: deny
+team_autonomy_level: assisted
+max_delegation_depth: 1

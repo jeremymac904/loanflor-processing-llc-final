@@ -1,0 +1,34 @@
+# Whisper's slice of plugins/flo-team/team.yaml (informational copy; the plugin reads the manifest).
+name: whisper
+display_name: Whisper
+title: Processing Assistant
+role: communications
+reports_to: flo
+delegates_to: []
+loan_workspace: read
+deal_rooms: throughout
+folders:
+  loans:
+  - correspondence
+  - conditions
+  - exports
+  other:
+  - templates
+zapier:
+  include:
+  - gmail_*
+  - google_calendar_*
+  - '*find*'
+  - '*search*'
+  - '*get*'
+  - '*list*'
+  exclude:
+  - '*delete*'
+  - '*api_request*'
+  - '*trash*'
+model_classes:
+- local_fast
+- local_reasoning
+external_writes: confirm
+team_autonomy_level: assisted
+max_delegation_depth: 1

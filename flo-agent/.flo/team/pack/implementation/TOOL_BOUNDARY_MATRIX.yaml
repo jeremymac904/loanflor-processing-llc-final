@@ -1,0 +1,40 @@
+version: 1
+
+tools:
+  flo:
+    local_workspace: metadata_and_assigned
+    zapier_mcp: scoped_orchestration
+    external_writes: confirm
+    underwriting_source_write: deny
+    marketing_publish: confirm
+
+  malcolm:
+    local_workspace: processing_assigned
+    zapier_mcp: read_only_processing_sources
+    external_writes: deny
+    calculators: allow
+    source_read: allow
+
+  chadwick:
+    local_workspace: order_outs_assigned
+    zapier_mcp: approved_order_actions
+    external_writes: confirm
+    calculators: limited
+
+  whisper:
+    local_workspace: correspondence_assigned
+    zapier_mcp: approved_email_calendar_actions
+    external_writes: confirm
+
+  sage:
+    local_workspace: underwriting_assigned
+    zapier_mcp: read_only_if_needed
+    external_writes: deny
+    calculators: allow
+    official_source_research: allow
+
+  franklin:
+    local_workspace: marketing_only
+    zapier_mcp: marketing_actions
+    loan_workspace: deny
+    external_writes: confirm

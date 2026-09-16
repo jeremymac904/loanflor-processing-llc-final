@@ -1,0 +1,55 @@
+# Sage (Underwriting) — Flo Team profile config. Generated from plugins/flo-team/team.yaml.
+# Model/provider and the Zapier MCP url are written by the installer (mirrored from the Ashley profile or env);
+# they never live in git. Role boundaries (folders, Zapier scope, Franklin's loan-workspace exclusion,
+# Shadow/Assisted/Trusted) are enforced by plugins/flo-team; this file only pre-filters what the bot sees.
+display:
+  personality: ''
+  skin: flo
+  language: en
+approvals:
+  mode: smart
+cron:
+  allow_agent_scheduling: false
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  write_approval: false
+skills:
+  write_approval: false
+  disabled:
+  - flo-compliance-messaging
+  - flo-conditions-to-action
+  - flo-file-prep
+  - flo-marketing-guardrails
+  - flo-milestones
+  - flo-notes-and-emails
+  - flo-order-outs
+plugins:
+  enabled:
+  - flo-policy
+  - flo-team
+agent:
+  disabled_toolsets:
+  - delegation
+  - computer_use
+  bot_mode_protocol: true
+delegation:
+  max_spawn_depth: 1
+mcp_servers:
+  zapier:
+    connect_timeout: 90
+    tools:
+      include:
+      - '*find*'
+      - '*search*'
+      - '*get*'
+      - '*list*'
+      - '*retrieve*'
+      exclude:
+      - '*api_request*'
+      - '*create*'
+      - '*delete*'
+      - '*raw_request*'
+      - '*send*'
+      - '*update*'
+      - '*webhook_by_zapier*'

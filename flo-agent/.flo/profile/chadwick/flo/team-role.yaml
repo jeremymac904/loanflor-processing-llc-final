@@ -1,0 +1,38 @@
+# Chadwick's slice of plugins/flo-team/team.yaml (informational copy; the plugin reads the manifest).
+name: chadwick
+display_name: Chadwick
+title: Order Outs
+role: order_outs
+reports_to: flo
+delegates_to: []
+loan_workspace: read_write
+deal_rooms: when_needed
+folders:
+  loans:
+  - title
+  - insurance
+  - correspondence
+  - exports
+  other:
+  - templates
+zapier:
+  include:
+  - '*find*'
+  - '*search*'
+  - '*get*'
+  - '*list*'
+  - gmail_send_email
+  - gmail_create_draft
+  - '*create_event*'
+  - '*create_task*'
+  - '*add_row*'
+  - '*create_spreadsheet_row*'
+  exclude:
+  - '*delete*'
+  - '*api_request*'
+model_classes:
+- local_fast
+- deterministic
+external_writes: confirm
+team_autonomy_level: assisted
+max_delegation_depth: 1

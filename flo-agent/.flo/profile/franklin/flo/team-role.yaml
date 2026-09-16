@@ -1,0 +1,38 @@
+# Franklin's slice of plugins/flo-team/team.yaml (informational copy; the plugin reads the manifest).
+name: franklin
+display_name: Franklin
+title: Marketing & Growth
+role: marketing
+reports_to: flo
+delegates_to: []
+loan_workspace: deny
+deal_rooms: never
+folders:
+  loans: []
+  other:
+  - marketing
+zapier:
+  include:
+  - '*mailchimp*'
+  - '*buffer*'
+  - '*hootsuite*'
+  - '*linkedin*'
+  - '*facebook_pages*'
+  - '*instagram*'
+  - '*google_business*'
+  - '*wordpress*'
+  - '*canva*'
+  - '*find*'
+  - '*search*'
+  exclude:
+  - gmail_*
+  - google_drive_*
+  - google_calendar_*
+  - '*delete*'
+  - '*api_request*'
+model_classes:
+- local_fast
+- cloud_reasoning
+external_writes: confirm
+team_autonomy_level: assisted
+max_delegation_depth: 1

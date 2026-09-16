@@ -1,0 +1,298 @@
+{
+ "schema_version": 1,
+ "program": "freddie",
+ "layer": "agency_baseline",
+ "source_title": "Freddie Mac Single-Family Seller/Servicer Guide",
+ "edition": "Guide sections as published on guide.freddiemac.com (per-section version and published date in sections.json)",
+ "note": "Paraphrased rule records for the Freddie Golden Loan Path (Freddie Mac conventional, W-2 base non-fluctuating and fluctuating hourly earnings, depository assets, Loan Product Advisor). Freddie rules are distinct from Fannie rules: there is no generic conventional rule. Each record names the Guide section and an anchor phrase that must exist in the privately cached official text for the regression step to pass. A rule is usable only while its section revision is ACTIVE on this install.",
+ "rules": [
+  {
+   "rule_id": "freddie.income.stable_monthly_income",
+   "section": "5301.1",
+   "topic": "income_general",
+   "kind": "definition",
+   "text": "Stable monthly income is the borrower's verified gross monthly income from all acceptable and verifiable sources that can reasonably be expected to continue for at least the next three years; both the source and the amount must be stable with a consistent level of earnings.",
+   "anchor": "continue for at least the next three years"
+  },
+  {
+   "rule_id": "freddie.income.two_year_history",
+   "section": "5301.1",
+   "topic": "employment_history",
+   "kind": "history",
+   "text": "In most instances a two-year history of receiving a consistent level of income is required for the income to be considered stable and used for qualifying.",
+   "anchor": "two-year history of receiving a consistent level of income"
+  },
+  {
+   "rule_id": "freddie.income.continuance_no_docs_for_base",
+   "section": "5301.1",
+   "topic": "income_general",
+   "kind": "documentation",
+   "text": "Base employment earnings, bonus, commission, overtime and tips are income types typically without documentable continuance: the seller need not document continuance absent knowledge, information or documentation that the income is no longer received or likely to cease.",
+   "anchor": "not required to obtain documentation to verify income continuance"
+  },
+  {
+   "rule_id": "freddie.income.lpa_risk_class_invalidation",
+   "section": "5301.1",
+   "topic": "lpa",
+   "kind": "process",
+   "text": "Income that does not meet the stable monthly income requirements or is not calculated correctly may invalidate the Loan Product Advisor Risk Class on the Feedback Certificate.",
+   "anchor": "invalidate the Loan Product Advisor"
+  },
+  {
+   "rule_id": "freddie.income.crypto_excluded",
+   "section": "5301.1",
+   "topic": "income_general",
+   "kind": "eligibility",
+   "text": "Income paid to the borrower in cryptocurrency may not be used for qualification.",
+   "anchor": "cryptocurrency may not be used for qualification"
+  },
+  {
+   "rule_id": "freddie.docs.paystub",
+   "section": "5302.2",
+   "topic": "employment_documentation",
+   "kind": "documentation",
+   "text": "The year-to-date paystub must be dated no more than 30 days before the Application Received Date (and comply with 5102.4), identify the employer, the borrower as employee and the date issued, and show the period covered, current pay period earnings and complete YTD earnings.",
+   "anchor": "dated no more than 30 days before the Application Received Date"
+  },
+  {
+   "rule_id": "freddie.docs.paystub_incomplete",
+   "section": "5302.2",
+   "topic": "employment_documentation",
+   "kind": "documentation",
+   "text": "When the YTD paystub lacks required information (for example handwritten or without YTD earnings), the seller must verify the information with additional documentation such as a written VOE or payroll deposits on bank statements.",
+   "anchor": "does not contain the required information"
+  },
+  {
+   "rule_id": "freddie.docs.w2",
+   "section": "5302.2",
+   "topic": "employment_documentation",
+   "kind": "documentation",
+   "text": "W-2 forms must be the complete IRS Form W-2 issued by the employer for the preceding tax year(s); a year-end YTD paystub or a W-2 transcript reflecting the complete prior-year income may be used in lieu of the W-2.",
+   "anchor": "complete Internal Revenue Service (IRS) Form W-2"
+  },
+  {
+   "rule_id": "freddie.docs.written_voe",
+   "section": "5302.2",
+   "topic": "employment_documentation",
+   "kind": "documentation",
+   "text": "A written VOE must contain the signature, printed name, title and contact information of the employer representative, the date verified, and the borrower's and employer's names and address; earnings must be split into separate categories for YTD and prior year(s).",
+   "anchor": "authorized employer representative who verified the information"
+  },
+  {
+   "rule_id": "freddie.docs.ten_day_pcv",
+   "section": "5302.2",
+   "topic": "employment_documentation",
+   "kind": "documentation",
+   "text": "The 10-day pre-closing verification must be obtained no earlier than 10 Business Days before the Note Date and no later than the day before the Delivery Date (verbal VOE, e-mail VOE, written VOE, a YTD paystub from the pay period immediately preceding the Note Date dated no more than 15 Business Days before it, or an eligible third-party/automated verification).",
+   "anchor": "no earlier than 10 Business Days before the Note Date"
+  },
+  {
+   "rule_id": "freddie.docs.ten_day_pcv_form_90",
+   "section": "5302.2",
+   "topic": "employment_documentation",
+   "kind": "documentation",
+   "text": "A verbal VOE is documented on Form 90 (or a similar written record) with the borrower and employer names, the contact's name and title, date and phone number used, the third-party source of the phone number, the borrower's current employment status, and the representative who completed it.",
+   "anchor": "Form 90, Verbal Verification of Employment"
+  },
+  {
+   "rule_id": "freddie.docs.age_120_days",
+   "section": "5102.4",
+   "topic": "document_age",
+   "kind": "documentation",
+   "text": "Verifications used to evaluate creditworthiness (employment, income, source of funds, payment history) must be dated no more than 120 calendar days before the Note Date; an employed borrower also needs the 10-day pre-closing verification.",
+   "anchor": "no more than 120 calendar days before the Note Date"
+  },
+  {
+   "rule_id": "freddie.base_income.non_fluctuating_documentation",
+   "section": "5303.1",
+   "topic": "employment_documentation",
+   "kind": "documentation",
+   "text": "Primary employment base non-fluctuating earnings: YTD paystub(s) documenting all YTD earnings, W-2 form(s) for the most recent calendar year and a 10-day PCV; or a written VOE documenting all YTD earnings and the most recent calendar year plus the 10-day PCV.",
+   "anchor": "YTD paystub(s) documenting all YTD earnings W-2 form(s)1 for the most recent calendar year 10-day pre-closing verification"
+  },
+  {
+   "rule_id": "freddie.base_income.pay_frequency",
+   "section": "5303.1",
+   "topic": "base_income_calculation",
+   "kind": "calculation",
+   "text": "For all income used to qualify, the seller must determine the pay frequency (weekly, bi-weekly, semi-monthly, monthly, quarterly, annually) to accurately analyze and calculate the stable monthly income.",
+   "anchor": "determine the pay frequency (weekly, bi-weekly, semi-monthly, monthly, quarterly, annually)"
+  },
+  {
+   "rule_id": "freddie.base_income.calc_table",
+   "section": "5303.1",
+   "topic": "base_income_calculation",
+   "kind": "calculation",
+   "text": "Base non-fluctuating earnings: weekly gross pay x 52 / 12; bi-weekly gross pay x 26 / 12; semi-monthly gross pay x 24 / 12; monthly gross pay as-is; annual salary paid over fewer than 12 months: annual gross pay / 12.",
+   "anchor": "Multiply the biweekly gross pay by 26 and divide by 12"
+  },
+  {
+   "rule_id": "freddie.base_income.minimum_required_hours_exception",
+   "section": "5303.1",
+   "topic": "base_income",
+   "kind": "eligibility",
+   "text": "Primary employment earnings that fluctuate but have a position with a minimum number of required hours may be treated as non-fluctuating using the documented minimum required hours when the employer confirms them in writing and YTD and prior-year income support them.",
+   "anchor": "minimum required hours are acceptable to use for gross pay"
+  },
+  {
+   "rule_id": "freddie.fluctuating_hourly.history",
+   "section": "5303.1",
+   "topic": "base_income",
+   "kind": "history",
+   "text": "Base fluctuating hourly earnings require at least a 12-month history of employment, from the current fluctuating hourly employment, a combination of current and prior fluctuating hourly employment, or current fluctuating hourly plus prior salaried employment in a similar industry with a consistent income level.",
+   "anchor": "at least a 12-month history of employment"
+  },
+  {
+   "rule_id": "freddie.fluctuating_hourly.general_calculation",
+   "section": "5303.1",
+   "topic": "base_income_calculation",
+   "kind": "calculation",
+   "text": "When calculating qualifying income from fluctuating earnings the seller must determine the pay frequency, determine whether the trend is consistent, increasing or declining by comparing YTD income to prior year(s), evaluate the trend and use the amount most likely to continue for the next three years.",
+   "anchor": "use the amount that is most likely to continue for the next three years"
+  },
+  {
+   "rule_id": "freddie.fluctuating_hourly.average_consistent_increasing",
+   "section": "5303.1",
+   "topic": "base_income_calculation",
+   "kind": "calculation",
+   "text": "Consistent and increasing trends: average the most recent year(s) and YTD income; the period averaged depends on history, documentation, time at the current employer and consistency of earnings.",
+   "anchor": "The Seller must average the most recent year(s) and YTD income"
+  },
+  {
+   "rule_id": "freddie.fluctuating_hourly.degree_of_fluctuation",
+   "section": "5303.1",
+   "topic": "base_income_calculation",
+   "kind": "validation",
+   "text": "Degree of fluctuation at or below 10%: consistent, no additional analysis; above 10% up to 30%: no additional analysis only when supported by a verified pay raise or documented income breakdown, otherwise additional analysis; above 30%: additional analysis required and additional documentation likely.",
+   "anchor": "Degree of fluctuation > 30%"
+  },
+  {
+   "rule_id": "freddie.fluctuating_hourly.declining_trend",
+   "section": "5303.1",
+   "topic": "base_income_calculation",
+   "kind": "calculation",
+   "text": "Declining trend: use the YTD income and do not include the previous higher level unless a documented one-time occurrence explains the shortfall and the borrower is back to the prior income; if the decline exceeds 10% the seller must analyze the reason and support that current income has stabilized.",
+   "anchor": "must use the YTD income and must not include the previous higher level"
+  },
+  {
+   "rule_id": "freddie.fluctuating_hourly.pay_raise_option",
+   "section": "5303.1",
+   "topic": "base_income_calculation",
+   "kind": "calculation",
+   "text": "With a verified pay raise, the seller may apply the current pay rate to the average number of hours during the prior year and the current year, provided the hours are consistent or increasing.",
+   "anchor": "Apply the current pay rate to the average number of hours"
+  },
+  {
+   "rule_id": "freddie.lpa.risk_class",
+   "section": "5101.2",
+   "topic": "lpa",
+   "kind": "definition",
+   "text": "Loan Product Advisor returns a Risk Class of Accept or Caution on the Last Feedback Certificate; the Risk Class establishes the extent of underwriting required. A Caution Mortgage must be manually underwritten.",
+   "anchor": "Risk Class of Accept or Caution"
+  },
+  {
+   "rule_id": "freddie.lpa.feedback_certificate",
+   "section": "5101.1",
+   "topic": "lpa",
+   "kind": "process",
+   "text": "Loan Product Advisor is Freddie Mac's automated loan assessment system; it assesses data and returns a Feedback Certificate with the results of the submission. Eligibility as a Loan Product Advisor Mortgage requires the last submission no more than 120 days before the Note Date.",
+   "anchor": "returns a Feedback Certificate with the results"
+  },
+  {
+   "rule_id": "freddie.lpa.resubmission_required",
+   "section": "5101.3",
+   "topic": "lpa_tolerances",
+   "kind": "process",
+   "text": "Resubmission is required before the Delivery Date if previous data was not true, complete or accurate, if submitted information changes outside the tolerances, if the last submission was more than 120 days before the Note Date, or if the credit report exceeds 120 days.",
+   "anchor": "more than 120 days before the Note Date"
+  },
+  {
+   "rule_id": "freddie.lpa.resubmit_dti_tolerance",
+   "section": "5101.3",
+   "topic": "lpa_tolerances",
+   "kind": "tolerance",
+   "text": "Resubmission is not required for income decreases or debt increases when the total new DTI ratio does not exceed 45% and the change does not move the total DTI by more than 3 percentage points; verified reserves may decrease only to no less than the reserves required on the Feedback Certificate.",
+   "anchor": "does not change the total DTI ratio by more than 3 percentage points"
+  },
+  {
+   "rule_id": "freddie.dti.definition",
+   "section": "5401.2",
+   "topic": "dti",
+   "kind": "calculation",
+   "text": "The DTI ratio is the borrower's monthly housing expense plus all monthly liability payments, divided by stable monthly income and/or the qualifying asset amount.",
+   "anchor": "is determined by dividing the total of the Borrower"
+  },
+  {
+   "rule_id": "freddie.dti.manual_maximum_45",
+   "section": "5401.2",
+   "topic": "dti",
+   "kind": "eligibility",
+   "text": "For manually underwritten mortgages, a monthly DTI ratio above 45% makes the mortgage ineligible for sale; as a guideline it should not exceed 36%, and a ratio above 36% requires documented justification.",
+   "anchor": "exceeds 45%, the Mortgage is ineligible for sale to Freddie Mac"
+  },
+  {
+   "rule_id": "freddie.assets.depository_documentation",
+   "section": "5501.3",
+   "topic": "assets",
+   "kind": "documentation",
+   "text": "Depository accounts (checking, savings, money market, CDs): an account statement covering a one-month period or a direct account verification (VOD) under Streamlined Accept Documentation; statements covering a two-month period or a VOD under Standard Documentation.",
+   "anchor": "Account statement covering a one-month period"
+  },
+  {
+   "rule_id": "freddie.assets.ownership_access",
+   "section": "5501.3",
+   "topic": "assets",
+   "kind": "eligibility",
+   "text": "All accounts held in financial institutions must be owned by the borrower with access to the funds; jointly held accounts with a non-borrower count as borrower personal funds.",
+   "anchor": "must be owned by the Borrower and the Borrower must have access to the funds"
+  },
+  {
+   "rule_id": "freddie.assets.earnest_money",
+   "section": "5501.3",
+   "topic": "assets",
+   "kind": "documentation",
+   "text": "When an earnest money deposit is used to qualify, the seller must document that it cleared the borrower's account and must not count it twice.",
+   "anchor": "The EMD must not be counted twice"
+  },
+  {
+   "rule_id": "freddie.assets.large_deposit_definition",
+   "section": "5501.1",
+   "topic": "assets_large_deposits",
+   "kind": "definition",
+   "text": "A large deposit is any single deposit exceeding 50% of the sum of the total monthly qualifying income and any asset-derived amount used for the DTI ratio; only the unverified portion counts when a deposit is partly verified.",
+   "anchor": "any single deposit exceeding 50% of the sum of"
+  },
+  {
+   "rule_id": "freddie.assets.large_deposit_purchase",
+   "section": "5501.1",
+   "topic": "assets_large_deposits",
+   "kind": "documentation",
+   "text": "For purchase transactions the seller must document the source of any large deposit needed to qualify that was made no more than 60 calendar days before the Application Received Date, on or before the Note Date, and reflected in the file; an unverified large deposit that is not needed reduces the funds used for qualification.",
+   "anchor": "No more than 60 calendar days preceding the Application Received Date"
+  },
+  {
+   "rule_id": "freddie.assets.unverified_deposits_general",
+   "section": "5501.1",
+   "topic": "assets_large_deposits",
+   "kind": "documentation",
+   "text": "Except for large deposits on purchases and deposits used to pay off or pay down debt, the seller is not required to document the sources of unverified deposits, but must consider liabilities from borrowed funds.",
+   "anchor": "not required to document the sources of unverified deposits"
+  },
+  {
+   "rule_id": "freddie.reserves.definition",
+   "section": "5501.2",
+   "topic": "reserves",
+   "kind": "definition",
+   "text": "Reserves are measured in months of the monthly payment amount (principal and interest, hazard insurance, real estate taxes and, when applicable, mortgage insurance, leasehold payments, HOA dues and secondary financing).",
+   "anchor": "measured by the number of months of the monthly payment amount"
+  },
+  {
+   "rule_id": "freddie.reserves.lpa_required",
+   "section": "5501.2",
+   "topic": "reserves",
+   "kind": "process",
+   "text": "For Loan Product Advisor Mortgages the seller must verify all reserves required by Loan Product Advisor as stated on the Feedback Certificate; for manually underwritten one-unit primary residences no reserves are required.",
+   "anchor": "verify all reserves required by Loan Product Advisor"
+  }
+ ]
+}

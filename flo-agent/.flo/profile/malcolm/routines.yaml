@@ -1,0 +1,16 @@
+# Malcolm's routines (Hermes cron jobs in this profile). Created once by the installer; edit in the Cron page.
+# Every routine is read/analysis + proposal only. External side effects still stop at Ashley's approval.
+routines:
+- name: Malcolm new-file prep sweep
+  schedule: 0 8 * * 1-5
+  skills:
+  - flo-file-prep
+  prompt: 'New-file prep sweep: call flo_workspace action=list. For any workspace at Intake/Application
+    without a readiness report, prepare a File Prep Report skeleton from the facts present and list what
+    Ashley must supply. Propose only; do not contact anyone.'
+- name: Malcolm missing-document refresh
+  schedule: 0 13 * * 1-5
+  skills:
+  - flo-file-prep
+  prompt: 'Missing-document refresh: for each workspace with a readiness report, re-list the missing items
+    and who owns them. Hand the list to Flo with flo_handoff (return_format status_note).'

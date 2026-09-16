@@ -1,0 +1,9 @@
+{
+  "productName": "Flo",
+  "assistantName": "Flo",
+  "protocolScheme": "flo",
+  "appId": "com.example.flo",
+  "artifactPrefix": "Flo",
+  "upstreamEngineName": "Hermes Agent",
+  "upstreamPinnedTag": "v2026.8.31"
+}

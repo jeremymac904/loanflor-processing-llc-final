@@ -1,0 +1,16 @@
+display_name: Whisper
+description: 'Processing Assistant: inbox triage, borrower/LO/lender drafts, milestone updates, condition
+  translation.'
+description_auto: false
+ui_meta:
+  hermes-bots:
+    title: Whisper
+    description: 'Processing Assistant: inbox triage, borrower/LO/lender drafts, milestone updates, condition
+      translation.'
+    color: '#3f8f7a'
+    group: Flo Team
+    groups:
+    - Flo Team
+    pinned: false
+    custom: true
+    imageKind: photo

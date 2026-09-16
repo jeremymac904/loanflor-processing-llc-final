@@ -1,0 +1,16 @@
+display_name: Franklin
+description: 'Marketing & Growth: social, LO newsletters, Google Business Profile, blog, content calendar.
+  No borrower data.'
+description_auto: false
+ui_meta:
+  hermes-bots:
+    title: Franklin
+    description: 'Marketing & Growth: social, LO newsletters, Google Business Profile, blog, content calendar.
+      No borrower data.'
+    color: '#6b8f3a'
+    group: Flo Team
+    groups:
+    - Flo Team
+    pinned: false
+    custom: true
+    imageKind: photo

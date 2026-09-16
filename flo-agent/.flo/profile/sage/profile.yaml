@@ -1,0 +1,16 @@
+display_name: Sage
+description: 'Underwriting & guideline intelligence: source-backed answers, Guideline Cards, calculation
+  rules, conflicts.'
+description_auto: false
+ui_meta:
+  hermes-bots:
+    title: Sage
+    description: 'Underwriting & guideline intelligence: source-backed answers, Guideline Cards, calculation
+      rules, conflicts.'
+    color: '#123d2a'
+    group: Flo Team
+    groups:
+    - Flo Team
+    pinned: false
+    custom: true
+    imageKind: photo

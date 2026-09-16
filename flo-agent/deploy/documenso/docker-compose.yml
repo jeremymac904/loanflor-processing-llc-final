@@ -1,0 +1,76 @@
+# Self-hosted Documenso Community Edition — pinned v2.18.0 (current stable at time of writing, 2026-09-10;
+# confirmed against https://api.github.com/repos/documenso/documenso/releases/latest and the matching
+# documenso/documenso:v2.18.0 Docker Hub tag — never `latest`, per Documenso's own deployment guidance).
+#
+# This is a synthetic TEST deployment for FLO_ESIGN.md's real end-to-end run: one processing document
+# (Letter of Explanation), a controlled test inbox, no real borrower data. See FLO_ESIGN.md for the exact
+# provisioning steps, the .env this file reads from (never committed), and the signing-certificate decision.
+#
+# A local mail-capture service (maildev) stands in for real email during this test — nothing here sends to
+# a real borrower inbox. Remove the mail service and point NEXT_PRIVATE_SMTP_* at a real transport before
+# any production use.
+
+name: flo-documenso
+
+services:
+  database:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:?err}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?err}
+      - POSTGRES_DB=${POSTGRES_DB:?err}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  mail:
+    # Local mail-capture for the synthetic test only — a real SMTP transport replaces this before production.
+    image: maildev/maildev:2.1.0
+    restart: unless-stopped
+    ports:
+      - '1080:1080' # web inbox, bind to localhost only in prod (see FLO_ESIGN.md)
+
+  documenso:
+    image: documenso/documenso:v2.18.0
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:${PORT:-3000}/api/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    environment:
+      - PORT=${PORT:-3000}
+      - NEXT_PRIVATE_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - NEXT_PRIVATE_DIRECT_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?err}
+      - NEXTAUTH_URL=${NEXT_PUBLIC_WEBAPP_URL:?err}
+      - NEXT_PRIVATE_ENCRYPTION_KEY=${NEXT_PRIVATE_ENCRYPTION_KEY:?err}
+      - NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY=${NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY:?err}
+      - NEXT_PUBLIC_WEBAPP_URL=${NEXT_PUBLIC_WEBAPP_URL:?err}
+      - NEXT_PRIVATE_INTERNAL_WEBAPP_URL=http://documenso:${PORT:-3000}
+      # Test inbox (maildev) — swap for a real transport before production.
+      - NEXT_PRIVATE_SMTP_TRANSPORT=smtp-auth
+      - NEXT_PRIVATE_SMTP_HOST=mail
+      - NEXT_PRIVATE_SMTP_PORT=1025
+      - NEXT_PRIVATE_SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-esign-test@lfprocessing.net}
+      - NEXT_PRIVATE_SMTP_FROM_NAME=${SMTP_FROM_NAME:-LoanFlow Processing (test)}
+      # PDF signing certificate (dev/test cert — see FLO_ESIGN.md for the production-trust decision).
+      - NEXT_PRIVATE_SIGNING_TRANSPORT=local-cert
+      - NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH=/opt/documenso/cert.p12
+      - NEXT_PRIVATE_SIGNING_PASSPHRASE=${SIGNING_CERT_PASSPHRASE:?err}
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./cert.p12:/opt/documenso/cert.p12:ro
+
+volumes:
+  database:

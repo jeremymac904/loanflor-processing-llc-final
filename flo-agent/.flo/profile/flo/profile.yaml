@@ -1,0 +1,14 @@
+display_name: Flo
+description: 'Team Leader: triage, delegation, synthesis, approvals, daily brief.'
+description_auto: false
+ui_meta:
+  hermes-bots:
+    title: Flo
+    description: 'Team Leader: triage, delegation, synthesis, approvals, daily brief.'
+    color: '#1f5a2d'
+    group: Flo Team
+    groups:
+    - Flo Team
+    pinned: true
+    custom: true
+    imageKind: photo

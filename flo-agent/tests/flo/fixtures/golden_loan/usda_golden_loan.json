@@ -1,0 +1,141 @@
+{
+  "fixture": "usda_golden_loan",
+  "synthetic": true,
+  "warning": "Entirely synthetic. Applicant, household, employer, bank, amounts, ids and findings are invented for tests. No real person, account or GUS application.",
+  "workspace": {
+    "display_name": "Synthetic-Lindqvist",
+    "program": "usda_guaranteed",
+    "agency": "usda",
+    "milestone": "Processing",
+    "transaction_type": "purchase",
+    "occupancy": "primary_one_unit",
+    "application_date": "2026-08-24",
+    "estimated_note_date": "2026-10-09",
+    "loan_amount": "218000.00",
+    "purchase_price": "215000.00",
+    "funds_needed": "4100.00",
+    "pitia": "1250.00"
+  },
+  "borrower": {
+    "display_name": "Lindqvist, Sam (synthetic)",
+    "first_name": "Sam",
+    "employer": "Prairie Ridge Manufacturing (synthetic)",
+    "position": "Line Technician",
+    "pay_frequency": "monthly",
+    "employment_start": "2024-03-04",
+    "income_type": "base_wages_hourly_fixed_hours"
+  },
+  "household": {
+    "size": 4,
+    "other_adult_members": [
+      {"relationship": "spouse (non-applicant)", "annual_income": "18000.00", "document_ref": "doc://synthetic-lindqvist/spouse-w2-2025"}
+    ],
+    "adult_full_time_students": [
+      {"relationship": "adult child, full-time student", "annual_earned_income": "6000.00"}
+    ],
+    "eligible_deductions": ["480.00", "480.00"],
+    "eligible_deductions_note": "two dependents per the lender's Attachment 9-C worksheet (synthetic; deduction amounts are the lender's entries)",
+    "area_income_limit": "110650.00",
+    "area_income_limit_note": "synthetic area limit entered by the lender; the actual limit comes from the Agency's published table via GUS"
+  },
+  "usda": {
+    "other_monthly_debts": "420.00"
+  },
+  "intentional_issues": [
+    "PITI ratio 32.1% exceeds 29 percent and total debt ratio 42.8% exceeds 41 percent of repayment income; a debt ratio waiver with compensating factors is required (11.2 / 11.3)",
+    "one non-recurring deposit of 1,500 on 2026-07-18 is greater than $1,000 and not investigated (Attachment 9-A)",
+    "most recent paystub is dated 2026-07-15, more than 30 days before the initial application (9.3)",
+    "no verbal verification of employment in the file (9.3)"
+  ],
+  "documents": [
+    {
+      "ref": "doc://synthetic-lindqvist/paystub-2026-07-15",
+      "type": "paystub",
+      "employer": "Prairie Ridge Manufacturing (synthetic)",
+      "pay_date": "2026-07-15",
+      "period_start": "2026-06-16",
+      "period_end": "2026-07-15",
+      "pay_frequency": "monthly",
+      "gross_current": "3900.00",
+      "ytd_gross": "25350.00",
+      "ytd_through": "2026-07-15",
+      "hours": "173.33",
+      "computer_generated": true,
+      "page": "1 of 1"
+    },
+    {
+      "ref": "doc://synthetic-lindqvist/w2-2025",
+      "type": "w2",
+      "tax_year": 2025,
+      "employer": "Prairie Ridge Manufacturing (synthetic)",
+      "employee": "Lindqvist, Sam (synthetic)",
+      "box1_wages": "45600.00"
+    },
+    {
+      "ref": "doc://synthetic-lindqvist/spouse-w2-2025",
+      "type": "household_member_w2",
+      "tax_year": 2025,
+      "member": "spouse (non-applicant)",
+      "box1_wages": "18000.00"
+    },
+    {
+      "ref": "doc://synthetic-lindqvist/bank-2026-06",
+      "type": "bank_statement",
+      "institution": "Heartland Community Bank (synthetic)",
+      "account_holder": "Sam Lindqvist",
+      "last_four": "7712",
+      "account_type": "checking",
+      "statement_start": "2026-06-01",
+      "statement_end": "2026-06-30",
+      "pages_present": 3,
+      "pages_total": 3,
+      "ending_balance": "6210.40",
+      "deposits": [
+        {"date": "2026-06-15", "amount": "3900.00", "description": "PRAIRIE RIDGE MFG PAYROLL"}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-lindqvist/bank-2026-07",
+      "type": "bank_statement",
+      "institution": "Heartland Community Bank (synthetic)",
+      "account_holder": "Sam Lindqvist",
+      "last_four": "7712",
+      "account_type": "checking",
+      "statement_start": "2026-07-01",
+      "statement_end": "2026-07-31",
+      "pages_present": 3,
+      "pages_total": 3,
+      "ending_balance": "8930.15",
+      "deposits": [
+        {"date": "2026-07-15", "amount": "3900.00", "description": "PRAIRIE RIDGE MFG PAYROLL"},
+        {"date": "2026-07-18", "amount": "1500.00", "description": "MOBILE DEPOSIT", "sourced": false}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-lindqvist/gus-findings-2026-08-26",
+      "type": "gus_findings",
+      "aus_system": "GUS",
+      "date": "2026-08-26",
+      "loan_id": "SYN-GUS-000001",
+      "submission_number": 1,
+      "underwriting_recommendation": "Accept / Eligible",
+      "aus_version": "GUS (synthetic underwriting findings report)",
+      "dti": "42.8",
+      "ltv": "101.40",
+      "funds_required_to_close": "4100.00",
+      "reserves_required_to_be_verified": "0.00",
+      "documentation_messages": [
+        {"id": "SYN-GUS-INC-01", "text": "Income: provide paystubs with year-to-date earnings and the most recent W-2 for the applicant; document all adult household member income for annual income."},
+        {"id": "SYN-GUS-AST-01", "text": "Assets: provide two months of bank statements for the checking account ending 7712."},
+        {"id": "SYN-GUS-CR-01", "text": "Credit: the credit report used for this submission is dated 2026-08-21."}
+      ]
+    },
+    {
+      "ref": "doc://synthetic-lindqvist/application-1003",
+      "type": "application",
+      "date": "2026-08-24",
+      "stated_monthly_income": "3900.00",
+      "stated_assets": "8930.15"
+    }
+  ]
+}

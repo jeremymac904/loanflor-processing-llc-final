@@ -1,0 +1,16 @@
+# Franklin's routines (Hermes cron jobs in this profile). Created once by the installer; edit in the Cron page.
+# Every routine is read/analysis + proposal only. External side effects still stop at Ashley's approval.
+routines:
+- name: Franklin weekly content plan
+  schedule: 0 9 * * 1
+  skills:
+  - flo-marketing-guardrails
+  prompt: 'Weekly content plan: call flo_marketing action=calendar, propose this week''s social, newsletter,
+    GBP and blog items as ideas/drafts with flo_marketing action=create. Flag every claim that needs an
+    approved source. Nothing publishes without approval.'
+- name: Franklin GBP draft queue
+  schedule: 0 10 * * 2,4
+  skills:
+  - flo-marketing-guardrails
+  prompt: 'GBP draft queue: draft one Google Business Profile post from approved educational topics only.
+    No rates, APRs, guarantees, licensing claims or borrower stories. Queue for review.'

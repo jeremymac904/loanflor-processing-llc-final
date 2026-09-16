@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flo Loan Workspace",
+  "type": "object",
+  "required": [
+    "workspace_id",
+    "milestone"
+  ],
+  "properties": {
+    "workspace_id": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "program": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agency": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "aus": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "milestone": {
+      "enum": [
+        "Intake",
+        "Application",
+        "Processing",
+        "Conditional Approval",
+        "Clear to Close",
+        "Closed"
+      ]
+    },
+    "status_summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "next_action": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blockers": {
+      "type": "array"
+    },
+    "conditions": {
+      "type": "array"
+    },
+    "orders": {
+      "type": "array"
+    },
+    "document_refs": {
+      "type": "array"
+    },
+    "communication_refs": {
+      "type": "array"
+    },
+    "source_refs": {
+      "type": "array"
+    },
+    "agent_tasks": {
+      "type": "array"
+    },
+    "approvals": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": true
+}

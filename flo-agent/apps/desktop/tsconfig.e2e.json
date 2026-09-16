@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@playwright/test"],
+    "composite": true
+  },
+  "include": ["e2e", "flo/brand.ts", "flo/brand.config.json", "playwright.config.ts"],
+  "exclude": ["src", "electron"]
+}

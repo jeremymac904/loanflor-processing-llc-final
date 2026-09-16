@@ -1,0 +1,58 @@
+version: 1
+team_name: Flo Team
+leader: flo
+
+profiles:
+  flo:
+    display_name: Flo
+    title: Team Leader
+    role: orchestration
+    color_token: deep_emerald_gold
+    visible_by_default: true
+    direct_chat: true
+    delegates_to: [malcolm, chadwick, whisper, sage, franklin]
+
+  malcolm:
+    display_name: Malcolm
+    title: File Prep & QC
+    role: file_prep
+    color_token: moss_steel
+    visible_by_default: true
+    direct_chat: true
+    reports_to: flo
+
+  chadwick:
+    display_name: Chadwick
+    title: Order Outs
+    role: order_outs
+    color_token: cedar_gold
+    visible_by_default: true
+    direct_chat: true
+    reports_to: flo
+
+  whisper:
+    display_name: Whisper
+    title: Processing Assistant
+    role: communications
+    color_token: willow_mint
+    visible_by_default: true
+    direct_chat: true
+    reports_to: flo
+
+  sage:
+    display_name: Sage
+    title: Underwriting
+    role: underwriting
+    color_token: emerald_ink
+    visible_by_default: true
+    direct_chat: true
+    reports_to: flo
+
+  franklin:
+    display_name: Franklin
+    title: Marketing & Growth
+    role: marketing
+    color_token: fern_gold
+    visible_by_default: true
+    direct_chat: true
+    reports_to: flo

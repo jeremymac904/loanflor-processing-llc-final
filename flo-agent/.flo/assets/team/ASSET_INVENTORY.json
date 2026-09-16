@@ -1,0 +1,352 @@
+[
+  {
+    "agent": "flo",
+    "path": "avatars/generated/flo/flo_master_1024.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "approved"
+  },
+  {
+    "agent": "flo",
+    "path": "avatars/generated/flo/flo_512.png",
+    "width": 512,
+    "height": 512,
+    "status": "approved"
+  },
+  {
+    "agent": "flo",
+    "path": "avatars/generated/flo/flo_256.png",
+    "width": 256,
+    "height": 256,
+    "status": "approved"
+  },
+  {
+    "agent": "flo",
+    "path": "avatars/generated/flo/flo_128.png",
+    "width": 128,
+    "height": 128,
+    "status": "approved"
+  },
+  {
+    "agent": "flo",
+    "path": "avatars/generated/flo/flo_64.png",
+    "width": 64,
+    "height": 64,
+    "status": "approved"
+  },
+  {
+    "agent": "malcolm",
+    "path": "avatars/generated/malcolm/malcolm_master_1024.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "approved"
+  },
+  {
+    "agent": "malcolm",
+    "path": "avatars/generated/malcolm/malcolm_512.png",
+    "width": 512,
+    "height": 512,
+    "status": "approved"
+  },
+  {
+    "agent": "malcolm",
+    "path": "avatars/generated/malcolm/malcolm_256.png",
+    "width": 256,
+    "height": 256,
+    "status": "approved"
+  },
+  {
+    "agent": "malcolm",
+    "path": "avatars/generated/malcolm/malcolm_128.png",
+    "width": 128,
+    "height": 128,
+    "status": "approved"
+  },
+  {
+    "agent": "malcolm",
+    "path": "avatars/generated/malcolm/malcolm_64.png",
+    "width": 64,
+    "height": 64,
+    "status": "approved"
+  },
+  {
+    "agent": "chadwick",
+    "path": "avatars/generated/chadwick/chadwick_master_1024.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "approved"
+  },
+  {
+    "agent": "chadwick",
+    "path": "avatars/generated/chadwick/chadwick_512.png",
+    "width": 512,
+    "height": 512,
+    "status": "approved"
+  },
+  {
+    "agent": "chadwick",
+    "path": "avatars/generated/chadwick/chadwick_256.png",
+    "width": 256,
+    "height": 256,
+    "status": "approved"
+  },
+  {
+    "agent": "chadwick",
+    "path": "avatars/generated/chadwick/chadwick_128.png",
+    "width": 128,
+    "height": 128,
+    "status": "approved"
+  },
+  {
+    "agent": "chadwick",
+    "path": "avatars/generated/chadwick/chadwick_64.png",
+    "width": 64,
+    "height": 64,
+    "status": "approved"
+  },
+  {
+    "agent": "whisper",
+    "path": "avatars/generated/whisper/whisper_master_1024.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "approved"
+  },
+  {
+    "agent": "whisper",
+    "path": "avatars/generated/whisper/whisper_512.png",
+    "width": 512,
+    "height": 512,
+    "status": "approved"
+  },
+  {
+    "agent": "whisper",
+    "path": "avatars/generated/whisper/whisper_256.png",
+    "width": 256,
+    "height": 256,
+    "status": "approved"
+  },
+  {
+    "agent": "whisper",
+    "path": "avatars/generated/whisper/whisper_128.png",
+    "width": 128,
+    "height": 128,
+    "status": "approved"
+  },
+  {
+    "agent": "whisper",
+    "path": "avatars/generated/whisper/whisper_64.png",
+    "width": 64,
+    "height": 64,
+    "status": "approved"
+  },
+  {
+    "agent": "sage",
+    "path": "avatars/generated/sage/sage_master_1024.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "approved"
+  },
+  {
+    "agent": "sage",
+    "path": "avatars/generated/sage/sage_512.png",
+    "width": 512,
+    "height": 512,
+    "status": "approved"
+  },
+  {
+    "agent": "sage",
+    "path": "avatars/generated/sage/sage_256.png",
+    "width": 256,
+    "height": 256,
+    "status": "approved"
+  },
+  {
+    "agent": "sage",
+    "path": "avatars/generated/sage/sage_128.png",
+    "width": 128,
+    "height": 128,
+    "status": "approved"
+  },
+  {
+    "agent": "sage",
+    "path": "avatars/generated/sage/sage_64.png",
+    "width": 64,
+    "height": 64,
+    "status": "approved"
+  },
+  {
+    "agent": "franklin",
+    "path": "avatars/generated/franklin/franklin_master_1024.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "approved"
+  },
+  {
+    "agent": "franklin",
+    "path": "avatars/generated/franklin/franklin_512.png",
+    "width": 512,
+    "height": 512,
+    "status": "approved"
+  },
+  {
+    "agent": "franklin",
+    "path": "avatars/generated/franklin/franklin_256.png",
+    "width": 256,
+    "height": 256,
+    "status": "approved"
+  },
+  {
+    "agent": "franklin",
+    "path": "avatars/generated/franklin/franklin_128.png",
+    "width": 128,
+    "height": 128,
+    "status": "approved"
+  },
+  {
+    "agent": "franklin",
+    "path": "avatars/generated/franklin/franklin_64.png",
+    "width": 64,
+    "height": 64,
+    "status": "approved"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_1024.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_128.png",
+    "width": 128,
+    "height": 128,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_16.png",
+    "width": 16,
+    "height": 16,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_24.png",
+    "width": 24,
+    "height": 24,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_256.png",
+    "width": 256,
+    "height": 256,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_32.png",
+    "width": 32,
+    "height": 32,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_48.png",
+    "width": 48,
+    "height": 48,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_512.png",
+    "width": 512,
+    "height": 512,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo_app_icon_64.png",
+    "width": 64,
+    "height": 64,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_128x128.png",
+    "width": 128,
+    "height": 128,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_128x128@2x.png",
+    "width": 256,
+    "height": 256,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_16x16.png",
+    "width": 16,
+    "height": 16,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_16x16@2x.png",
+    "width": 32,
+    "height": 32,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_256x256.png",
+    "width": 256,
+    "height": 256,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_256x256@2x.png",
+    "width": 512,
+    "height": 512,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_32x32.png",
+    "width": 32,
+    "height": 32,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_32x32@2x.png",
+    "width": 64,
+    "height": 64,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_512x512.png",
+    "width": 512,
+    "height": 512,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/app_icon/flo.iconset/icon_512x512@2x.png",
+    "width": 1024,
+    "height": 1024,
+    "status": "complete"
+  },
+  {
+    "agent": "flo_team",
+    "path": "avatars/generated/flo_team_banner_16x9.png",
+    "width": 2048,
+    "height": 1152,
+    "status": "complete"
+  }
+]

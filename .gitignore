@@ -42,6 +42,42 @@ Thumbs.db
 # Misc
 *.local
 
-# Loan submissions persisted by the API (idempotency + pending delivery) � never commit
+# Loan submissions persisted by the API (idempotency + pending delivery) — never commit
 server/data/
+
+# ---- Monorepo-wide safety net (covers flo-agent/, docs/, scripts/, shared/) ----
+# Nested .gitignore files (e.g. flo-agent/.gitignore) apply automatically for their
+# own subtree; these are the belt-and-suspenders root-level rules.
+
+# Secrets, keys, certificates (exact shapes only — filenames like credential_pool.py
+# or secrets_cli.py are legitimate Hermes source code, not secrets, and must stay tracked)
+*.key
+*.pem
+*.p12
+*.pfx
+cert_passphrase.txt
+auth.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Databases / runtime state
+state.db
+*.sqlite
+*.sqlite3
+
+# Docker / local service runtime (never the compose/config files themselves)
+docker-compose.override.yml
+
+# Model caches
+.cache/huggingface/
+.ollama/
+
+# Real loan workspaces / borrower documents / signed files (synthetic-only in git)
+**/workspaces/
+**/deal_rooms/
+**/signed/
 

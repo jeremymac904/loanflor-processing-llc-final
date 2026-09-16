@@ -1,0 +1,37 @@
+registry_version: 1
+reviewed: 2026-09-08
+
+sources:
+  - id: google_business_profile_guidelines
+    title: Guidelines for representing your business on Google
+    official_url: https://support.google.com/business/answer/3038177
+    owner_agent: franklin
+    status: current
+
+  - id: google_business_profile_posts
+    title: Create & manage posts on your Business Profile
+    official_url: https://support.google.com/business/answer/7342169
+    owner_agent: franklin
+    status: current
+
+  - id: google_business_profile_content_policy
+    title: Business Profile photos, videos and posts content policy
+    official_url: https://support.google.com/business/answer/7213077
+    owner_agent: franklin
+    status: current
+
+  - id: hud_equal_housing_graphics
+    title: Equal Housing Opportunity Graphics
+    official_url: https://www.hud.gov/contactus/hudgraphics
+    owner_agent: franklin
+    status: current
+
+required_future_sources:
+  - company_brand_guide
+  - company_approved_disclosures
+  - licensing_and_nmls_display_rules
+  - company_social_media_policy
+  - company_email_marketing_policy
+  - approved_product_claims
+  - approved_rate_apr_advertising_procedure
+  - privacy_and_testimonial_policy

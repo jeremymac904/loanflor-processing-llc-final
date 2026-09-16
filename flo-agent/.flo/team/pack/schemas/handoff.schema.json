@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flo Agent Handoff",
+  "type": "object",
+  "required": [
+    "task_id",
+    "from",
+    "to",
+    "objective",
+    "permission"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "from": {
+      "type": "string"
+    },
+    "to": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "urgency": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "permission": {
+      "type": "object",
+      "required": [
+        "external_actions"
+      ],
+      "properties": {
+        "external_actions": {
+          "type": "boolean"
+        }
+      }
+    },
+    "return_format": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

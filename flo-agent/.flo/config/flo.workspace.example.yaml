@@ -1,0 +1,29 @@
+profile:
+  id: ashley
+  display_name: Ashley
+  assistant_name: Flo
+
+ui:
+  default_route: today
+  max_primary_priorities: 3
+  advanced_tools_hidden_by_default: true
+
+data:
+  persist_raw_sensitive_identifiers: false
+  persist_raw_oauth_tokens_in_app_db: false
+  prefer_system_of_record_references: true
+
+integrations:
+  google:
+    enabled: false
+    mode: staged
+    gmail_read: false
+    gmail_send: false
+    drive_read: false
+    drive_write: false
+
+automation:
+  morning_brief: false
+  midday_risk_check: false
+  end_of_day_recap: false
+  autonomous_external_send: false

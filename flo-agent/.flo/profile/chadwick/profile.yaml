@@ -1,0 +1,14 @@
+display_name: Chadwick
+description: 'Order Outs: title, HOI, WVOE/VOE, LOE request workflow, vendor follow-up.'
+description_auto: false
+ui_meta:
+  hermes-bots:
+    title: Chadwick
+    description: 'Order Outs: title, HOI, WVOE/VOE, LOE request workflow, vendor follow-up.'
+    color: '#7a5c2e'
+    group: Flo Team
+    groups:
+    - Flo Team
+    pinned: false
+    custom: true
+    imageKind: photo

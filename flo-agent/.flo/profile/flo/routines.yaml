@@ -1,0 +1,32 @@
+# Flo's routines (Hermes cron jobs in this profile). Created once by the installer; edit in the Cron page.
+# Every routine is read/analysis + proposal only. External side effects still stop at Ashley's approval.
+routines:
+- name: Flo morning command brief
+  schedule: 30 7 * * 1-5
+  skills:
+  - flo-communication
+  - flo-team-handoff
+  prompt: 'Morning command brief for Ashley: call flo_team action=today (top three, fastest win, biggest
+    risk, needs you, waiting on others), check reachable email/calendar, then give it to her in her words:
+    greeting, Top 3, Fastest win, Biggest risk, Needs you, Waiting on others, ''everything else can wait''.
+    Delegate focused follow-ups with flo_handoff only where a specialist is clearly needed, and mention
+    teammates only as small hints.'
+- name: Flo midday risk sweep
+  schedule: 0 12 * * 1-5
+  skills:
+  - flo-communication
+  prompt: 'Midday risk sweep: call flo_team action=today. One quick heads-up only if the biggest risk
+    or ''needs you'' changed: what, urgent now or urgent tomorrow. Stay silent-short if nothing moved.'
+- name: Flo approval queue sweep
+  schedule: 0 10,15 * * 1-5
+  skills:
+  - flo-team-approvals
+  prompt: 'Approval queue sweep: call flo_approvals action=list status=pending. If anything is waiting,
+    summarize each card in one line (bot, action, destination, why) so Ashley can decide. Never decide
+    for her.'
+- name: Flo end-of-day team recap
+  schedule: 0 17 * * 1-5
+  skills:
+  - flo-communication
+  prompt: 'End-of-day team recap: call flo_team action=activity limit=60 and action=floor. What moved,
+    what cleared, what is open and on whom, main carryover for tomorrow. Clean summary.'

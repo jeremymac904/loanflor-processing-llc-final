@@ -1,0 +1,46 @@
+{
+  "pack_id": "usda",
+  "program": "usda_guaranteed",
+  "agency": "usda",
+  "version": "0.1.0-scaffold",
+  "status": "SOURCE_GAP",
+  "underwriting_methods": [
+    "GUS",
+    "manual"
+  ],
+  "required_topics": [
+    "borrower_eligibility",
+    "employment",
+    "income",
+    "self_employment",
+    "rental_income",
+    "assets",
+    "reserves",
+    "liabilities",
+    "dti",
+    "credit",
+    "derogatory_credit",
+    "property",
+    "appraisal",
+    "occupancy",
+    "transaction_type",
+    "ltv_cltv",
+    "gifts",
+    "interested_party_contributions",
+    "documentation",
+    "verification_reverification",
+    "annual_household_income",
+    "adjusted_annual_income",
+    "repayment_income",
+    "stable_dependable_income",
+    "eligible_property"
+  ],
+  "source_ids": [
+    "usda-handbook",
+    "usda-procedure-notices"
+  ],
+  "rule_ids": [],
+  "calculator_ids": [],
+  "active": false,
+  "notes": "Coverage requirements, not a claim of loaded underwriting rules or program eligibility."
+}

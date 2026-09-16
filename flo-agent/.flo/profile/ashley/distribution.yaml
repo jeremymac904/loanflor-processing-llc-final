@@ -1,0 +1,35 @@
+# Flo / Ashley profile distribution (Hermes profile-distribution format).
+#
+# Install into a local Hermes/Flo home with the helper script (recommended,
+# it also seeds the user-owned USER.md and the Flo policy file):
+#
+#   python scripts/flo/install_ashley_profile.py
+#
+# or with the stock command (does NOT seed memories/USER.md, by design —
+# memories are user-owned and never copied by a distribution):
+#
+#   hermes profile install ./.flo/profile/ashley --alias
+#
+# See .flo/docs/11_IMPLEMENTATION_PLAN.md (Phase 2) and
+# website/docs/user-guide/profile-distributions.md for the format.
+name: ashley
+version: 0.1.0
+description: "Flo, Ashley's mortgage-processing assistant. Read-only by default; external side effects require confirmation; dangerous tools disabled."
+hermes_requires: ">=0.21.0"
+author: "Flo Agent bootstrap (Claude Code pass, 2026-09-08)"
+license: MIT
+
+# Model/provider credentials are an open decision (see 15_OPEN_QUESTIONS.md).
+# Nothing here is required so the install never nags for a key it must not
+# receive from a coding agent.
+env_requires: []
+
+# Distribution-owned paths. `flo/` carries the deterministic policy file and
+# `skins/` the Flo CLI skin. Everything else (memories, sessions, .env, logs)
+# is user-owned and never touched by install/update.
+distribution_owned:
+  - SOUL.md
+  - config.yaml
+  - distribution.yaml
+  - flo
+  - skins

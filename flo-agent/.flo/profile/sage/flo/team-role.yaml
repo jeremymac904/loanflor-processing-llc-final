@@ -1,0 +1,37 @@
+# Sage's slice of plugins/flo-team/team.yaml (informational copy; the plugin reads the manifest).
+name: sage
+display_name: Sage
+title: Underwriting
+role: underwriting
+reports_to: flo
+delegates_to: []
+loan_workspace: read
+deal_rooms: when_needed
+folders:
+  loans:
+  - aus
+  - income
+  - assets
+  - conditions
+  other:
+  - sources
+zapier:
+  include:
+  - '*find*'
+  - '*search*'
+  - '*get*'
+  - '*list*'
+  - '*retrieve*'
+  exclude:
+  - '*send*'
+  - '*create*'
+  - '*update*'
+  - '*delete*'
+  - '*api_request*'
+model_classes:
+- local_reasoning
+- cloud_reasoning
+- deterministic
+external_writes: deny
+team_autonomy_level: assisted
+max_delegation_depth: 1

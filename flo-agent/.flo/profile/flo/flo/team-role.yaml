@@ -1,0 +1,50 @@
+# Flo's slice of plugins/flo-team/team.yaml (informational copy; the plugin reads the manifest).
+name: flo
+display_name: Flo
+title: Team Leader
+role: orchestration
+reports_to: null
+delegates_to:
+- malcolm
+- chadwick
+- whisper
+- sage
+- franklin
+loan_workspace: read_write
+deal_rooms: always
+folders:
+  loans:
+  - intake
+  - aus
+  - income
+  - assets
+  - title
+  - insurance
+  - conditions
+  - correspondence
+  - exports
+  other:
+  - templates
+  - sources
+  - team
+zapier:
+  include:
+  - '*find*'
+  - '*search*'
+  - '*get*'
+  - '*list*'
+  - '*retrieve*'
+  - '*create_task*'
+  - '*update_task*'
+  - '*add_row*'
+  - '*create_spreadsheet_row*'
+  exclude:
+  - api_request_beta
+  - '*api_request*'
+  - '*delete*'
+model_classes:
+- local_reasoning
+- cloud_reasoning
+external_writes: confirm
+team_autonomy_level: assisted
+max_delegation_depth: 1

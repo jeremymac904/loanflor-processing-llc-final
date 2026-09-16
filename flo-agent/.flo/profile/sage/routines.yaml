@@ -1,0 +1,16 @@
+# Sage's routines (Hermes cron jobs in this profile). Created once by the installer; edit in the Cron page.
+# Every routine is read/analysis + proposal only. External side effects still stop at Ashley's approval.
+routines:
+- name: Sage source freshness check
+  schedule: 0 7 * * 1
+  skills:
+  - flo-underwriting-sources
+  prompt: 'Weekly source freshness check: call flo_knowledge action=freshness. Report which official sources
+    are UNKNOWN/STALE_SOURCE and any pending revisions. Never activate anything; recommend the admin review
+    step.'
+- name: Sage underwriting question queue
+  schedule: 30 9 * * 1-5
+  skills:
+  - flo-underwriting-sources
+  prompt: 'Underwriting question queue: call flo_handoff action=status. For each open question produce
+    a Guideline Card with flo_guideline_card; SOURCE_GAP is a valid answer. Return results to Flo.'

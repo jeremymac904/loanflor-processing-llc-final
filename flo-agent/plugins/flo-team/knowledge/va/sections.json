@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-09-09T13:11:05.997977+00:00",
+  "program": "va",
+  "schema_version": 1,
+  "sections": {
+    "Chapter 4": {
+      "article_version": 4,
+      "cache_ref": "flo/sources/cache/va/Chapter_4.txt",
+      "capture_method": "official_json_api",
+      "checksum_raw": "8d492df594150289c282d8e769d79c70fec4901c6d1a18d1149fcd16882e8e1a",
+      "checksum_text": "73bc8cbb8b41adb19a2486ff2bcc3d2809f6f4d7e1b9222e8ecf22b340b057c0",
+      "edition": "KnowVA article 554400000330850 (updated 08/26/2026)",
+      "effective_date": "08/26/2026",
+      "lifecycle": "detected",
+      "notes": "KnowVA article 554400000330850 version 4; topic change dates in text: August 24, 2026, February 22, 2019",
+      "official_url": "https://www.knowva.ebenefits.va.gov/system/templates/selfservice/va_ssnew/help/customer/locale/en-US/portal/554400000001018/content/554400000330850/VA-Pamphlet-VAP26-7-Chapter-04-Credit-Underwriting",
+      "page_date": "08/26/2026",
+      "program": "va",
+      "retrieved_at": "2026-09-09T13:11:05.997977+00:00",
+      "revision_id": "va-chapter_4-73bc8cbb8b41",
+      "rights": "U.S. Government work (VA Pamphlet 26-7); private cache; review embedded third-party content before wider reuse",
+      "section": "Chapter 4",
+      "source_title": "VA Pamphlet 26-7 Lenders Handbook",
+      "text_chars": 107080,
+      "title": "VA Pamphlet VAP26-7 Chapter 04 Credit Underwriting",
+      "topic_change_dates": [
+        "August 24, 2026",
+        "February 22, 2019"
+      ]
+    }
+  }
+}

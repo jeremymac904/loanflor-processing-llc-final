@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flo Knowledge Source Record",
+  "type": "object",
+  "required": [
+    "source_id",
+    "title",
+    "tier",
+    "status"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "owner": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "program": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "official_url": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "publication_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "effective_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "retrieved_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checksum": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tier": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "current",
+        "future_not_effective",
+        "superseded",
+        "archived",
+        "pending_review",
+        "unknown"
+      ]
+    }
+  },
+  "additionalProperties": true
+}
