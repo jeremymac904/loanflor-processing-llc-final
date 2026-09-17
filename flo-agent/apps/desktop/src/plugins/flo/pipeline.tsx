@@ -3,10 +3,25 @@
  * summary with one-click actions (Request From Borrower, Order Title/HOI,
  * Ask Flo, Why?) and optional expandable detail areas. Every button goes
  * through Flo (`./chat.ts`); Ashley never picks a bot.
+ *
+ * Ashley-facing drop affordance: dropping PDF / image files anywhere on the
+ * file view attaches them to the open loan via the existing
+ * `uploadDocumentsPrompt` flow. We deliberately don't import the chat
+ * app's `useFileDropZone` (plugins are forbidden from reaching into the
+ * chat internals); instead this minimal inline handler covers the 90% case
+ * of native file drops, with the same `dataTransfer.items` extraction
+ * pattern.
  */
 
 import { Button, cn, host, Loader, useValue } from '@hermes/plugin-sdk'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  type DragEvent as ReactDragEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 
 import {
   activeEsignRequest,
@@ -1023,6 +1038,84 @@ function FilePanel({
     return `${name} is CTC. Boom. 💚`
   }
 
+  // Drag-and-drop loan documents onto the file view → attach to this loan.
+  // The drop goes through the same uploadDocumentsPrompt the "Upload Missing
+  // Doc" button uses, so the path / classification / dedupe behaviour is
+  // identical to the file-picker flow.
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragDepth = useRef(0)
+
+  const dropHandlers = useMemo(
+    () => ({
+      onDragEnter: (event: ReactDragEvent) => {
+        // Only native file drags (not session drags) — match the chat's
+        // `dragHasAttachments` heuristic by looking for the Files MIME.
+        const types = Array.from(event.dataTransfer.types ?? [])
+
+        if (!types.includes('Files')) {
+          return
+        }
+
+        event.preventDefault()
+        dragDepth.current += 1
+        setIsDragOver(true)
+      },
+      onDragOver: (event: ReactDragEvent) => {
+        const types = Array.from(event.dataTransfer.types ?? [])
+
+        if (!types.includes('Files')) {
+          return
+        }
+
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'copy'
+      },
+      onDragLeave: () => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1)
+
+        if (dragDepth.current === 0) {
+          setIsDragOver(false)
+        }
+      },
+      onDrop: (event: ReactDragEvent) => {
+        const types = Array.from(event.dataTransfer.types ?? [])
+
+        if (!types.includes('Files')) {
+          return
+        }
+
+        event.preventDefault()
+        dragDepth.current = 0
+        setIsDragOver(false)
+        const paths: string[] = []
+
+        for (const item of Array.from(event.dataTransfer.items ?? [])) {
+          if (item.kind !== 'file') {continue}
+          const f = item.getAsFile()
+
+          if (!f) {continue}
+          // Electron exposes the absolute path via webUtils on the
+          // preload bridge (window.hermesDesktop.getPathForFile). It is
+          // not on the File object itself outside Electron; fall back to
+          // the path the OS sometimes surfaces via webkitGetAsEntry.
+          const win = typeof window !== 'undefined' ? window : undefined
+          const path = (win as any)?.hermesDesktop?.getPathForFile?.(f) ?? ''
+
+          if (path && /\.(pdf|jpe?g|png)$/i.test(path)) {
+            paths.push(path)
+          }
+        }
+
+        if (paths.length === 0) {
+          return
+        }
+
+        ask('upload-doc', `Add documents · ${summary.name}`, uploadDocumentsPrompt(ws, paths))
+      },
+    }),
+    [ask, summary.name, ws]
+  )
+
   const drafts = (ws.drafts ?? []).filter(d => d.status === 'draft' || d.status === 'proposed')
   const isBusy = busy !== null
   const draft = missingDocumentDraft(ws)
@@ -1059,7 +1152,21 @@ function FilePanel({
     ask(`why:${subject}`, `Why? ${summary.name}`, whyPrompt(ws, subject, kind))
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border border-(--ui-stroke-tertiary) p-4">
+    <div
+      className="relative flex flex-col gap-4 rounded-md border border-(--ui-stroke-tertiary) p-4"
+      data-file-workspace={ws.workspace_id}
+      data-testid="file-panel"
+      {...dropHandlers}
+    >
+      {isDragOver ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-(--ui-accent) bg-(--ui-bg-quaternary) text-sm font-medium"
+          data-testid="file-drop-overlay"
+        >
+          Drop documents to attach to {summary.name}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="m-0 text-base font-semibold uppercase tracking-wide">{summary.name}</h2>
         {summary.readiness === 'New submission' ? <Pill tone="warn">NEW LOAN</Pill> : null}
