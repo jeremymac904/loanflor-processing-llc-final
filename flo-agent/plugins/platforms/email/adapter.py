@@ -52,6 +52,56 @@ from utils import is_truthy_value
 logger = logging.getLogger(__name__)
 
 
+def _flo_route_email(msg_data: dict) -> None:
+    """Best-effort glue: each inbound email also reaches Flo's condition /
+    CTC router. Failures are logged and swallowed — the IMAP path must
+    never get tangled up in the Flo path.
+
+    Loaded lazily so importing this adapter doesn't depend on
+    plugins.flo_team being on the import path (FTS is sometimes loaded
+    without the flo plugin active).
+    """
+    try:
+        import importlib
+        plugin_root = Path(__file__).resolve().parents[1]  # plugins/
+        if str(plugin_root.parent) not in __import__("sys").path:
+            __import__("sys").path.insert(0, str(plugin_root.parent))
+        if "flo_team" not in __import__("sys").modules:
+            spec = __import__("importlib").util.spec_from_file_location(
+                "flo_team", plugin_root / "flo-team" / "__init__.py",
+                submodule_search_locations=[str(plugin_root / "flo-team")],
+            )
+            mod = __import__("importlib").util.module_from_spec(spec)
+            __import__("sys").modules["flo_team"] = mod
+            spec.loader.exec_module(mod)
+        email_router = __import__("importlib").import_module("flo_team.email_router")
+        # Re-derive the structured sender / body / thread fields from the
+        # raw msg_data the IMAP adapter passes here. The router's
+        # interface is plain dicts; keep it that way.
+        payload = {
+            "sender_addr": msg_data.get("sender_addr") or "",
+            "sender_name": msg_data.get("sender_name") or "",
+            "subject":     msg_data.get("subject") or "",
+            "body":        msg_data.get("body") or "",
+            "message_id":  msg_data.get("message_id") or "",
+            "thread_id":   msg_data.get("thread_id") or "",
+            "in_reply_to": msg_data.get("in_reply_to") or "",
+            "received_at": msg_data.get("received_at") or "",
+        }
+        result = email_router.route_inbound_email(payload)
+        # Light logging — no spam.
+        stage = result.get("stage") if isinstance(result, dict) else None
+        if stage in {"dispatched", "lender_email_not_actionable"}:
+            logger.info("[Email→Flo] stage=%s sender=%s subject=%r",
+                         stage, payload["sender_addr"], payload["subject"][:80])
+        elif stage == "skipped":
+            logger.debug("[Email→Flo] skipped: %s", result.get("reason"))
+        else:
+            logger.debug("[Email→Flo] %s", result)
+    except Exception as exc:  # noqa: BLE001 - don't break the IMAP path
+        logger.debug("[Email→Flo] router failed: %s: %s", type(exc).__name__, exc)
+
+
 def _get_esecret(name: str, default: str = "") -> str:
     """Scope-aware ``EMAIL_*`` read with the default-profile startup fallback.
 
@@ -1128,6 +1178,14 @@ class EmailAdapter(BasePlatformAdapter):
 
         logger.info("[Email] New message from %s: %s", sender_addr, subject)
         await self.handle_message(event)
+        # Best-effort: surface lender / UW emails to Flo's condition /
+        # CTC router. The router classifies, matches the workspace, and
+        # either stores a confirmation card on the file (high confidence)
+        # or surfaces nothing (lender/UW email without conditions or CTC
+        # text). Never blocks the chat path; runs on a worker thread so
+        # an IMAP burst can't slow dispatch.
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _flo_route_email, dict(msg_data))
 
     async def send(
         self,

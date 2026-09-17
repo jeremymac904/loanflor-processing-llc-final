@@ -49,6 +49,13 @@ _LENDER_CTC_NEGATIVE = (
     "cannot issue ctc",
     "still conditions",
     "outstanding conditions",
+    "almost clear to close",
+    "ctc pending",
+    "still waiting for final approval",
+    "subject to final approval",
+    "pending final approval",
+    "awaiting final approval",
+    "close to clear",  # weaker form, still negative
 )
 
 

@@ -188,6 +188,13 @@ def diff_against_workspace(
     Duplicate key: condition ``identity`` (sha256 of type|owner|text).
     The duplicate-text-with-different-owner case is **not** a duplicate
     — it lands in ``needs_review`` so a human decides.
+
+    Already-applied guard: an ``email_id`` that's already on a stored
+    condition's ``source_refs`` OR on a still-pending
+    ``pending_email_ingests`` card is treated as the same email
+    re-delivered — Gmail's retry behavior. The propose path then
+    returns ``email_already_applied=True`` and the desktop does not
+    stack a second card.
     """
     existing = workspace_doc.get("conditions") or []
     seen_by_identity: Dict[str, Dict[str, Any]] = {}
@@ -208,6 +215,14 @@ def diff_against_workspace(
             for src in (c.get("source_refs") or []):
                 if isinstance(src, dict) and src.get("email_id") == email_id:
                     seen_email_ids.add(email_id)
+        # Also: a still-pending ingest card for the same email_id
+        # represents a Gmail retry of the same message — treat as a
+        # duplicate even though the conditions haven't been written yet.
+        for card in workspace_doc.get("pending_email_ingests") or []:
+            if not isinstance(card, dict):
+                continue
+            if card.get("email_id") == email_id and card.get("status") == "pending":
+                seen_email_ids.add(email_id)
 
     new_rows: List[Dict[str, Any]] = []
     duplicates: List[Dict[str, Any]] = []
