@@ -73,6 +73,13 @@ param(
     #     terminal users don't need a desktop binary built for them, and
     #     `hermes desktop` already builds on demand.
     [switch]$IncludeDesktop
+
+    # --- Flo Stage (opt-in) ---
+    # The Flo desktop installer always passes this. Generic Hermes
+    # installs (irm | iex CLI) leave it off so Ashley's profile doesn't
+    # land in someone else's checkout by accident. Same opt-in shape as
+    # -IncludeDesktop above.
+    [switch]$IncludeFlo
 )
 
 $ErrorActionPreference = "Stop"
@@ -3289,6 +3296,102 @@ function Write-BootstrapMarker {
     Write-Success "Bootstrap marker written: $markerPath"
 }
 
+# ─── Flo Stage functions (Ashley-facing) ────────────────────────────────────────
+#
+# Install-FloTeamProfiles — places the Ashley profile and the six Flo Team
+# profiles (.flo/profile/{ashley,flo,malcolm,sage,chadwick,whisper,franklin})
+# into HERMES_HOME. No API keys touched here. This stage only writes the
+# distribution files (SOUL.md, config.yaml, profile.yaml, avatars, skins,
+# routines) — interactive connector auth (Gmail / Google / Zapier /
+# Documenso) is the first-run UI's job, not this stage's.
+function Install-FloTeamProfiles {
+    Write-Info "Installing Ashley profile and Flo Team profiles..."
+    Resolve-UvCmd
+    if (-not $script:UvCmd) {
+        Write-Warning "uv not available; Flo Team profile installation skipped."
+        Write-Warning "  Run scripts/flo/install_ashley_profile.py and install_flo_team.py manually after install completes."
+        return
+    }
+
+    # Active root = the cloned/installed hermes-agent repo containing
+    # .flo/profile/*. The active root resolves to $InstallDir\hermes-agent
+    # in the canonical layout (or whatever the upstream Stage-Repository
+    # produced). When Stage-Repository was skipped (e.g. dev install),
+    # fall back to the source repo the installer was launched from.
+    $floAgent = $script:ActiveHermesRoot
+    if (-not $floAgent -or -not (Test-Path (Join-Path $floAgent '.flo\profile\ashley'))) {
+        # The installer was launched from the source repo (dev mode).
+        $floAgent = $PSScriptRoot
+        while ($floAgent -and -not (Test-Path (Join-Path $floAgent '.flo\profile\ashley'))) {
+            $parent = Split-Path -Parent $floAgent
+            if (-not $parent -or $parent -eq $floAgent) {
+                $floAgent = $null
+                break
+            }
+            $floAgent = $parent
+        }
+    }
+    if (-not $floAgent) {
+        Write-Warning "Could not locate .flo\profile\ashley — Flo Team profiles skipped."
+        Write-Warning "  Run scripts/flo/install_ashley_profile.py manually after install."
+        return
+    }
+
+    & $script:UvCmd --directory $floAgent run --with --no-project python "$floAgent\scripts\flo\install_ashley_profile.py" --home $HermesHome 2>&1 | ForEach-Object { Write-Info $_ }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Ashley profile install returned $LASTEXITCODE — continuing."
+    }
+
+    & $script:UvCmd --directory $floAgent run --with --no-project python "$floAgent\scripts\flo\install_flo_team.py" --home $HermesHome 2>&1 | ForEach-Object { Write-Info $_ }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Flo Team profile install returned $LASTEXITCODE — continuing."
+    }
+
+    # Local Flo workspace root. Ashley never has to make folders.
+    $floWorkspace = Join-Path $HermesHome 'flo\workspace'
+    New-Item -ItemType Directory -Force -Path $floWorkspace | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'intake')   | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'aus')      | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'income')   | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'assets')   | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'title')    | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'insurance')| Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'conditions') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'orders')   | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'correspondence') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $floWorkspace 'exports') | Out-Null
+    Write-Info "  Flo workspace root: $floWorkspace"
+}
+
+# Install-FloSignaturesShortcut — creates a Start-Menu entry that opens
+# the local Documenso signing UI. The existing flo-start.ps1 handles
+# recovery; this shortcut is the Ashley-facing one-click to launch
+# signing when local Documenso is already running.
+function Install-FloSignaturesShortcut {
+    $startMenu = [Environment]::GetFolderPath('StartMenu')
+    $shortcutPath = Join-Path $startMenu 'Programs\Flo Signatures.lnk'
+    if (Test-Path $shortcutPath) {
+        Write-Info "  Flo Signatures shortcut already present."
+        return
+    }
+    $floAgent = $script:ActiveHermesRoot
+    if (-not $floAgent) { $floAgent = $PSScriptRoot }
+    $target = Join-Path $floAgent 'flo-start.ps1'
+    if (-not (Test-Path $target)) {
+        Write-Warning "flo-start.ps1 not found at $target — Flo Signatures shortcut skipped."
+        return
+    }
+    $shell = New-Object -ComObject WScript.Shell
+    $sc = $shell.CreateShortcut($shortcutPath)
+    $sc.TargetPath = 'powershell.exe'
+    $sc.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$target`" -WindowStyle Hidden
+    $sc.WorkingDirectory = $floAgent
+    $sc.IconLocation = (Join-Path $floAgent 'apps\desktop\assets\icon.ico')
+    $sc.Description = 'Flo Signatures — local Documenso signing UI'
+    $sc.Save()
+    Write-Info "  Flo Signatures shortcut: $shortcutPath"
+}
+
 function Copy-ConfigTemplates {
     Write-Info "Setting up configuration files..."
     
@@ -4701,6 +4804,16 @@ if ($IncludeDesktop) {
     # (Hermes-Setup.exe), never via the irm|iex CLI one-liner.
     $InstallStages += @{ Name = "desktop"; Title = "Building desktop app"; Category = "install"; NeedsUserInput = $false; Worker = "Stage-Desktop" }
 }
+if ($IncludeFlo) {
+    # The Flo desktop installer always passes this. When included, the
+    # Flo stage runs AFTER config-templates so Ashley's profiles and
+    # local workspace root are written last (they depend on HERMES_HOME
+    # being final). Ashley-facing: no API keys touched here; this only
+    # places the profile distribution files in the right HERMES_HOME
+    # subtrees. Interactive sign-in to Google / Zapier / Documenso is
+    # the first-run UI's job, not this stage's.
+    $InstallStages += @{ Name = "flo-team"; Title = "Installing Ashley profile and Flo Team"; Category = "finalize"; NeedsUserInput = $false; Worker = "Stage-FloTeam" }
+}
 $InstallStages += @(
     @{ Name = "path";             Title = "Adding Hermes to PATH";                Category = "finalize";     NeedsUserInput = $false; Worker = "Stage-Path" }
     @{ Name = "config-templates"; Title = "Writing configuration templates";      Category = "finalize";     NeedsUserInput = $false; Worker = "Stage-ConfigTemplates" }
@@ -4748,6 +4861,7 @@ function Stage-Venv             { Resolve-UvCmd; Install-Venv }
 function Stage-Dependencies     { Resolve-UvCmd; Install-Dependencies }
 function Stage-NodeDeps         { Install-NodeDeps }
 function Stage-Desktop          { Install-DesktopVoiceDeps; Install-Desktop }
+function Stage-FloTeam          { Install-FloTeamProfiles; Install-FloSignaturesShortcut }
 function Stage-Path             { Set-PathVariable }
 function Stage-ConfigTemplates  { Copy-ConfigTemplates }
 function Stage-PlatformSdks     { Resolve-UvCmd; Install-PlatformSdks }
