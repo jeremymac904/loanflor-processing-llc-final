@@ -252,7 +252,7 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
                 </span>
               </label>
               <div className="flex justify-end gap-2">
-                <Button disabled={busy === 'gmail'} onClick={saveGmail} size="xs">Save</Button>
+                <Button data-testid="gmail-save-button" disabled={busy === 'gmail'} onClick={saveGmail} size="xs">Save</Button>
               </div>
             </div>
           ) : null}
@@ -351,7 +351,7 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
                 />
               </label>
               <div className="flex justify-end gap-2">
-                <Button disabled={busy === 'zapier'} onClick={saveZapier} size="xs">Save</Button>
+                <Button data-testid="zapier-save-button" disabled={busy === 'zapier'} onClick={saveZapier} size="xs">Save</Button>
               </div>
             </div>
           ) : null}
@@ -385,7 +385,7 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
       </section>
 
       <div className="flex flex-col gap-2 border-t border-(--ui-stroke-tertiary) pt-4">
-        <Button disabled={busy !== null} onClick={finish} size="lg">
+        <Button data-testid="continue-button" disabled={busy !== null || !allRequiredReady} onClick={finish} size="lg">
           Continue
         </Button>
         <p className="m-0 text-xs text-(--ui-text-tertiary)" data-testid="onboarding-status-line">
