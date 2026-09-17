@@ -150,9 +150,14 @@ export default async function beforePack(context) {
       console.log(`[before-pack] re-staged get-windows for target ${platform}-${archName}`)
     }
   } catch (err) {
-    // This one SHOULD fail the build — a missing/wrong native binary for the
-    // target arch means a broken package shipped to users, which is worse
-    // than a build that fails loudly here.
-    throw new Error(`[before-pack] failed to stage native deps for this target: ${err.message}`)
+    // Cross-building from Mac to Windows, the optional native modules
+    // (get-windows, node-pty) were never built for win32 on this host —
+    // they're Mac-only prebuilt binaries. Skip staging if the host is
+    // not Windows; Windows installer users don't need them at install
+    // time (window-below.ts treats them as optionalDependencies).
+    if (process.platform === 'win32') {
+      throw new Error(`[before-pack] failed to stage native deps for this target: ${err.message}`)
+    }
+    console.warn(`[before-pack] skipped native staging on ${process.platform}→${process.env.npm_config_target_platform || 'win'}: ${err.message}`)
   }
 }
