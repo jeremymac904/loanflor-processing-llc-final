@@ -261,20 +261,6 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
         <ConnectCard
           actionLabel="Connect Google Drive"
           description="Flo uses these when a file or event explicitly needs them. Sign in once; Flo asks before using them."
-          onAction={async () => {
-            // The existing google-workspace skill runs the OAuth dance from
-            // the terminal. Ashley's path: open the skill's setup page,
-            // click through, then come back. We surface a copyable URL.
-            try {
-              await navigator.clipboard.writeText(
-                'https://hermes-agent.nousresearch.com/docs/'
-              )
-            } catch {
-              // ignore
-            }
-
-            setError('Copied docs link. Open it, run setup.py, then return here — Flo detects the connection.')
-          }}
           ready={status.drive.configured && status.calendar.configured}
           readyLabel={status.drive.configured ? 'Connected' : 'Not signed in'}
           title="Google Drive & Calendar"
