@@ -16402,13 +16402,23 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
   )
 
   // Google OAuth — the existing google-workspace skill stores a token at
-  // <hermes_home>/.google_token.json when oauth is run. We just look for
-  // the file's existence rather than reading its contents.
+  // <hermes_home>/google_token.json (default ~/.hermes) when --auth-code
+  // succeeds. We look for the file in known HERMES_HOME locations plus
+  // the legacy ~/.config path for backward compatibility.
   const fs = require('node:fs')
   const os = require('node:os')
   const path = require('node:path')
-  const googleToken = path.join(os.homedir(), '.config', 'hermes-agent', 'google_token.json')
-  const driveConfigured = fs.existsSync(googleToken)
+  const hermesHome = (process.env.HERMES_HOME && process.env.HERMES_HOME.trim())
+    ? process.env.HERMES_HOME.trim()
+    : path.join(os.homedir(), '.hermes')
+  const googleTokenCandidates = [
+    path.join(hermesHome, 'google_token.json'),
+    path.join(os.homedir(), '.config', 'hermes-agent', 'google_token.json'),
+    path.join(os.homedir(), '.config', 'hermes', 'google_token.json'),
+  ]
+  const driveConfigured = googleTokenCandidates.some(p => {
+    try { return fs.existsSync(p) } catch { return false }
+  })
   const calendarConfigured = driveConfigured
 
   // Zapier — the flo_team config supports `mcp_servers.zapier.url`. Look
@@ -16601,9 +16611,9 @@ ipcMain.handle('hermes:flo:google-setup', async () => {
   // default browser) and the auth code the renderer will collect.
   const path = require('node:path')
   const candidates = [
+    path.join(ACTIVE_HERMES_ROOT, 'skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(HERMES_HOME, 'skills/productivity/google-workspace/scripts/setup.py'),
     path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
-    path.join(app.getAppPath(), '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
-    path.join(__dirname, '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
   ]
   const scriptPath = candidates.find(p => require('node:fs').existsSync(p))
   if (!scriptPath) {
@@ -16620,21 +16630,30 @@ ipcMain.handle('hermes:flo:google-setup', async () => {
     return { ok: false, error: 'unexpected auth URL output' }
   }
   // Open in default browser — Ashley authenticates there.
+  // shell.openExternal is the cross-platform Electron API (mac/Windows/Linux).
+  let opened = false
   try {
-    await require('node:child_process').spawn('open', [url], { detached: true, stdio: 'ignore' }).unref()
+    opened = await shell.openExternal(url)
   } catch {
-    /* non-Mac; shell.openExternal fallback below */
+    opened = false
   }
-  return { ok: true, url, opened: true }
+  if (!opened) {
+    // Last-ditch fallback for the macOS case where open fails.
+    try {
+      require('node:child_process').spawn('open', [url], { detached: true, stdio: 'ignore' }).unref()
+      opened = true
+    } catch { /* give up; renderer can still show the URL */ }
+  }
+  return { ok: true, url, opened }
 })
 
 ipcMain.handle('hermes:flo:google-complete', async (_event, payload: { code: string }) => {
   // Exchange the auth code the user pasted after Google's redirect.
   const path = require('node:path')
   const candidates = [
+    path.join(ACTIVE_HERMES_ROOT, 'skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(HERMES_HOME, 'skills/productivity/google-workspace/scripts/setup.py'),
     path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
-    path.join(app.getAppPath(), '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
-    path.join(__dirname, '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
   ]
   const scriptPath = candidates.find(p => require('node:fs').existsSync(p))
   if (!scriptPath) {
@@ -16781,13 +16800,15 @@ async function installDockerDesktopWindows(): Promise<{ ok: boolean; error?: str
 
 async function startDocumensoStackWindows(): Promise<{ ok: boolean; error?: string; url?: string }> {
   const path = require('node:path')
+  const fs = require('node:fs')
   const candidates = [
-    path.join(process.cwd(), 'flo-agent/deploy/documenso/flo-start.ps1'),
-    path.join(app.getAppPath(), '..', '..', 'flo-agent/deploy/documenso/flo-start.ps1'),
-    path.join(__dirname, '..', '..', 'flo-agent/deploy/documenso/flo-start.ps1'),
+    path.join(ACTIVE_HERMES_ROOT, 'flo-start.ps1'),
+    path.join(HERMES_HOME, 'flo-start.ps1'),
+    path.join(process.cwd(), 'flo-start.ps1'),
+    path.join(process.cwd(), 'flo-agent', 'flo-start.ps1'),
   ]
-  const script = candidates.find(p => require('node:fs').existsSync(p))
-  if (!script) return { ok: false, error: 'flo-start.ps1 not found' }
+  const script = candidates.find(p => fs.existsSync(p))
+  if (!script) return { ok: false, error: 'flo-start.ps1 not found; expected at ' + path.join(ACTIVE_HERMES_ROOT, 'flo-start.ps1') }
   const { spawn } = require('node:child_process')
   return new Promise((resolve) => {
     const c = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {
