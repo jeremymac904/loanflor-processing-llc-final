@@ -1,90 +1,70 @@
 # Windows Release Handoff — Claude on Ashley's PC
 
-## This document tells Claude what to do and what NOT to do.
+## What you do (5 steps total)
 
----
+1. **Install Docker Desktop and Ollama on Ashley's PC**
+   - Open `https://www.docker.com/products/docker-desktop/` in browser → Download → Run installer → Restart if asked
+   - Open `https://ollama.com/download` → Download for Windows → Run installer
+   - These are the ONLY manual installations Ashley needs.
 
-## What to do
+2. **Unzip the release**
+   - Right-click `Flo-0.17.0-win-x64-portable.zip` → Extract All → e.g. `Desktop\Flo`
+   - **Important:** extract first, then double-click `Flo.exe` from inside the extracted folder. Don't run from inside the zip.
 
-1. **Verify the portable build runs**
-   - Double-click `Flo.exe` inside `Flo-0.17.0-win-x64-portable.zip`.
-   - If Windows blocks it: **More info → Run anyway**.
-   - Confirm Flo opens to the first-run onboarding screen.
+3. **Run Flo**
+   - Double-click `Flo.exe`
+   - If Windows SmartScreen blocks: **More info → Run anyway**
+   - Flo opens to the onboarding welcome screen (NOT a developer setup)
 
-2. **Produce the NSIS installer** *(only if the portable build works)*
-   - Run: `npm run dist:win:nsis` inside `flo-agent/apps/desktop/`
-   - This requires `wine-stable` or a Windows host for `makensis`.
-   - If Wine is available on Mac: `brew install wine-stable && npm run dist:win:nsis`
-   - If Wine is not available: run on a Windows machine or WSL.
-   - Output: `Flo-Setup-0.17.0-win-x64.exe` in `release/`
+4. **Drive the onboarding**
+   - Click through each card; Flo runs the setup itself:
+     - Connect Google → opens browser, Ashley signs in, pastes code
+     - Connect Gmail → Ashley enters Gmail + App Password, Flo encrypts via safeStorage
+     - Connect Zapier → Ashley pastes webhook URL
+     - Set Up Local Signing → Flo detects Docker, brings up Documenso
+     - Set Up Local AI → Flo detects Ollama, installs default model
 
-3. **Complete Ashley's account connections** (authorization — NOT setup code)
-   - Google: click Connect Google, complete OAuth in the browser, paste the code.
-   - Gmail: enter address + App Password, click Save.
-   - Zapier: paste webhook URL, click Save.
-   - Local Signing: click Set Up, wait for Docker/Ollama if prompted.
-   - Local AI: click Set Up, wait for Ollama to download the model.
+5. **Click Continue** — Ashley is in Flo.
 
-4. **Click Continue** — enter Flo.
+## Smoke test (after Continue)
 
-5. **Run the acceptance smoke test**
-   - Flo opens to Today view (not Hermes bootstrap).
-   - Local AI is configured (shows Ready in Settings → Advanced).
-   - Gmail connector shows Connected.
-   - WVOE button appears in the file panel.
+- [ ] Flo opens to Today view, NOT Hermes bootstrap
+- [ ] Settings → Advanced → Local AI shows the model as Ready
+- [ ] Gmail connector card on Settings shows Connected
+- [ ] WVOE button appears in FilePanel
+- [ ] Local Signing health is green at http://localhost:3000/api/health
 
-6. **Report any machine-specific failures only** — e.g., a driver issue, a port conflict, a missing Windows feature. Do not try to fix architecture.
+## What you do NOT do
 
----
+- Do NOT clone the source repository.
+- Do NOT run `npm install` or any build commands.
+- Do NOT run install.ps1 or any PowerShell setup scripts by hand.
+- Do NOT edit any code.
+- Do NOT set environment variables.
+- Do NOT install team profiles manually — Flo's onboarding creates them.
+- Do NOT run `docker compose` by hand — Flo drives the stack.
+- Do NOT install Ollama manually if Flo already handled it.
 
-## What NOT to do
+If Flo's onboarding successfully completes all five cards, the release is working.
 
-- Do NOT add features.
-- Do NOT redesign anything.
-- Do NOT rebuild profiles or agents.
-- Do NOT rewrite connectors.
-- Do NOT change the model architecture.
-- Do NOT edit `team.yaml`, `AGENTS.md`, or plugin source unless a specific bug requires it.
-- Do NOT commit secrets, tokens, or borrower data.
-- Do NOT run `git push` or any destructive git operations.
-- Do NOT install dependencies unless the smoke test explicitly fails due to a missing package.
+## What to do if a card stays "Not Set Up"
 
----
-
-## If code must change
-
-That is an **unexpected bug**. Report it in full:
-1. What you tried to do.
-2. What happened instead.
-3. The exact error message.
-4. The file and line number (if available).
-
----
+1. The card shows a specific error in the UI (red banner at top).
+2. Read the error to Ashley in plain language.
+3. If it's a network/auth issue: walk Ashley through the failed step.
+4. If it's a code issue: report the exact error text. Do not edit code to "fix" it.
 
 ## Artifact inventory
 
 | File | What it is |
 |------|-----------|
 | `Flo-0.17.0-win-x64-portable.zip` | Complete Windows portable build (Flo.exe + Chromium + all assets) |
-| `Flo-Setup-0.17.0-win-x64.exe` | *(not yet produced)* NSIS installer — produces after smoke test |
-| `ASHLEY_INSTALL_CHECKLIST.md` | Short card for Ashley |
+| `ASHLEY_INSTALL_CHECKLIST.md` | Card Ashley can use herself |
 | `WINDOWS_RELEASE_HANDOFF.md` | This document |
-
----
+| `SHA256.txt` | Checksum for the zip |
 
 ## Source branch
 
-```
-Branch:  flo/minimax-continuation
-Commit:  a7a0c9d  (continuing — last commit pending)
-Remote:  origin
-```
+The release is built from `flo/minimax-continuation @ 01d729c`.
 
-On Ashley's PC, after cloning:
-```bash
-git clone --branch flo/minimax-continuation <repo-url>
-cd flo-agent
-git log -1 --oneline
-```
-
-Verify it says `flo/minimax-continuation` before proceeding.
+Ashley does NOT need to clone this branch. The portable build is self-contained.
