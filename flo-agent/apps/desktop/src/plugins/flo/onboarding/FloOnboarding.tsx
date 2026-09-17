@@ -60,6 +60,7 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
   const [zapierUrl, setZapierUrl] = useState('')
   const [showGmail, setShowGmail] = useState(false)
   const [showZapier, setShowZapier] = useState(false)
+  const [googleCode, setGoogleCode] = useState('')
   const [busySigning, setBusySigning] = useState(false)
   const [busyAi, setBusyAi] = useState(false)
 
@@ -142,16 +143,17 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
     setError(null)
 
     try {
-      const r = await (window as any).hermesDesktop.flo.startDocumenso()
+      const r = await (window as any).hermesDesktop.flo.signingSetup()
 
       if (!r?.ok) {
-        setError(r?.error ?? 'Flo Signatures launcher did not start.')
-
+        if (r?.needsReboot) {
+          setError('Windows needs to restart to finish Local Signing setup. Restart when convenient and click Re-check.')
+        } else {
+          setError(r?.error ?? 'Flo Signatures setup didn’t finish.')
+        }
         return
       }
 
-      // Wait briefly for containers to come up, then recheck.
-      await new Promise(r => setTimeout(r, 4000))
       await refresh()
     } finally {
       setBusySigning(false)
@@ -163,6 +165,15 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
     setError(null)
 
     try {
+      // When AI isn't ready yet, run the full setup (install Ollama +
+      // pull default model). When it is ready, just re-probe.
+      const r = status.localAi.configured
+        ? null
+        : await (window as any).hermesDesktop.flo.aiSetup()
+      if (r && !r.ok) {
+        if (r?.error) setError(r.error)
+        return
+      }
       await refresh()
     } finally {
       setBusyAi(false)
@@ -174,10 +185,18 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
     host.navigate('/flo')
   }, [storage])
 
-  const allRequiredReady =
-    status.gmail.configured &&
-    status.drive.configured &&
-    status.signing.configured
+  // What's required for Flo chat to actually work is a usable model —
+  // Gmail / Drive / Zapier / Signing are nice-to-have. Local AI Ready
+  // (or a cloud model picked in Advanced) is the only hard requirement.
+  const allRequiredReady = status.localAi.configured
+
+  const readyCount =
+    Number(status.gmail.configured) +
+    Number(status.drive.configured) +
+    Number(status.zapier.configured) +
+    Number(status.signing.configured) +
+    Number(status.localAi.configured)
+  const totalCards = 5
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-6 py-8" data-testid="flo-onboarding">
@@ -259,8 +278,69 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
           ready={status.drive.configured && status.calendar.configured}
           readyLabel={status.drive.configured ? 'Connected' : 'Not signed in'}
           title="Google Drive & Calendar"
-          busy={false}
-        />
+          busy={busy === 'google'}
+          onAction={async () => {
+            setBusy('google')
+            setError(null)
+            try {
+              const r = await (window as any).hermesDesktop.flo.googleSetup()
+              if (!r?.ok) {
+                setError(r?.error ?? 'Could not start Google sign-in.')
+                return
+              }
+              setBusy('google-code')
+            } finally {
+              setBusy(null)
+            }
+          }}
+        >
+          {busy === 'google-code' ? (
+            <div className="flex flex-col gap-2 rounded-md border border-(--ui-stroke-tertiary) p-3">
+              <p className="m-0 text-xs text-(--ui-text-secondary)">
+                A Google sign-in page just opened in your browser. After you
+                click <b>Allow</b>, Google shows a code. Paste it here and
+                Flo will finish the connection.
+              </p>
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="font-medium">Authorization code</span>
+                <input
+                  type="text"
+                  value={googleCode}
+                  onChange={e => setGoogleCode(e.target.value)}
+                  placeholder="4/0A..."
+                  className="rounded border border-(--ui-stroke-tertiary) bg-(--ui-bg-quaternary) px-2 py-1 text-sm"
+                  data-testid="google-code-input"
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button
+                  disabled={!googleCode.trim()}
+                  onClick={async () => {
+                    setBusy('google')
+                    setError(null)
+                    try {
+                      const r = await (window as any).hermesDesktop.flo.googleComplete({ code: googleCode.trim() })
+                      if (!r?.ok) {
+                        setError(r?.error ?? 'Google sign-in failed.')
+                        return
+                      }
+                      setGoogleCode('')
+                      setBusy(null)
+                      setBusy('google-code')
+                      await refresh()
+                    } finally {
+                      setBusy(null)
+                      setBusy((prev) => (prev === 'google' ? null : prev))
+                    }
+                  }}
+                  size="xs"
+                >
+                  Finish
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </ConnectCard>
 
         <ConnectCard
           actionLabel={showZapier ? 'Cancel' : status.zapier.configured ? 'Update' : 'Connect Zapier'}
@@ -322,10 +402,12 @@ export function FloOnboarding({ storage }: FloOnboardingProps) {
         <Button disabled={busy !== null} onClick={finish} size="lg">
           Continue
         </Button>
-        <p className="m-0 text-xs text-(--ui-text-tertiary)">
+        <p className="m-0 text-xs text-(--ui-text-tertiary)" data-testid="onboarding-status-line">
           {allRequiredReady
-            ? 'All required connectors are ready. You can revisit these later from Settings.'
-            : 'Gmail and Local Signing are required. You can finish the rest any time from Settings.'}
+            ? `${readyCount} of ${totalCards} ready. You can revisit any of the others later from Settings.`
+            : status.localAi.configured === false
+              ? 'Flo’s local AI isn’t ready yet — Set Up Local AI before continuing, or pick a cloud model in Settings → Advanced.'
+              : `${readyCount} of ${totalCards} ready. Local AI is ready; you can finish the others any time from Settings.`}
         </p>
       </div>
     </div>

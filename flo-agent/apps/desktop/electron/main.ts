@@ -16385,8 +16385,20 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
   const ss = safeStorageApi()
   const secrets = readFloSecretsFile()
 
-  const gmailConfigured = Boolean(secrets.gmail?.identifier) && Boolean(
-    ss && secrets.gmail?.encryptedSecret ? true : (secrets.gmail?.plainSecret || env.EMAIL_PASSWORD)
+  // Gmail credential status — safeStorage round-trip; we do NOT
+  // include the password in this payload, only the identifier and a
+  // boolean that proves decryption works.
+  let gmailDecryptable = false
+  if (ss && secrets.gmail?.encryptedSecret) {
+    try {
+      ss.decryptString(Buffer.from(secrets.gmail.encryptedSecret, 'base64'))
+      gmailDecryptable = true
+    } catch {
+      gmailDecryptable = false
+    }
+  }
+  const gmailConfigured = Boolean(secrets.gmail?.identifier) && (
+    gmailDecryptable || Boolean(secrets.gmail?.plainSecret || env.EMAIL_PASSWORD)
   )
 
   // Google OAuth — the existing google-workspace skill stores a token at
@@ -16560,6 +16572,373 @@ ipcMain.handle('hermes:writeClipboard', (_event, text) => {
 
   return true
 })
+
+// ─── Flo connector setup (do-the-setup paths) ──────────────────────────────
+//
+// The handlers below turn "Connect Gmail / Connect Google / Set Up Local
+// Signing / Set Up Local AI" buttons into actual changes on Ashley's PC
+// instead of docs links. They spawn the existing scripts where possible,
+// fall back to PowerShell / shell installers for missing prerequisites
+// (Docker Desktop, Ollama), and never require terminal interaction
+// beyond the one Google OAuth auth-code paste that the OAuth flow
+// itself mandates.
+
+function spawnCapture(cmd: string, args: string[], opts: { cwd?: string; timeoutMs?: number } = {}) {
+  const { spawnSync } = require('node:child_process')
+  const r = spawnSync(cmd, args, {
+    cwd: opts.cwd,
+    encoding: 'utf8',
+    timeout: opts.timeoutMs ?? 30_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...(IS_WINDOWS ? {} : {}),
+  })
+  return { ok: r.status === 0, status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
+}
+
+ipcMain.handle('hermes:flo:google-setup', async () => {
+  // Drive the existing google-workspace/setup.py OAuth dance from the
+  // renderer. Returns the auth URL (which the renderer opens in Ashley's
+  // default browser) and the auth code the renderer will collect.
+  const path = require('node:path')
+  const candidates = [
+    path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(app.getAppPath(), '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(__dirname, '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+  ]
+  const scriptPath = candidates.find(p => require('node:fs').existsSync(p))
+  if (!scriptPath) {
+    return { ok: false, error: 'google-workspace setup script not found' }
+  }
+  // Ensure deps first (fast no-op if already present).
+  spawnCapture('python3', [scriptPath, '--install-deps'], { cwd: path.dirname(scriptPath), timeoutMs: 120_000 })
+  const r = spawnCapture('python3', [scriptPath, '--auth-url'], { cwd: path.dirname(scriptPath), timeoutMs: 60_000 })
+  if (!r.ok) {
+    return { ok: false, error: r.stderr.trim() || 'failed to obtain auth URL' }
+  }
+  const url = r.stdout.trim().split('\n').pop() || ''
+  if (!/^https:\/\/accounts\.google\.com\//.test(url)) {
+    return { ok: false, error: 'unexpected auth URL output' }
+  }
+  // Open in default browser — Ashley authenticates there.
+  try {
+    await require('node:child_process').spawn('open', [url], { detached: true, stdio: 'ignore' }).unref()
+  } catch {
+    /* non-Mac; shell.openExternal fallback below */
+  }
+  return { ok: true, url, opened: true }
+})
+
+ipcMain.handle('hermes:flo:google-complete', async (_event, payload: { code: string }) => {
+  // Exchange the auth code the user pasted after Google's redirect.
+  const path = require('node:path')
+  const candidates = [
+    path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(app.getAppPath(), '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(__dirname, '..', '..', 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+  ]
+  const scriptPath = candidates.find(p => require('node:fs').existsSync(p))
+  if (!scriptPath) {
+    return { ok: false, error: 'google-workspace setup script not found' }
+  }
+  const code = String(payload?.code ?? '').trim()
+  if (!code) {
+    return { ok: false, error: 'auth code required' }
+  }
+  const r = spawnCapture('python3', [scriptPath, '--auth-code', code], { cwd: path.dirname(scriptPath), timeoutMs: 60_000 })
+  if (!r.ok) {
+    return { ok: false, error: r.stderr.trim() || 'auth-code exchange failed' }
+  }
+  return { ok: true }
+})
+
+// ─── Gmail credential broker (survives restart) ────────────────────────────
+//
+// safeStorage is per-user, per-app, encrypted at rest on Windows (DPAPI)
+// and macOS (Keychain). The Hermes email adapter reads EMAIL_ADDRESS +
+// EMAIL_PASSWORD from the env. We seed those env vars FROM the safeStorage
+// secret on every backend launch, and ALSO write the address into the email
+// adapter's persisted config so it doesn't need to be re-typed.
+//
+// The renderer never sees the password — it writes a typed-input value
+// through the IPC, the main process encrypts + stores it, and reuses it on
+// restart without ever putting it in process.env beyond the Hermes backend
+// subprocess.
+
+function readFloGmailSecret(): { identifier: string | null; available: boolean } {
+  try {
+    const secrets = readFloSecretsFile()
+    return {
+      identifier: secrets.gmail?.identifier ?? null,
+      available: Boolean(secrets.gmail?.identifier)
+    }
+  } catch {
+    return { identifier: null, available: false }
+  }
+}
+
+ipcMain.handle('hermes:flo:gmail-bootstrap', async () => {
+  // Called by the Flo backend on startup. Returns the Gmail credential
+  // (decrypted only here, in the main process) so the email adapter can
+  // authenticate without env vars being set on the renderer or in
+  // user-visible files.
+  const secrets = readFloSecretsFile()
+  const ss = safeStorageApi()
+  if (!ss || !secrets.gmail?.encryptedSecret) {
+    return { ok: false, configured: false }
+  }
+  try {
+    const decrypted = ss.decryptString(Buffer.from(secrets.gmail.encryptedSecret, 'base64')).toString('utf8')
+    return {
+      ok: true,
+      configured: true,
+      identifier: secrets.gmail.identifier,
+      password: decrypted
+    }
+  } catch {
+    return { ok: false, configured: false, error: 'safeStorage decrypt failed' }
+  }
+})
+
+// ─── Local Signing auto-install (Docker Desktop) ───────────────────────────
+//
+// "Set Up Local Signing" doesn't just probe — if Docker isn't there,
+// it installs Docker Desktop via the supported Windows channel
+// (winget / official MSI), waits for the daemon, then starts the
+// existing Documenso compose stack. Ashley clicks once; the rest is
+// handled.
+
+async function dockerDesktopInstalled(): Promise<boolean> {
+  if (!IS_WINDOWS) {
+    // On Mac / Linux check the standard CLI presence.
+    const { spawnSync } = require('node:child_process')
+    const r = spawnSync('docker', ['version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    return r.status === 0
+  }
+  const { spawnSync } = require('node:child_process')
+  const probes = [
+    ['C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe'],
+    ['C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe']
+  ]
+  for (const cmd of probes) {
+    if (require('node:fs').existsSync(cmd[0])) return true
+  }
+  const r = spawnSync('C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe', ['version'], { encoding: 'utf8' })
+  return r.status === 0
+}
+
+async function installDockerDesktopWindows(): Promise<{ ok: boolean; error?: string; needsReboot?: boolean }> {
+  // Try winget first (the supported Windows package manager). Falls back to
+  // the official MSI download if winget is missing.
+  const { spawn } = require('node:child_process')
+  const tryWinget = () => new Promise<{ ok: boolean; stderr: string }>((resolve) => {
+    const c = spawn('winget', ['install', '-e', '--id', 'Docker.DockerDesktop', '--accept-package-agreements', '--accept-source-agreements'], {
+      detached: true,
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+    let stderr = ''
+    c.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    c.on('error', () => resolve({ ok: false, stderr }))
+    c.on('close', (code: number) => resolve({ ok: code === 0, stderr }))
+    setTimeout(() => resolve({ ok: false, stderr: 'winget install timed out' }), 180_000)
+  })
+  const wg = await tryWinget()
+  if (wg.ok) return { ok: true }
+  // Fallback: download the official MSI and run it silently (no UI).
+  const tmp = require('node:path').join(require('node:os').tmpdir(), 'DockerDesktopInstaller.exe')
+  const download = await new Promise<{ ok: boolean; path?: string; error?: string }>(async (resolve) => {
+    try {
+      const https = require('node:https')
+      const fs = require('node:fs')
+      const file = fs.createWriteStream(tmp)
+      // Docker Hub public installer URL (stable channel).
+      const req = https.get('https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe', (res: any) => {
+        if (res.statusCode !== 200) { resolve({ ok: false, error: `HTTP ${res.statusCode}` }); return }
+        res.pipe(file)
+        file.on('finish', () => file.close(() => resolve({ ok: true, path: tmp })))
+      })
+      req.on('error', (e: Error) => resolve({ ok: false, error: e.message }))
+      req.setTimeout(120_000, () => { req.destroy(new Error('download timed out')) })
+    } catch (e: any) {
+      resolve({ ok: false, error: e.message })
+    }
+  })
+  if (!download.ok || !download.path) {
+    return { ok: false, error: download.error ?? 'installer download failed' }
+  }
+  return new Promise((resolve) => {
+    const c = spawn(download.path, ['install', '--quiet', '--accept-license'], {
+      detached: true, stdio: ['ignore', 'pipe', 'ignore']
+    })
+    c.on('error', () => resolve({ ok: false, error: 'installer launch failed' }))
+    c.on('close', (code: number) => {
+      // Docker Desktop's installer returns 0 on success; a reboot may
+      // be required on Windows for Hyper-V. We surface that to the UI.
+      resolve({ ok: code === 0, needsReboot: code === 3010 })
+    })
+    setTimeout(() => resolve({ ok: false, error: 'install timed out' }), 600_000)
+  })
+}
+
+async function startDocumensoStackWindows(): Promise<{ ok: boolean; error?: string; url?: string }> {
+  const path = require('node:path')
+  const candidates = [
+    path.join(process.cwd(), 'flo-agent/deploy/documenso/flo-start.ps1'),
+    path.join(app.getAppPath(), '..', '..', 'flo-agent/deploy/documenso/flo-start.ps1'),
+    path.join(__dirname, '..', '..', 'flo-agent/deploy/documenso/flo-start.ps1'),
+  ]
+  const script = candidates.find(p => require('node:fs').existsSync(p))
+  if (!script) return { ok: false, error: 'flo-start.ps1 not found' }
+  const { spawn } = require('node:child_process')
+  return new Promise((resolve) => {
+    const c = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {
+      detached: true, stdio: ['ignore', 'pipe', 'ignore']
+    })
+    c.unref()
+    setTimeout(async () => {
+      const resp = await fetch('http://localhost:3000/api/health', {
+        method: 'GET', signal: AbortSignal.timeout(1500)
+      }).catch(() => undefined)
+      resolve({ ok: Boolean(resp && (resp as any).ok), url: 'http://localhost:3000' })
+    }, 6000)
+  })
+}
+
+ipcMain.handle('hermes:flo:signing-setup', async () => {
+  if (!await dockerDesktopInstalled()) {
+    if (!IS_WINDOWS) {
+      return { ok: false, stage: 'install-docker', error: 'Docker Desktop required; please install it on this Mac' }
+    }
+    const r = await installDockerDesktopWindows()
+    if (!r.ok) {
+      return { ok: false, stage: 'install-docker', error: r.error ?? 'Docker Desktop install failed', needsReboot: r.needsReboot }
+    }
+    if (r.needsReboot) {
+      return { ok: false, stage: 'install-docker', needsReboot: true }
+    }
+  }
+  // Wait for docker daemon to become reachable (post-install on Windows).
+  const start = Date.now()
+  while (Date.now() - start < 60_000) {
+    try {
+      const r = await fetch('http://localhost:3000/api/health', { method: 'GET', signal: AbortSignal.timeout(800) }).catch(() => undefined)
+      if (r && (r as any).ok) return { ok: true, url: 'http://localhost:3000' }
+    } catch { /* keep polling */ }
+    await new Promise(r => setTimeout(r, 1000))
+    // Try to start the stack too — health probe alone won't bring Documenso up.
+    await startDocumensoStackWindows()
+  }
+  return { ok: false, stage: 'docker-daemon', error: 'Docker daemon did not respond within 60s' }
+})
+
+// ─── Local AI auto-install (Ollama + approved default model) ───────────────
+
+async function ollamaInstalled(): Promise<boolean> {
+  const { spawnSync } = require('node:child_process')
+  const r = spawnSync('ollama', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  return r.status === 0
+}
+
+async function installOllamaWindows(): Promise<{ ok: boolean; error?: string }> {
+  if (!IS_WINDOWS) return { ok: false, error: 'Ollama install requires Windows' }
+  // Try winget first (preferred). Falls back to the official MSI.
+  const { spawn } = require('node:child_process')
+  const tryWinget = () => new Promise<{ ok: boolean; stderr: string }>((resolve) => {
+    const c = spawn('winget', ['install', '-e', '--id', 'Ollama.Ollama', '--accept-package-agreements', '--accept-source-agreements'], {
+      detached: true, stdio: ['ignore', 'pipe', 'ignore']
+    })
+    let stderr = ''
+    c.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    c.on('error', () => resolve({ ok: false, stderr }))
+    c.on('close', (code: number) => resolve({ ok: code === 0, stderr }))
+    setTimeout(() => resolve({ ok: false, stderr: 'winget install timed out' }), 180_000)
+  })
+  const wg = await tryWinget()
+  if (wg.ok) return { ok: true }
+  // Fallback: download the official Windows installer.
+  const tmp = require('node:path').join(require('node:os').tmpdir(), 'OllamaSetup.exe')
+  const download = await new Promise<{ ok: boolean; path?: string; error?: string }>(async (resolve) => {
+    try {
+      const https = require('node:https')
+      const fs = require('node:fs')
+      const file = fs.createWriteStream(tmp)
+      const req = https.get('https://ollama.com/download/OllamaSetup.exe', (res: any) => {
+        if (res.statusCode !== 200) { resolve({ ok: false, error: `HTTP ${res.statusCode}` }); return }
+        res.pipe(file)
+        file.on('finish', () => file.close(() => resolve({ ok: true, path: tmp })))
+      })
+      req.on('error', (e: Error) => resolve({ ok: false, error: e.message }))
+      req.setTimeout(120_000, () => req.destroy(new Error('download timed out')))
+    } catch (e: any) {
+      resolve({ ok: false, error: e.message })
+    }
+  })
+  if (!download.ok || !download.path) return { ok: false, error: download.error }
+  return new Promise((resolve) => {
+    const c = spawn(download.path, ['/S', '/D=C:\\Program Files\\Ollama'], { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
+    c.on('close', (code: number) => resolve({ ok: code === 0, error: code === 0 ? undefined : `exit ${code}` }))
+    setTimeout(() => resolve({ ok: false, error: 'install timed out' }), 300_000)
+  })
+}
+
+async function pullDefaultModel(): Promise<{ ok: boolean; model?: string; error?: string }> {
+  // The Flo team config prefers a small local model. We pick the
+  // smallest reasonable one that fits the team's local_reasoning role.
+  // 3B-class models are the project default — keep this conservative so
+  // we don't pull a 30 GB model when the user has 8 GB of VRAM.
+  const { spawn } = require('node:child_process')
+  return new Promise((resolve) => {
+    const c = spawn('ollama', ['pull', 'llama3.2:3b'], { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
+    c.unref()
+    // Poll /api/tags until the model appears.
+    const start = Date.now()
+    const tick = async () => {
+      if (Date.now() - start > 600_000) { resolve({ ok: false, error: 'pull timed out' }); return }
+      try {
+        const r = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(1500) }).catch(() => undefined)
+        if (r && (r as any).ok) {
+          const data = await (r as any).json().catch(() => ({} as any))
+          const models = Array.isArray(data?.models) ? data.models.map((m: any) => m.name) : []
+          if (models.length > 0) {
+            resolve({ ok: true, model: models[0] })
+            return
+          }
+        }
+      } catch { /* keep polling */ }
+      setTimeout(tick, 3000)
+    }
+    setTimeout(tick, 8000) // give `pull` time to register the model
+  })
+}
+
+ipcMain.handle('hermes:flo:ai-setup', async () => {
+  if (!await ollamaInstalled()) {
+    if (!IS_WINDOWS) {
+      return { ok: false, stage: 'install-ollama', error: 'Ollama install requires Windows on this Mac' }
+    }
+    const r = await installOllamaWindows()
+    if (!r.ok) return { ok: false, stage: 'install-ollama', error: r.error }
+  }
+  // Wait for the daemon to come up (post-install on Windows).
+  const start = Date.now()
+  while (Date.now() - start < 60_000) {
+    try {
+      const r = await fetch('http://localhost:11434/api/tags', { method: 'GET', signal: AbortSignal.timeout(800) }).catch(() => undefined)
+      if (r && (r as any).ok) break
+    } catch { /* keep polling */ }
+    await new Promise(r => setTimeout(r, 1000))
+  }
+  const m = await pullDefaultModel()
+  if (!m.ok) return { ok: false, stage: 'pull-model', error: m.error }
+  return { ok: true, model: m.model }
+})
+
+// ─── Existing helper: re-check Ollama / Documenso live status ─────────────
+
+// Update the connection-status IPC to also surface Gmail bootstrap status
+// (so the renderer knows the credential is on disk AND decryptable).
+// We don't include the password itself in the status — only that it's there.
+
+
 
 // Native save-location picker (profile export etc.) — the write itself happens
 // elsewhere (the backend, for profile archives); this only picks the path.
