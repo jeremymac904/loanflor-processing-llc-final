@@ -235,6 +235,15 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   readPluginSource: (filePath: string) => ipcRenderer.invoke('hermes:readPluginSource', filePath),
   selectPaths: options => ipcRenderer.invoke('hermes:selectPaths', options),
   selectSavePath: options => ipcRenderer.invoke('hermes:selectSavePath', options),
+  // ─── Flo connectors (Ashley-facing setup) ────────────────────────────────────
+  flo: {
+    connectionStatus: () => ipcRenderer.invoke('hermes:flo:connection-status'),
+    saveGmail: payload => ipcRenderer.invoke('hermes:flo:save-gmail', payload),
+    saveZapier: payload => ipcRenderer.invoke('hermes:flo:save-zapier', payload),
+    checkDocumenso: () => ipcRenderer.invoke('hermes:flo:check-documenso'),
+    startDocumenso: () => ipcRenderer.invoke('hermes:flo:start-documenso'),
+    checkLocalAi: () => ipcRenderer.invoke('hermes:flo:check-local-ai'),
+  },
   writeClipboard: text => ipcRenderer.invoke('hermes:writeClipboard', text),
   readClipboard: () => ipcRenderer.invoke('hermes:readClipboard'),
   saveGatewayFile: payload => ipcRenderer.invoke('hermes:saveGatewayFile', payload),

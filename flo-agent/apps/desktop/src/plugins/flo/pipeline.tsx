@@ -1026,6 +1026,7 @@ function FilePanel({
 
   const hasTitle = (ws.orders ?? []).some(o => o.order_type === 'title' && o.state !== 'cancelled')
   const hasHoi = (ws.orders ?? []).some(o => o.order_type === 'hoi' && o.state !== 'cancelled')
+  const hasWvoe = (ws.orders ?? []).some(o => o.order_type === 'wvoe' && o.state !== 'cancelled')
 
   const ctcAll = ctcReadiness(ws)
 
@@ -1269,6 +1270,16 @@ function FilePanel({
             variant="secondary"
           >
             Order HOI
+          </Button>
+        ) : null}
+        {!hasWvoe ? (
+          <Button
+            disabled={isBusy}
+            onClick={() => ask('order-wvoe', `Order WVOE · ${summary.name}`, orderPrompt(ws, 'wvoe'))}
+            size="sm"
+            variant="secondary"
+          >
+            Order WVOE
           </Button>
         ) : null}
         <Button

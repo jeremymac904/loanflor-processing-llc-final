@@ -41,6 +41,7 @@ import { APPROVALS_ROUTE, ApprovalsPage } from './approvals'
 import { NEXT_MOVE_PROMPT, STATUS_TONE, todayModel } from './ashley'
 import { preferFloProfile, reportStartFailure, startFloChat } from './chat'
 import floBadge from './flo-badge.png'
+import { FLO_ONBOARDING_ROUTE, FloOnboarding } from './onboarding/FloOnboarding'
 import { PIPELINE_ROUTE, PipelinePage, useAsk } from './pipeline'
 import { useTeamState } from './state'
 import { FLO_THEME_NAME, floTheme } from './theme'
@@ -50,6 +51,9 @@ const TODAY_ROUTE = '/flo'
 // Bump the suffix when first-launch behaviour changes (e.g. a new brand theme)
 // so existing installs get it once more.
 const LANDED_KEY = 'landed-v3'
+// Bump when Ashley's onboarding flow changes shape so existing installs
+// get the new card layout once more.
+const FLO_ONBOARDING_DONE_KEY = 'flo-onboarding-done-v1'
 
 /** The two quick asks that earn a spot on Today; the rest stay in the palette. */
 const QUICK_ASKS = FLO_ACTIONS.filter(a => a.id === 'morning-brief' || a.id === 'eod-recap')
@@ -235,6 +239,12 @@ const plugin: HermesPlugin = {
     ctx.registerMany([
       { id: 'theme', area: THEMES_AREA, data: floTheme },
       {
+        id: 'flo-onboarding',
+        area: ROUTES_AREA,
+        data: { path: FLO_ONBOARDING_ROUTE } satisfies RouteContribution,
+        render: () => <FloOnboarding storage={ctx.storage} />
+      },
+      {
         id: 'today',
         area: ROUTES_AREA,
         data: { path: TODAY_ROUTE } satisfies RouteContribution,
@@ -334,15 +344,18 @@ const plugin: HermesPlugin = {
       }))
     ])
 
-    // Land on Today the first time the app opens with this plugin; after
-    // that the app restores whatever Ashley was last looking at.
+    // Land on the Flo onboarding the first time the app opens with this
+    // plugin. Ashley must complete (or skip past) the onboarding card
+    // before Today/Pipeline/Approvals reveal themselves — she never sees
+    // the default Hermes provider-onboarding UI.
     if (!ctx.storage.get<boolean>(LANDED_KEY, false)) {
       ctx.storage.set(LANDED_KEY, true)
       window.setTimeout(() => {
         // Brand theme on first launch only; a later manual pick in
         // Appearance is respected (never re-applied).
         requestTheme(FLO_THEME_NAME)
-        host.navigate(TODAY_ROUTE)
+        const onboarded = ctx.storage.get<boolean>(FLO_ONBOARDING_DONE_KEY, false)
+        host.navigate(onboarded ? TODAY_ROUTE : FLO_ONBOARDING_ROUTE)
       }, 0)
     }
   }

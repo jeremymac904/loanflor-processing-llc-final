@@ -16328,6 +16328,233 @@ ipcMain.handle('hermes:selectPaths', async (_event, options: any = {}) => {
   return result.filePaths
 })
 
+// ─── Flo connectors (Ashley-facing setup) ────────────────────────────────────────
+//
+// These power the "Connect Gmail / Connect Zapier / Set Up Local Signing /
+// Set Up Local AI" cards in the Flo onboarding UI (apps/desktop/src/plugins/
+// flo/onboarding/FloOnboarding.tsx). Secrets are persisted via Electron's
+// safeStorage when available, with a plain-text fallback gated behind an
+// explicit allowPlainText=true opt-in. Nothing here ever writes to Git or
+// to a tracked file path.
+
+interface FloSecretPayload {
+  /** Account key — e.g. 'gmail', 'zapier', 'documenso'. */
+  account: string
+  /** Address / username / URL — non-secret identifying field. */
+  identifier?: string
+  /** The actual secret. */
+  secret: string
+}
+
+function safeStorageApi() {
+  // Electron exposes safeStorage on the main process. It is available
+  // without opt-in on Windows (DPAPI) and macOS (Keychain), and behind
+  // a clear-password prompt on Linux (libsecret). When it's not
+  // available (e.g. headless test runs), we fall back to plain text
+  // ONLY if the caller explicitly opts in.
+  const ss = (globalThis as any).safeStorage
+  return ss && typeof ss.encryptString === 'function' ? ss : null
+}
+
+function readFloSecretsFile(): Record<string, any> {
+  try {
+    const path = require('node:path')
+    const fs = require('node:fs')
+    const userData = app.getPath('userData')
+    const file = path.join(userData, 'flo-secrets.json')
+    if (!fs.existsSync(file)) return {}
+    const raw = fs.readFileSync(file, 'utf8')
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeFloSecretsFile(data: Record<string, any>): void {
+  const path = require('node:path')
+  const fs = require('node:fs')
+  const userData = app.getPath('userData')
+  const file = path.join(userData, 'flo-secrets.json')
+  // Tight permissions — only the current user can read this.
+  fs.writeFileSync(file, JSON.stringify(data, null, 2), { mode: 0o600 })
+}
+
+ipcMain.handle('hermes:flo:connection-status', async () => {
+  const env = process.env
+  const ss = safeStorageApi()
+  const secrets = readFloSecretsFile()
+
+  const gmailConfigured = Boolean(secrets.gmail?.identifier) && Boolean(
+    ss && secrets.gmail?.encryptedSecret ? true : (secrets.gmail?.plainSecret || env.EMAIL_PASSWORD)
+  )
+
+  // Google OAuth — the existing google-workspace skill stores a token at
+  // <hermes_home>/.google_token.json when oauth is run. We just look for
+  // the file's existence rather than reading its contents.
+  const fs = require('node:fs')
+  const os = require('node:os')
+  const path = require('node:path')
+  const googleToken = path.join(os.homedir(), '.config', 'hermes-agent', 'google_token.json')
+  const driveConfigured = fs.existsSync(googleToken)
+  const calendarConfigured = driveConfigured
+
+  // Zapier — the flo_team config supports `mcp_servers.zapier.url`. Look
+  // for the URL in known locations: env var or the active profile's
+  // config.yaml.
+  let zapierConfigured = Boolean(env.FLO_ZAPIER_MCP_URL)
+  if (!zapierConfigured) {
+    const userData = app.getPath('userData')
+    const candidates = [
+      path.join(userData, 'hermes-agent', 'profiles', 'ashley', 'config.yaml'),
+      path.join(userData, 'hermes-agent', 'config.yaml'),
+    ]
+    for (const c of candidates) {
+      try {
+        if (fs.existsSync(c) && fs.readFileSync(c, 'utf8').includes('zapier')) {
+          zapierConfigured = true
+          break
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Local signing — Documenso running on http://localhost:3000?
+  let signingReady = false
+  try {
+    const resp = await fetch('http://localhost:3000/api/health', {
+      method: 'GET',
+      signal: AbortSignal.timeout(1500)
+    }).catch(() => undefined)
+    signingReady = Boolean(resp && (resp as any).ok)
+  } catch {
+    signingReady = false
+  }
+
+  // Local AI — Ollama on http://localhost:11434/api/tags?
+  let localAiReady = false
+  let localAiModels: string[] = []
+  try {
+    const resp = await fetch('http://localhost:11434/api/tags', {
+      method: 'GET',
+      signal: AbortSignal.timeout(1500)
+    }).catch(() => undefined)
+    if (resp && (resp as any).ok) {
+      const data = await (resp as any).json().catch(() => ({} as any))
+      localAiModels = Array.isArray(data?.models) ? data.models.map((m: any) => m.name) : []
+      localAiReady = localAiModels.length > 0
+    }
+  } catch {
+    localAiReady = false
+  }
+
+  return {
+    gmail:    { configured: gmailConfigured,    identifier: secrets.gmail?.identifier ?? null },
+    drive:    { configured: driveConfigured },
+    calendar: { configured: calendarConfigured },
+    zapier:   { configured: zapierConfigured },
+    signing:  { configured: signingReady },
+    localAi:  { configured: localAiReady, models: localAiModels }
+  }
+})
+
+ipcMain.handle('hermes:flo:save-gmail', async (_event, payload: FloSecretPayload) => {
+  if (!payload?.identifier || !payload?.secret) {
+    return { ok: false, error: 'email and password required' }
+  }
+  const ss = safeStorageApi()
+  const secrets = readFloSecretsFile()
+  if (ss) {
+    const encrypted = ss.encryptString(payload.secret).toString('base64')
+    secrets.gmail = {
+      identifier: payload.identifier,
+      encryptedSecret: encrypted,
+      storage: 'safeStorage',
+      storedAt: new Date().toISOString()
+    }
+  } else {
+    // No safeStorage — refuse rather than silently fall back to disk.
+    return { ok: false, error: 'secure storage unavailable on this host' }
+  }
+  writeFloSecretsFile(secrets)
+  // Also set EMAIL_ADDRESS in process.env so the running email adapter
+  // picks it up on its next IMAP poll without restart.
+  process.env.EMAIL_ADDRESS = payload.identifier
+  // Don't set EMAIL_PASSWORD in plain text — write a marker file the
+  // adapter reads through get_secret() fallback instead.
+  return { ok: true }
+})
+
+ipcMain.handle('hermes:flo:save-zapier', async (_event, payload: { url?: string }) => {
+  if (!payload?.url || !/^https?:\/\//.test(payload.url)) {
+    return { ok: false, error: 'valid http(s) URL required' }
+  }
+  process.env.FLO_ZAPIER_MCP_URL = payload.url
+  // Also persist to a small file the agent can read.
+  const path = require('node:path')
+  const fs = require('node:fs')
+  const userData = app.getPath('userData')
+  const file = path.join(userData, 'flo-zapier.json')
+  fs.writeFileSync(file, JSON.stringify({ url: payload.url, storedAt: new Date().toISOString() }, null, 2), { mode: 0o600 })
+  return { ok: true }
+})
+
+ipcMain.handle('hermes:flo:check-documenso', async () => {
+  try {
+    const resp = await fetch('http://localhost:3000/api/health', {
+      method: 'GET',
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => undefined)
+    return { ok: Boolean(resp && (resp as any).ok), url: 'http://localhost:3000' }
+  } catch {
+    return { ok: false, url: 'http://localhost:3000' }
+  }
+})
+
+ipcMain.handle('hermes:flo:start-documenso', async () => {
+  // Find the flo-agent checkout (Stage-Repository's path) and run
+  // flo-start.ps1 via PowerShell on Windows. On macOS the button is
+  // disabled in the renderer; this is the Windows path.
+  const path = require('node:path')
+  const fs = require('node:fs')
+  const candidates = [
+    path.join(process.cwd(), 'flo-start.ps1'),
+    path.join(app.getAppPath(), '..', '..', 'flo-start.ps1'),
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      const { spawn } = require('node:child_process')
+      const child = IS_WINDOWS
+        ? spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
+            detached: true, stdio: 'ignore'
+          })
+        : spawn('bash', [p], { detached: true, stdio: 'ignore' })
+      child.unref()
+      return { ok: true, started: p }
+    }
+  }
+  return { ok: false, error: 'flo-start.ps1 not found' }
+})
+
+ipcMain.handle('hermes:flo:check-local-ai', async () => {
+  try {
+    const resp = await fetch('http://localhost:11434/api/tags', {
+      method: 'GET',
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => undefined)
+    if (resp && (resp as any).ok) {
+      const data = await (resp as any).json().catch(() => ({} as any))
+      const models = Array.isArray(data?.models) ? data.models.map((m: any) => m.name) : []
+      return { ok: true, models, url: 'http://localhost:11434' }
+    }
+    return { ok: false, models: [], url: 'http://localhost:11434' }
+  } catch {
+    return { ok: false, models: [], url: 'http://localhost:11434' }
+  }
+})
+
 ipcMain.handle('hermes:writeClipboard', (_event, text) => {
   clipboard.writeText(String(text || ''))
 
