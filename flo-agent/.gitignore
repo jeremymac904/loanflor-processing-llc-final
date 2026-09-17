@@ -216,3 +216,4 @@ native/fts5_cjk/*.so
 
 # Flo: reviewed shared coding-agent context, never credentials.
 !/opencode.json
+release/ashley/*.zip
