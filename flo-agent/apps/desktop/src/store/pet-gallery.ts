@@ -11,6 +11,7 @@ import {
   petProfile,
   setPetInfo
 } from '@/store/pet'
+import { FLO_PET_INFO, setFloPetEnabled } from '@/plugins/flo/flo-pet'
 
 /**
  * Feature store for the petdex gallery picker (Cmd+K "Pets…" + Settings).
@@ -340,6 +341,9 @@ export function setPetEnabled(
   const gallery = $petGallery.get()
 
   if (!on && !(gallery?.enabled ?? false)) {
+    setFloPetEnabled(false)
+    setPetInfo({ enabled: false })
+
     return Promise.resolve(true)
   }
 
@@ -349,9 +353,12 @@ export function setPetEnabled(
     slug = slug || gallery?.pets.find(p => p.installed)?.slug || ''
 
     if (!slug) {
-      $petGalleryError.set(copy.noneAvailable)
+      // Flo ships with a product-owned Petdex-compatible fallback, so the
+      // assistant can be turned on before a local gallery is configured.
+      setFloPetEnabled(true)
+      setPetInfo(FLO_PET_INFO)
 
-      return Promise.resolve(false)
+      return Promise.resolve(true)
     }
   }
 
@@ -363,6 +370,11 @@ export function setPetEnabled(
     }
 
     patchGallery(g => ({ ...g, enabled: on, active: on ? slug : g.active }))
+    setFloPetEnabled(on)
+
+    if (!on) {
+      setPetInfo({ enabled: false })
+    }
   })
 }
 

@@ -26,6 +26,7 @@ import { $gatewayState } from '@/store/session'
 import { isSecondaryWindow } from '@/store/windows'
 import { useTheme } from '@/themes/context'
 
+import { FLO_PET_INFO, isFloPetEnabled } from '../../plugins/flo/flo-pet'
 import { PET_STARTUP_RETRY_MS, petInfoPollIntervalMs } from './pet-info-poll'
 import { PetSprite, roamWalkRow } from './pet-sprite'
 import { usePetRoam } from './use-pet-roam'
@@ -136,9 +137,13 @@ export function FloatingPet() {
   // Fetch pet.info on connect. pet.changed re-runs this effect when the
   // signature moves; a slow backstop covers silent seed + cold-start races.
   // Older backends (no change_events) keep the legacy fast-while-inactive poll.
-  const active = info.enabled && Boolean(info.spritesheetBase64)
+  const active = info.enabled && Boolean(info.spritesheetBase64 || info.spritesheetUrl)
   useEffect(() => {
     if (gatewayState !== 'open') {
+      if (isFloPetEnabled()) {
+        setPetInfo(FLO_PET_INFO)
+      }
+
       return
     }
 
@@ -149,7 +154,7 @@ export function FloatingPet() {
     // revision (scale-only move still changes the sig) short-circuits below
     // via hasPetSpriteForMeta + mergePetInfoMeta.
     if (changeEventsAvailable && petChange.tick > 0 && petChange.meta?.enabled === false) {
-      setPetInfo({ enabled: false })
+      setPetInfo(isFloPetEnabled() ? FLO_PET_INFO : { enabled: false })
 
       return
     }
@@ -165,7 +170,7 @@ export function FloatingPet() {
             }
 
             if (!meta.enabled) {
-              setPetInfo({ enabled: false })
+              setPetInfo(isFloPetEnabled() ? FLO_PET_INFO : { enabled: false })
 
               return
             }
@@ -217,10 +222,13 @@ export function FloatingPet() {
             return
           }
 
-          setPetInfo(next)
+          setPetInfo(next.enabled || !isFloPetEnabled() ? next : FLO_PET_INFO)
         }
       } catch {
-        // cosmetic feature — never surface gateway errors
+        // Cosmetic feature — keep product-owned Flo visible during reconnects.
+        if (isFloPetEnabled()) {
+          setPetInfo(FLO_PET_INFO)
+        }
       }
     }
 
@@ -243,7 +251,7 @@ export function FloatingPet() {
 
         const current = $petInfo.get()
 
-        if (current.enabled && current.spritesheetBase64) {
+        if (current.enabled && (current.spritesheetBase64 || current.spritesheetUrl)) {
           return
         }
 
@@ -459,7 +467,7 @@ export function FloatingPet() {
 
   // While popped out, the desktop overlay window owns the mascot — hide the
   // in-window one so there aren't two.
-  if (!info.enabled || !info.spritesheetBase64 || overlayActive) {
+  if (!info.enabled || !(info.spritesheetBase64 || info.spritesheetUrl) || overlayActive) {
     return null
   }
 

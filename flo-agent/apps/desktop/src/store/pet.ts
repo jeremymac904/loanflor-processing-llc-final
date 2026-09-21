@@ -21,6 +21,8 @@ export interface PetInfo {
   displayName?: string
   mime?: string
   spritesheetBase64?: string
+  /** Bundled renderer asset used by a product-owned fallback pet. */
+  spritesheetUrl?: string
   // Stable sheet revision (`mtime_ns:size`) from the gateway; lets the desktop
   // skip full sprite payload refreshes when the active pet hasn't changed.
   spritesheetRevision?: string
@@ -140,7 +142,10 @@ export const $petInfo = atom<PetInfo>({ enabled: false })
 export const $petActivity = atom<PetActivity>({})
 
 /** Pet installed + enabled with a loaded spritesheet (ready to show/react). */
-export const $petActive = computed($petInfo, info => info.enabled && Boolean(info.spritesheetBase64))
+export const $petActive = computed(
+  $petInfo,
+  info => info.enabled && Boolean(info.spritesheetBase64 || info.spritesheetUrl)
+)
 
 /**
  * Profile the pet RPCs should resolve against. Pets are per-profile — the active

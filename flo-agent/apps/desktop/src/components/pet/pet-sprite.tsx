@@ -194,15 +194,17 @@ function PetSpriteImpl({ info, zoom = 1, stateOverride, rowOverride, pauseWhenUn
   const backingH = Math.max(1, Math.round(drawH * pixelRatio))
 
   const image = useMemo(() => {
-    if (!info.spritesheetBase64) {
+    const source = info.spritesheetUrl ?? (info.spritesheetBase64 ? `data:${info.mime ?? 'image/webp'};base64,${info.spritesheetBase64}` : null)
+
+    if (!source) {
       return null
     }
 
     const img = new Image()
-    img.src = `data:${info.mime ?? 'image/webp'};base64,${info.spritesheetBase64}`
+    img.src = source
 
     return img
-  }, [info.spritesheetBase64, info.mime])
+  }, [info.mime, info.spritesheetBase64, info.spritesheetUrl])
 
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
