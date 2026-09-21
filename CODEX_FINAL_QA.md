@@ -39,6 +39,8 @@ The initial sandboxed baseline was affected by socket-bind and Vite cache permis
 - Windows x64 portable executable: `flo-agent/apps/desktop/release/Flo-0.17.0-win-x64.exe`.
 - Size: 103,496,744 bytes.
 - SHA-256: `39d2bc856325a1187f4491c55c8bf0f89f72abf1bb8cb0ca85fce0bf9e0fc179`.
+- Final ZIP: `release/ashley-final/Flo-0.17.0-win-x64-portable.zip`, 170,904,135 bytes; SHA-256 `b627553978eaeab0c1cf0f09827e928e40b2690f3c229a71715d64f3f95f94b5`.
 - The unpacked x64 ASAR contains the Flo onboarding/connector strings, WVOE, document-drop, Documenso, Petdex spritesheet, Pet overlay IPC, profiles/skills bundles, and voice/microphone/transcription hooks.
+- Packaged development `*.test.js` files were removed from the native runtime payload; required Windows x64 `node-pty` bindings remain.
 - No model weights, secrets, source repository, node_modules, `.venv`, or test data are included in the final release directory.
 - Wine was unavailable, so Windows executable icon/identity stamping was not performed; the x64 portable executable itself was produced and inspected.
