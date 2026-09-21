@@ -33,3 +33,12 @@ export function Fact({ label, value, tone }: { label: string; value: React.React
     </div>
   )
 }
+
+/** Shared surface for Ashley-facing Flo cards: quiet border, readable rhythm. */
+export function FloCard({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn('rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4', className)}>{children}</div>
+}
+
+export function FloSectionLabel({ children }: { children: React.ReactNode }) {
+  return <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-(--ui-text-tertiary)">{children}</h2>
+}

@@ -45,7 +45,7 @@ import { FLO_ONBOARDING_ROUTE, FloOnboarding } from './onboarding/FloOnboarding'
 import { PIPELINE_ROUTE, PipelinePage, useAsk } from './pipeline'
 import { useTeamState } from './state'
 import { FLO_THEME_NAME, floTheme } from './theme'
-import { Pill } from './ui'
+import { FloCard, FloSectionLabel, Pill } from './ui'
 
 const TODAY_ROUTE = '/flo'
 // Bump the suffix when first-launch behaviour changes (e.g. a new brand theme)
@@ -60,10 +60,10 @@ const QUICK_ASKS = FLO_ACTIONS.filter(a => a.id === 'morning-brief' || a.id === 
 
 function Card({ title, children, tone }: { title: string; children: React.ReactNode; tone?: 'bad' }) {
   return (
-    <div className="rounded-md border border-(--ui-stroke-tertiary) p-3">
-      <h2 className="m-0 text-xs font-semibold uppercase tracking-wide text-(--ui-text-tertiary)">{title}</h2>
+    <FloCard>
+      <FloSectionLabel>{title}</FloSectionLabel>
       <p className={cn('m-0 mt-1 text-sm', tone === 'bad' && 'text-destructive')}>{children}</p>
-    </div>
+    </FloCard>
   )
 }
 
@@ -74,12 +74,12 @@ function TodayPage() {
   const isBusy = busy !== null
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-8">
       <header className="flex items-center gap-4">
         <img alt="" aria-hidden className="size-16 shrink-0 select-none" draggable={false} src={floBadge} />
         <div className="flex flex-col gap-1">
           <Wordmark text="FLO" />
-          <p className="m-0 text-base font-medium">{model?.greeting ?? 'Hi Ash'}</p>
+          <p className="m-0 text-lg font-medium">{model?.greeting ?? 'Morning Ash ☕'}</p>
           <p className="m-0 text-sm text-(--ui-text-secondary)">
             {model && model.top.length > 0
               ? 'I’ve got the messy stuff sorted. Here’s what matters.'
@@ -129,13 +129,13 @@ function TodayPage() {
           ) : null}
 
           <section className="flex flex-col gap-2">
-            <h2 className="m-0 text-xs font-semibold uppercase tracking-wide text-(--ui-text-tertiary)">Top 3</h2>
+            <FloSectionLabel>Top 3</FloSectionLabel>
             {model.top.length === 0 ? (
               <p className="m-0 text-sm text-(--ui-text-secondary)">No open files need you right now.</p>
             ) : (
               <ol className="m-0 flex list-none flex-col gap-2 p-0">
                 {model.top.map((item, i) => (
-                  <li className="flex gap-3 rounded-md border border-(--ui-stroke-tertiary) p-3" key={item.workspaceId}>
+                  <li className="flex gap-3 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4" key={item.workspaceId}>
                     <span className="text-lg font-semibold text-(--ui-text-tertiary)">{i + 1}</span>
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <div className="flex items-center gap-2">
