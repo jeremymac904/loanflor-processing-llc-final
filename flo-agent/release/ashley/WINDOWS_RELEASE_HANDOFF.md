@@ -65,6 +65,6 @@ If Flo's onboarding successfully completes all five cards, the release is workin
 
 ## Source branch
 
-The release is built from `flo/minimax-continuation @ 01d729c`.
+The release is built from `flo/codex-polish` and published under `flo-ashley-rc2`.
 
 Ashley does NOT need to clone this branch. The portable build is self-contained.
