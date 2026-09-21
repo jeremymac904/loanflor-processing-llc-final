@@ -4,15 +4,15 @@ Repository: https://github.com/jeremymac904/loanflor-processing-llc-final
 
 Final branch: `flo/codex-polish`
 
-Final release tag: `flo-ashley-rc2`
+Final release tag: `flo-ashley-rc3`
 
-GitHub Release URL: https://github.com/jeremymac904/loanflor-processing-llc-final/releases/tag/flo-ashley-rc2
+GitHub Release URL: https://github.com/jeremymac904/loanflor-processing-llc-final/releases/tag/flo-ashley-rc3
 
 Windows artifact: `Flo-0.17.0-win-x64-portable.zip`
 
 SHA256: `d3a08f251377fa9428b90e09045ea7f89877f48c6a489a3b7fa4e6f381c83b49`
 
-The final branch HEAD is the authoritative handoff commit; its exact SHA is recorded in the final remote verification report after this documentation commit is pushed.
+`flo-ashley-rc2` remains on the prior packaged commit. `flo-ashley-rc3` is the final handoff tag for this documentation-complete branch.
 
 ## In Git
 

@@ -4,7 +4,7 @@
 
 - Branch: `flo/codex-polish`
 - Commit: `c5e80ac3a972c5d6d97349f0bfa1e8bc53bd1da0`
-- Release tag: `flo-ashley-rc2`
+- Release tag: `flo-ashley-rc3`
 - Artifact: `Flo-0.17.0-win-x64-portable.zip`
 - Architecture: Windows x64
 - Voice status: code and hooks packaged; live Windows voice acceptance is still required.

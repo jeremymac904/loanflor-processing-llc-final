@@ -6,7 +6,7 @@
 - MiniMax base commit: `6cbee95df09b46df3034f2e21fe4128215ba33c8`
 - Final source branch: `flo/codex-polish`
 - Final handoff commit: `c5e80ac3a972c5d6d97349f0bfa1e8bc53bd1da0`
-- Final release tag: `flo-ashley-rc2`
+- Final release tag: `flo-ashley-rc3`
 
 ## Scope
 
