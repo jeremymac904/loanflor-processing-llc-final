@@ -28,7 +28,7 @@ Date: 2026-09-28
 - Ollama is running locally with three models visible; direct local completion passed.
 - Flo Pet canvas is mounted and labelled `Flo pet`.
 - Flo exposes the voice controls.
-- Gmail remains Connected and stored credentials remain encrypted by Electron safeStorage.
+- Gmail was previously shown as Connected, but the final cold-restart status check reported it unconfigured on this install; no credential file was found to inspect or recover. Re-entering the credential through Flo is still required.
 - Local/custom Ollama endpoint was connected through Flo's provider UI; Gateway reported Ready.
 
 ## Not completed / remaining boundaries
