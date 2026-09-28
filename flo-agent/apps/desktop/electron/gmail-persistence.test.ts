@@ -21,6 +21,30 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { getAvailableFloSafeStorage } from './flo-safe-storage'
+
+describe('Flo safeStorage resolution', () => {
+  it('uses the imported Electron service even when globalThis has no safeStorage', () => {
+    const service = {
+      encryptString: (value: string) => Buffer.from(value, 'utf8'),
+      decryptString: (value: Buffer) => value.toString('utf8'),
+      isEncryptionAvailable: () => true
+    }
+
+    expect(getAvailableFloSafeStorage(service)).toBe(service)
+    expect((globalThis as any).safeStorage).toBeUndefined()
+  })
+
+  it('rejects a service whose OS encryption is unavailable', () => {
+    const service = {
+      encryptString: (value: string) => Buffer.from(value, 'utf8'),
+      decryptString: (value: Buffer) => value.toString('utf8'),
+      isEncryptionAvailable: () => false
+    }
+
+    expect(getAvailableFloSafeStorage(service)).toBeNull()
+  })
+})
 
 // Stub Electron's app.getPath('userData') so we can use a temp dir.
 let userDataDir = ''

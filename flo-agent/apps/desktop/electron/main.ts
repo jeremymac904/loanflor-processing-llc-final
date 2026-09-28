@@ -32,6 +32,7 @@ import {
 
 import { FLO_BRAND } from '../flo/brand'
 import { floUpdateGate } from '../flo/release-channel'
+import { getAvailableFloSafeStorage } from './flo-safe-storage'
 
 import { classifyActiveRuntime } from './active-runtime-state'
 import { destroyKeepaliveAgents, downloadAgentFor, jsonAgentFor, withRetry } from './api-transport'
@@ -16357,13 +16358,9 @@ interface FloSecretPayload {
 }
 
 function safeStorageApi() {
-  // Electron exposes safeStorage on the main process. It is available
-  // without opt-in on Windows (DPAPI) and macOS (Keychain), and behind
-  // a clear-password prompt on Linux (libsecret). When it's not
-  // available (e.g. headless test runs), we fall back to plain text
-  // ONLY if the caller explicitly opts in.
-  const ss = (globalThis as any).safeStorage
-  return ss && typeof ss.encryptString === 'function' ? ss : null
+  // Use the Electron module import. In a packaged Windows main process,
+  // safeStorage is not guaranteed to be exposed on globalThis.
+  return getAvailableFloSafeStorage(safeStorage)
 }
 
 function readFloSecretsFile(): Record<string, any> {
