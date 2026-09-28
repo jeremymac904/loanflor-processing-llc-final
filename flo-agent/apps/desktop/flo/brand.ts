@@ -18,6 +18,7 @@
 import brand from './brand.config.json'
 
 export interface FloUpdatesConfig {
+  bootstrapPath: null | string
   bootstrapSource: null | string
   mode: string
   source: null | string

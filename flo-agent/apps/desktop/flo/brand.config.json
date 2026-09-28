@@ -21,6 +21,7 @@
     "$comment": "Flo-owned release channel only. Runtime bootstrap downloads the installer script from this repository; runtime services remain local.",
     "mode": "flo-release",
     "source": "https://github.com/jeremymac904/loanflor-processing-llc-final.git",
-    "bootstrapSource": "https://raw.githubusercontent.com/jeremymac904/loanflor-processing-llc-final/flo-agent"
+    "bootstrapSource": "https://raw.githubusercontent.com/jeremymac904/loanflor-processing-llc-final",
+    "bootstrapPath": "flo-agent/scripts"
   }
 }

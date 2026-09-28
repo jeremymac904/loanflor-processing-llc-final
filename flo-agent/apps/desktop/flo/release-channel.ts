@@ -24,6 +24,7 @@ import { FLO_BRAND } from './brand'
 export type FloReleaseMode = 'disabled' | 'flo-release'
 
 export interface FloReleaseChannel {
+  bootstrapPath: null | string
   bootstrapSource: null | string
   mode: FloReleaseMode
   source: null | string
@@ -37,7 +38,7 @@ export interface FloUpdateGateResult {
   reason: FloUpdateGateReason
 }
 
-const DISABLED: FloReleaseChannel = { bootstrapSource: null, mode: 'disabled', source: null }
+const DISABLED: FloReleaseChannel = { bootstrapPath: null, bootstrapSource: null, mode: 'disabled', source: null }
 
 function nonEmptyString(value: unknown): null | string {
   return typeof value === 'string' && value.trim() ? value.trim() : null
@@ -60,6 +61,7 @@ export function resolveFloReleaseChannel(raw: unknown = FLO_BRAND.updates): FloR
   const mode = nonEmptyString(record.mode)
   const source = nonEmptyString(record.source)
   const bootstrapSource = nonEmptyString(record.bootstrapSource)
+  const bootstrapPath = nonEmptyString(record.bootstrapPath)
 
   if (mode !== 'flo-release') {
     return DISABLED
@@ -75,10 +77,10 @@ export function resolveFloReleaseChannel(raw: unknown = FLO_BRAND.updates): FloR
       bootstrapSource
     )
   ) {
-    return { bootstrapSource: null, mode: 'flo-release', source }
+    return { bootstrapPath, bootstrapSource: null, mode: 'flo-release', source }
   }
 
-  return { bootstrapSource, mode: 'flo-release', source }
+  return { bootstrapPath, bootstrapSource, mode: 'flo-release', source }
 }
 
 /** Decide whether a self-update may check or apply against `originUrl`. */
@@ -119,4 +121,9 @@ export function floUpdateGate(
 /** Raw-content base URL for first-run install scripts, or null (refuse). */
 export function floBootstrapSource(channel: FloReleaseChannel = resolveFloReleaseChannel()): null | string {
   return channel.mode === 'flo-release' ? channel.bootstrapSource : null
+}
+
+/** Relative path, inside the Flo repository, containing the installer script. */
+export function floBootstrapPath(channel: FloReleaseChannel = resolveFloReleaseChannel()): null | string {
+  return channel.mode === 'flo-release' ? channel.bootstrapPath : null
 }

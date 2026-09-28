@@ -38,7 +38,7 @@ import fsp from 'node:fs/promises'
 import https from 'node:https'
 import path from 'node:path'
 
-import { floBootstrapSource } from '../flo/release-channel'
+import { floBootstrapPath, floBootstrapSource } from '../flo/release-channel'
 
 import { hiddenWindowsChildOptions } from './windows-child-options'
 
@@ -247,7 +247,9 @@ function downloadInstallScript(ref, destPath) {
     )
   }
 
-  const url = `${floSource.replace(/\/+$/, '')}/${ref}/scripts/${scriptName}`
+  const scriptRoot = floBootstrapPath()
+  const scriptPath = scriptRoot ? `${scriptRoot.replace(/^\/+|\/+$/g, '')}/${scriptName}` : `scripts/${scriptName}`
+  const url = `${floSource.replace(/\/+$/, '')}/${ref}/${scriptPath}`
 
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true })
