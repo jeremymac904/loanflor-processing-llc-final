@@ -392,7 +392,7 @@ $script:ResolvedPathReport = @{
 
 $RepoUrlSsh = "git@github.com:NousResearch/hermes-agent.git"
 $RepoUrlHttps = "https://github.com/NousResearch/hermes-agent.git"
-$PythonVersion = "3.11"
+$PythonVersion = "3.14"
 # Minor versions the installer accepts when the requested $PythonVersion isn't
 # available, in preference order.  uv discovers both uv-managed and system
 # interpreters, so this list also matches a pre-existing system Python.  Single
@@ -1301,9 +1301,9 @@ function Test-Python {
     }
 
     Write-Err "Failed to install Python $PythonVersion"
-    Write-Info "Install Python 3.11 manually, then re-run this script:"
+    Write-Info "Install Python 3.14 manually, then re-run this script:"
     Write-Info "  https://www.python.org/downloads/"
-    Write-Info "  Or: winget install Python.Python.3.11"
+    Write-Info "  Or: winget install Python.Python.3.14"
     return $false
 }
 
