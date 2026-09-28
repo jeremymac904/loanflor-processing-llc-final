@@ -1,6 +1,7 @@
 import { LazyMemoizeSubject } from "@assistant-ui/core/internal";
 import { render } from "@testing-library/react";
 import { useSyncExternalStore } from "react";
+import { expect, it } from "vitest";
 
 type ThreadListSnapshot = {
   mainThreadId: string;

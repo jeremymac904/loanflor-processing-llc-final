@@ -120,7 +120,12 @@ function execProbeSync(
  * @returns {string}
  */
 function hermesRuntimeImportProbe() {
-  return 'import yaml; import dotenv; import hermes_cli.config'
+  // Import the application config module rather than naming its YAML
+  // implementation here. Hermes' current main branch uses hermes_yaml while
+  // older supported checkouts used PyYAML's yaml module. config.py imports the
+  // correct implementation for the installed checkout, so the probe remains
+  // compatible with both without accepting a half-installed runtime.
+  return 'import dotenv; import hermes_cli.config'
 }
 
 /**
@@ -135,7 +140,9 @@ function hermesRuntimeImportProbe() {
  *
  * The probe intentionally imports hermes_cli.config, not just the top-level
  * package: a broken/empty Windows launcher venv can still see the source tree
- * through PYTHONPATH but lack PyYAML, then die on the first real CLI import.
+ * through PYTHONPATH but lack a config dependency, then die on the first real
+ * CLI import. The config module owns the YAML implementation choice, which
+ * changed between the Hermes revisions supported by the desktop launcher.
  *
  * @param {string} pythonPath - Absolute path to a python.exe / python.
  * @param {object} [opts.env] - Additional environment for the probe.

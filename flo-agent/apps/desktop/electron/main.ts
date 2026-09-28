@@ -4659,11 +4659,21 @@ function createActiveBackend(backendArgs) {
     label: `Hermes at ${ACTIVE_HERMES_ROOT}`,
     command,
     args: ['-m', 'hermes_cli.main', ...backendArgs],
-    env: buildDesktopBackendEnv({
-      hermesHome: HERMES_HOME,
-      pythonPathEntries: [ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
-      venvRoot: VENV_ROOT
-    }),
+    // Flo's Windows bootstrap owns this venv and installs its dependencies
+    // directly. Current Hermes source checkouts may see the legacy install as
+    // PM-out-of-sync and try to run the self-update dependency path before
+    // `serve`, which never announces a port on this install lane. The venv has
+    // already passed the desktop bootstrap import/dependency gates, so keep
+    // the backend on that verified runtime. Developer/source backends above
+    // retain Hermes' normal PM behavior.
+    env: {
+      ...buildDesktopBackendEnv({
+        hermesHome: HERMES_HOME,
+        pythonPathEntries: [ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
+        venvRoot: VENV_ROOT
+      }),
+      HERMES_DISABLE_LAZY_INSTALLS: '1'
+    },
     root: ACTIVE_HERMES_ROOT,
     bootstrap: true,
     shell: false
