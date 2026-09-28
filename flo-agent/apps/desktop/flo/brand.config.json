@@ -18,9 +18,9 @@
     "license": "MIT"
   },
   "updates": {
-    "$comment": "mode: 'disabled' | 'flo-release'. 'flo-release' requires a Flo-owned git source (never the upstream NousResearch/hermes-agent repository). bootstrapSource is the raw-content base URL used for first-run runtime install scripts; null refuses the upstream installer download.",
-    "mode": "disabled",
-    "source": null,
-    "bootstrapSource": null
+    "$comment": "Flo-owned release channel only. Runtime bootstrap downloads the installer script from this repository; runtime services remain local.",
+    "mode": "flo-release",
+    "source": "https://github.com/jeremymac904/loanflor-processing-llc-final.git",
+    "bootstrapSource": "https://raw.githubusercontent.com/jeremymac904/loanflor-processing-llc-final"
   }
 }
