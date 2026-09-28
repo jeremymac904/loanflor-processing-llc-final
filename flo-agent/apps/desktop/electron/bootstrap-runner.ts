@@ -678,40 +678,52 @@ function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome 
 // a repair/update path and must not let an old packaged app detach the checkout
 // back to the commit baked into that app. All-zero fallback stamps are never
 // passed as -Commit/--commit — only the branch is used (#50823 / #50864 review).
-function buildPinArgs(installStamp, { pinCommit = true } = {}) {
+function buildPinArgs(installStamp, { pinCommit = true, floOwnedBootstrap = false } = {}) {
   const args = []
 
-  if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
+  // Flo's installer script is fetched from the Flo release repository, but
+  // the managed Hermes checkout remains the upstream runtime. A Flo desktop
+  // build stamp is not a valid commit/branch in that upstream repository.
+  if (!floOwnedBootstrap && pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
     args.push('-Commit', installStamp.commit)
   }
 
-  if (installStamp && installStamp.branch) {
+  if (!floOwnedBootstrap && installStamp && installStamp.branch) {
     args.push('-Branch', installStamp.branch)
   }
 
   return args
 }
 
-function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = true }) {
+function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = true, floOwnedBootstrap = false }) {
   const args = ['--dir', activeRoot, '--hermes-home', hermesHome]
 
-  if (installStamp && installStamp.branch) {
+  if (!floOwnedBootstrap && installStamp && installStamp.branch) {
     args.push('--branch', installStamp.branch)
   }
 
-  if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
+  if (!floOwnedBootstrap && pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
     args.push('--commit', installStamp.commit)
   }
 
   return args
 }
 
-async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, activeRoot, installStamp, pinCommit }) {
+async function fetchManifest({
+  scriptPath,
+  installerKind,
+  emit,
+  hermesHome,
+  activeRoot,
+  installStamp,
+  pinCommit,
+  floOwnedBootstrap
+}) {
   const isPosix = installerKind === 'posix'
 
   const args = isPosix
-    ? ['--manifest', ...buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit })]
-    : ['-Manifest', ...buildPinArgs(installStamp, { pinCommit })]
+    ? ['--manifest', ...buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit, floOwnedBootstrap })]
+    : ['-Manifest', ...buildPinArgs(installStamp, { pinCommit, floOwnedBootstrap })]
 
   const result = await (isPosix ? spawnBash : spawnPowerShell)(scriptPath, args, {
     emit,
@@ -777,7 +789,8 @@ async function runStage({
   activeRoot,
   abortSignal,
   installStamp,
-  pinCommit
+  pinCommit,
+  floOwnedBootstrap
 }) {
   const startedAt = Date.now()
   emit({ type: 'stage', name: stage.name, state: 'running' })
@@ -790,9 +803,9 @@ async function runStage({
         stage.name,
         '--non-interactive',
         '--json',
-        ...buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit })
+        ...buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit, floOwnedBootstrap })
       ]
-    : ['-Stage', stage.name, '-NonInteractive', '-Json', ...buildPinArgs(installStamp, { pinCommit })]
+    : ['-Stage', stage.name, '-NonInteractive', '-Json', ...buildPinArgs(installStamp, { pinCommit, floOwnedBootstrap })]
 
   const result = await (isPosix ? spawnBash : spawnPowerShell)(scriptPath, args, {
     emit,
@@ -932,6 +945,7 @@ async function runBootstrap(opts) {
   try {
     const existingCheckout = hasExistingGitCheckout(activeRoot)
     const pinCommit = !existingCheckout
+    const floOwnedBootstrap = Boolean(floBootstrapSource())
 
     if (existingCheckout && installStamp && installStamp.commit) {
       emit({
@@ -954,7 +968,8 @@ async function runBootstrap(opts) {
       hermesHome,
       activeRoot,
       installStamp,
-      pinCommit
+      pinCommit,
+      floOwnedBootstrap
     })
 
     emit({
@@ -983,7 +998,8 @@ async function runBootstrap(opts) {
         activeRoot,
         abortSignal,
         installStamp,
-        pinCommit
+        pinCommit,
+        floOwnedBootstrap
       })
 
       if (ev.state === 'failed') {

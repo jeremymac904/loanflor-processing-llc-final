@@ -95,6 +95,21 @@ test('fresh bootstrap args include the packaged commit pin', () => {
   )
 })
 
+test('Flo-owned installer does not pass a Flo desktop ref to the upstream Hermes checkout', () => {
+  const installStamp = { commit: 'a'.repeat(40), branch: 'flo/codex-polish' }
+
+  assert.deepEqual(buildPinArgs(installStamp, { floOwnedBootstrap: true }), [])
+  assert.deepEqual(
+    buildPosixPinArgs({
+      installStamp,
+      activeRoot: '/tmp/hermes-agent',
+      hermesHome: '/tmp/hermes',
+      floOwnedBootstrap: true
+    }),
+    ['--dir', '/tmp/hermes-agent', '--hermes-home', '/tmp/hermes']
+  )
+})
+
 test('existing-checkout bootstrap args keep branch but skip the packaged commit pin', () => {
   const installStamp = { commit: 'a'.repeat(40), branch: 'main' }
 
