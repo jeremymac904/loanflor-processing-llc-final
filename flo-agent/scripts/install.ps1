@@ -3332,19 +3332,19 @@ function Install-FloTeamProfiles {
         }
     }
     if (-not $floAgent) {
-        Write-Warning "Could not locate .flo\profile\ashley — Flo Team profiles skipped."
+        Write-Warning "Could not locate .flo\profile\ashley - Flo Team profiles skipped."
         Write-Warning "  Run scripts/flo/install_ashley_profile.py manually after install."
         return
     }
 
     & $script:UvCmd --directory $floAgent run --with --no-project python "$floAgent\scripts\flo\install_ashley_profile.py" --home $HermesHome 2>&1 | ForEach-Object { Write-Info $_ }
     if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Ashley profile install returned $LASTEXITCODE — continuing."
+        Write-Warning "Ashley profile install returned $LASTEXITCODE - continuing."
     }
 
     & $script:UvCmd --directory $floAgent run --with --no-project python "$floAgent\scripts\flo\install_flo_team.py" --home $HermesHome 2>&1 | ForEach-Object { Write-Info $_ }
     if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Flo Team profile install returned $LASTEXITCODE — continuing."
+        Write-Warning "Flo Team profile install returned $LASTEXITCODE - continuing."
     }
 
     # Local Flo workspace root. Ashley never has to make folders.
@@ -3378,7 +3378,7 @@ function Install-FloSignaturesShortcut {
     if (-not $floAgent) { $floAgent = $PSScriptRoot }
     $target = Join-Path $floAgent 'flo-start.ps1'
     if (-not (Test-Path $target)) {
-        Write-Warning "flo-start.ps1 not found at $target — Flo Signatures shortcut skipped."
+        Write-Warning "flo-start.ps1 not found at $target - Flo Signatures shortcut skipped."
         return
     }
     $shell = New-Object -ComObject WScript.Shell
@@ -3387,7 +3387,7 @@ function Install-FloSignaturesShortcut {
     $sc.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$target`" -WindowStyle Hidden"
     $sc.WorkingDirectory = $floAgent
     $sc.IconLocation = (Join-Path $floAgent 'apps\desktop\assets\icon.ico')
-    $sc.Description = 'Flo Signatures — local Documenso signing UI'
+    $sc.Description = 'Flo Signatures - local Documenso signing UI'
     $sc.Save()
     Write-Info "  Flo Signatures shortcut: $shortcutPath"
 }
