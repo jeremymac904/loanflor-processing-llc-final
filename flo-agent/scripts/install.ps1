@@ -72,7 +72,7 @@ param(
     #   * The canonical CLI one-liner (irm | iex) omits the flag too;
     #     terminal users don't need a desktop binary built for them, and
     #     `hermes desktop` already builds on demand.
-    [switch]$IncludeDesktop
+    [switch]$IncludeDesktop,
 
     # --- Flo Stage (opt-in) ---
     # The Flo desktop installer always passes this. Generic Hermes
@@ -3384,7 +3384,7 @@ function Install-FloSignaturesShortcut {
     $shell = New-Object -ComObject WScript.Shell
     $sc = $shell.CreateShortcut($shortcutPath)
     $sc.TargetPath = 'powershell.exe'
-    $sc.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$target`" -WindowStyle Hidden
+    $sc.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$target`" -WindowStyle Hidden"
     $sc.WorkingDirectory = $floAgent
     $sc.IconLocation = (Join-Path $floAgent 'apps\desktop\assets\icon.ico')
     $sc.Description = 'Flo Signatures — local Documenso signing UI'
