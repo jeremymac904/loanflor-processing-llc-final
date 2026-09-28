@@ -36,7 +36,7 @@ Date: 2026-09-28
 - Google Drive/Calendar: Flo currently requires an OAuth client secret file, and none is present on this PC. The Windows Python alias defect is fixed; no browser consent can begin until the project-owned client secret is supplied through the intended setup path.
 - Zapier: no MCP URL was entered; no secret was exposed to chat or logs.
 - Voice: Windows reported no microphone device. Audio endpoints present on this PC are output devices only.
-- Synthetic loan, drag/drop documents, Malcolm, Sage, conditions, orders, Gmail condition/CTC email flows, and local signing workflow were not claimed as passed because the live assistant session did not complete a UI response during this run.
+- A real local Flo UI completion did return after connecting the local Ollama endpoint and restarting. Synthetic loan creation, drag/drop documents, Malcolm, Sage, conditions, orders, Gmail condition/CTC email flows, and local signing workflow were not claimed as passed because the loan workflow was not completed end-to-end during this run.
 - A Windows restart was not performed during this run.
 
 ## Runtime fix
