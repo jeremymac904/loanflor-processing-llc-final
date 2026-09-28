@@ -39,13 +39,21 @@ export async function startFloChat(title: string, prompt: string, profile: null 
   }
 
   await host.request('session.title', { session_id: runtime, title }).catch(() => undefined)
+  await host.request('prompt.submit', { session_id: runtime, text: prompt })
+
+  // Bind the main composer only after the first turn has populated history.
+  // Opening the empty runtime before prompting leaves the SDK's owner lease
+  // attached to the plugin request path; a later composer turn is then
+  // mistaken for a second Hermes window. Hydrating the now non-empty session
+  // transfers it to the Ashley-facing surface and keeps follow-up prompts on
+  // the same owner.
   await host.openSession(stored, {
     ...(profile ? { profile } : {}),
     intent: 'in-place',
     awaitHydration: true,
-    expectHistory: false
+    expectHistory: true,
+    forceResume: true
   })
-  await host.request('prompt.submit', { session_id: runtime, text: prompt })
 }
 
 /** Run a Flo-owned follow-up without moving Ashley away from the loan. */
