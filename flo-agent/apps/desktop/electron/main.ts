@@ -16615,6 +16615,27 @@ function spawnCapture(cmd: string, args: string[], opts: { cwd?: string; timeout
   return { ok: r.status === 0, status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
 }
 
+function resolveFloSetupPython(scriptPath: string) {
+  // Do not invoke the POSIX `python3` name on Windows: on a stock Windows
+  // install it resolves to the Microsoft Store app-execution alias, which
+  // produces the misleading "Python was not found" dialog. Reuse the same
+  // managed Hermes interpreter that the desktop backend already resolved.
+  const roots = [
+    ACTIVE_HERMES_ROOT,
+    HERMES_HOME,
+    path.resolve(path.dirname(scriptPath), '..', '..', '..', '..')
+  ]
+
+  for (const root of roots) {
+    const candidate = findPythonForRoot(root)
+    if (candidate && fileExists(candidate)) {
+      return candidate
+    }
+  }
+
+  return IS_WINDOWS ? 'python.exe' : 'python3'
+}
+
 ipcMain.handle('hermes:flo:google-setup', async () => {
   // Drive the existing google-workspace/setup.py OAuth dance from the
   // renderer. Returns the auth URL (which the renderer opens in Ashley's
@@ -16629,9 +16650,10 @@ ipcMain.handle('hermes:flo:google-setup', async () => {
   if (!scriptPath) {
     return { ok: false, error: 'google-workspace setup script not found' }
   }
+  const python = resolveFloSetupPython(scriptPath)
   // Ensure deps first (fast no-op if already present).
-  spawnCapture('python3', [scriptPath, '--install-deps'], { cwd: path.dirname(scriptPath), timeoutMs: 120_000 })
-  const r = spawnCapture('python3', [scriptPath, '--auth-url'], { cwd: path.dirname(scriptPath), timeoutMs: 60_000 })
+  spawnCapture(python, [scriptPath, '--install-deps'], { cwd: path.dirname(scriptPath), timeoutMs: 120_000 })
+  const r = spawnCapture(python, [scriptPath, '--auth-url'], { cwd: path.dirname(scriptPath), timeoutMs: 60_000 })
   if (!r.ok) {
     return { ok: false, error: r.stderr.trim() || 'failed to obtain auth URL' }
   }
@@ -16669,11 +16691,12 @@ ipcMain.handle('hermes:flo:google-complete', async (_event, payload: { code: str
   if (!scriptPath) {
     return { ok: false, error: 'google-workspace setup script not found' }
   }
+  const python = resolveFloSetupPython(scriptPath)
   const code = String(payload?.code ?? '').trim()
   if (!code) {
     return { ok: false, error: 'auth code required' }
   }
-  const r = spawnCapture('python3', [scriptPath, '--auth-code', code], { cwd: path.dirname(scriptPath), timeoutMs: 60_000 })
+  const r = spawnCapture(python, [scriptPath, '--auth-code', code], { cwd: path.dirname(scriptPath), timeoutMs: 60_000 })
   if (!r.ok) {
     return { ok: false, error: r.stderr.trim() || 'auth-code exchange failed' }
   }
