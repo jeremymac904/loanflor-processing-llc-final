@@ -16951,12 +16951,19 @@ ipcMain.handle('hermes:flo:ai-setup', async () => {
   }
   // Wait for the daemon to come up (post-install on Windows).
   const start = Date.now()
+  let daemonReady = false
   while (Date.now() - start < 60_000) {
     try {
       const r = await fetch('http://localhost:11434/api/tags', { method: 'GET', signal: AbortSignal.timeout(800) }).catch(() => undefined)
-      if (r && (r as any).ok) break
+      if (r && (r as any).ok) {
+        daemonReady = true
+        break
+      }
     } catch { /* keep polling */ }
     await new Promise(r => setTimeout(r, 1000))
+  }
+  if (!daemonReady) {
+    return { ok: false, stage: 'ollama-daemon', error: 'Ollama is installed but its local daemon did not start. Start Ollama, then try again.' }
   }
   const m = await pullDefaultModel()
   if (!m.ok) return { ok: false, stage: 'pull-model', error: m.error }
