@@ -35,6 +35,7 @@ def _load_flo_team():
 @pytest.fixture()
 def ft(tmp_path, monkeypatch):
     _load_flo_team()
+    monkeypatch.setenv("HERMES_PROFILE_NAME", "flo")
     import flo_team.tools as tools_mod
     import flo_team.workspace as workspace_mod
     monkeypatch.setattr(tools_mod, "_root", lambda: tmp_path)
@@ -58,6 +59,10 @@ Underwriter
 
 def _call(ft, **kwargs):
     return json.loads(ft.tools.handle_flo_conditions_ingest(kwargs))
+
+
+def _call_docs(ft, **kwargs):
+    return json.loads(ft.tools.handle_flo_documents(kwargs))
 
 
 # ── propose ────────────────────────────────────────────────────────────────
@@ -105,6 +110,33 @@ class TestPropose:
 # ── apply ──────────────────────────────────────────────────────────────────
 
 class TestApply:
+    def test_preserves_matcher_fields_for_document_auto_clear(self, ft, tmp_path):
+        result = _call(ft, action="propose", raw_text="Borrower must provide an updated bank statement.",
+                       workspace_id="loan_j", source_ref="msg_auto_clear")
+        row = result["new_conditions"][0]
+        assert row["category"] == "assets"
+        assert row["kind"] == "bank_statement"
+        assert row["text"]
+
+        _call(ft, action="apply", workspace_id="loan_j",
+              raw_text="Borrower must provide an updated bank statement.",
+              source_ref="msg_auto_clear", proposed=result["new_conditions"])
+
+        from pypdf import PdfWriter
+
+        doc = tmp_path / "updated-bank-statement.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=612, height=792)
+        with doc.open("wb") as stream:
+            writer.write(stream)
+        added = _call_docs(ft, action="add", workspace_id="loan_j", path=str(doc),
+                           category="assets", subcategory="bank_statement")
+        assert added.get("status") == "received", added
+
+        ws = ft.workspace.WorkspaceStore(_root_for_ft(ft)).get("loan_j")
+        assert ws["conditions"][0]["state"] == "cleared"
+        assert ws["conditions"][0]["cleared_by_document_id"] == added["document_id"]
+
     def test_writes_conditions_with_attribution(self, ft):
         result = _call(ft, action="propose", raw_text=LENDER_EMAIL,
                        workspace_id="loan_j", source_ref="msg_1")

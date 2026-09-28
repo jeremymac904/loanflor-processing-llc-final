@@ -1020,10 +1020,18 @@ def handle_flo_conditions_ingest(args: dict, **_kwargs: Any) -> str:
             proposed_items = []
             for row in diff["new"]:
                 proposed_items.append({
+                    # Preserve the normalized matcher fields when a lender
+                    # proposal crosses the Ashley approval boundary.  The
+                    # desktop needs the friendly fields, while the document
+                    # auto-clear path also needs the parsed category, kind,
+                    # and source text to make a high-confidence match.
                     "identity":       row.get("identity"),
+                    "text":           row.get("original_text"),
                     "required_item":  row.get("required_item"),
                     "owner":          row.get("owner"),
                     "condition_type": row.get("condition_type"),
+                    "kind":           row.get("condition_type"),
+                    "category":       row.get("category"),
                     "plain_english":  row.get("plain_english"),
                     "needs_sage":     row.get("needs_sage"),
                     "source":         row.get("source"),
