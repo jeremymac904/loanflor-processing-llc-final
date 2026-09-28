@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 
 import { registry } from '../registry'
 import type { Contribution } from '../types'
@@ -7,8 +7,9 @@ import type { Contribution } from '../types'
  *  scoped to `area`, so a slot re-renders only when ITS area mutates — a
  *  statusbar registration never re-renders a titlebar (or panes) slot. */
 export function useContributions(area: string): readonly Contribution[] {
-  const subscribe = useCallback((onChange: () => void) => registry.subscribeArea(area, onChange), [area])
-  const getSnapshot = useCallback(() => registry.getArea(area), [area])
+  const [items, setItems] = useState<readonly Contribution[]>(() => registry.getArea(area))
 
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  useEffect(() => registry.subscribeArea(area, () => setItems(registry.getArea(area))), [area])
+
+  return items
 }
