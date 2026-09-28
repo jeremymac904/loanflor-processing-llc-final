@@ -12,9 +12,29 @@ import { atom } from 'nanostores'
 import { act } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { useStoresSelector } from './use-session-slice'
+import { useStoreSelector, useStoresSelector } from './use-session-slice'
 
 describe('a selector recomputes for every store it was given', () => {
+  it('mounts a direct external-store selector without a snapshot loop', () => {
+    const source = atom(0)
+    const renders = vi.fn()
+
+    function Probe() {
+      const value = useStoreSelector(source, current => current)
+      renders()
+
+      return <span data-testid="value">{value}</span>
+    }
+
+    expect(() => render(<Probe />)).not.toThrow()
+    expect(screen.getByTestId('value').textContent).toBe('0')
+
+    act(() => source.set(1))
+
+    expect(screen.getByTestId('value').textContent).toBe('1')
+    expect(renders.mock.calls.length).toBeGreaterThan(1)
+  })
+
   it('follows a change in any of them', () => {
     const left = atom(0)
     const right = atom(0)
