@@ -66,6 +66,57 @@ def test_resolve_codex_runtime_credentials_missing_access_token(tmp_path, monkey
     assert exc.value.relogin_required is True
 
 
+def test_resolve_codex_uses_existing_cli_account_auth_read_only(tmp_path, monkeypatch):
+    """A valid Codex CLI account session is usable without profile token copies."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    hermes_home = tmp_path / ".hermes" / "profiles" / "flo"
+    hermes_home.mkdir(parents=True)
+    auth_file = hermes_home / "auth.json"
+    auth_file.write_text(json.dumps({"version": 1, "providers": {}}), encoding="utf-8")
+    codex_home = tmp_path / ".codex"
+    codex_home.mkdir()
+    access_token = _jwt_with_exp(int(time.time()) + 3600)
+    cli_auth_file = codex_home / "auth.json"
+    cli_auth_file.write_text(json.dumps({"tokens": {
+        "access_token": access_token,
+        "refresh_token": "cli-refresh-token-must-not-be-consumed",
+    }}), encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    credentials = resolve_codex_runtime_credentials()
+
+    assert credentials["provider"] == "openai-codex"
+    assert credentials["source"] == "codex-cli-auth"
+    assert credentials["api_key"] == access_token
+    assert json.loads(auth_file.read_text(encoding="utf-8")) == {"version": 1, "providers": {}}
+
+    from hermes_cli.auth import get_codex_auth_status
+    status = get_codex_auth_status()
+    assert status["logged_in"] is True
+    assert status["source"] == "codex-cli-auth"
+    assert json.loads(auth_file.read_text(encoding="utf-8")) == {"version": 1, "providers": {}}
+
+
+def test_resolve_codex_does_not_treat_expired_cli_session_as_connected(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    hermes_home = tmp_path / ".hermes" / "profiles" / "flo"
+    hermes_home.mkdir(parents=True)
+    (hermes_home / "auth.json").write_text(json.dumps({"version": 1, "providers": {}}))
+    codex_home = tmp_path / ".codex"
+    codex_home.mkdir()
+    (codex_home / "auth.json").write_text(json.dumps({"tokens": {
+        "access_token": _jwt_with_exp(int(time.time()) - 20),
+        "refresh_token": "expired-refresh-token",
+    }}))
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    with pytest.raises(AuthError) as exc:
+        resolve_codex_runtime_credentials()
+    assert exc.value.code == "codex_auth_missing"
+
+
 def test_resolve_codex_runtime_credentials_falls_back_to_pool_when_singleton_empty(tmp_path, monkeypatch):
     """Regression for #32992 — chat path returns 401 when singleton is empty but pool has creds.
 
@@ -97,6 +148,7 @@ def test_resolve_codex_runtime_credentials_falls_back_to_pool_when_singleton_emp
     }
     (hermes_home / "auth.json").write_text(json.dumps(auth_store))
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "missing-codex"))
 
     resolved = resolve_codex_runtime_credentials()
     assert resolved["api_key"] == "pool-fallback-token"
@@ -607,7 +659,3 @@ def _patch_httpx_post(monkeypatch, responses):
             return next(seq)
 
     monkeypatch.setattr("hermes_cli.auth.httpx.Client", lambda *a, **k: _FakeClient())
-
-
-
-

@@ -136,6 +136,54 @@ def test_provider_auth_state_returns_none_when_neither_has_it(profile_env):
     assert get_provider_auth_state("nous") is None
 
 
+def test_nous_profile_resolves_shared_account_auth_without_profile_copy(profile_env, tmp_path, monkeypatch):
+    """An account-level Nous login must be usable by a named profile."""
+    from datetime import datetime, timedelta, timezone
+    import hermes_cli.auth as auth
+
+    shared_dir = tmp_path / "shared"
+    shared_dir.mkdir()
+    shared_file = shared_dir / "nous_auth.json"
+    shared_file.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("HERMES_SHARED_AUTH_DIR", str(shared_dir))
+    monkeypatch.setattr(auth, "_try_import_shared_nous_state", lambda **_kwargs: {
+        "agent_key": "in-memory-inference-key",
+        "agent_key_id": "test-key-id",
+        "agent_key_expires_at": (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat(),
+        "inference_base_url": auth.DEFAULT_NOUS_INFERENCE_URL,
+    })
+    auth._nous_shared_runtime_cache = None
+
+    credentials = auth.resolve_nous_runtime_credentials()
+
+    assert credentials["provider"] == "nous"
+    assert credentials["source"] == "shared_account_store"
+    assert credentials["api_key"] == "in-memory-inference-key"
+    assert credentials["state_path"] == str(shared_file)
+    assert not (profile_env["profile"] / "auth.json").exists()
+
+    auth.invalidate_nous_auth_status_cache()
+    status = auth.get_nous_auth_status()
+    assert status["logged_in"] is True
+    assert status["credential_source"] == "shared_account_store"
+    assert "api_key" not in status
+    assert "access_token" not in status
+
+
+def test_nous_profile_without_shared_auth_remains_disconnected(profile_env, tmp_path, monkeypatch):
+    import hermes_cli.auth as auth
+
+    shared_dir = tmp_path / "empty-shared"
+    shared_dir.mkdir()
+    monkeypatch.setenv("HERMES_SHARED_AUTH_DIR", str(shared_dir))
+    auth._nous_shared_runtime_cache = None
+    auth.invalidate_nous_auth_status_cache()
+
+    with pytest.raises(auth.AuthError):
+        auth.resolve_nous_runtime_credentials()
+    assert not (profile_env["profile"] / "auth.json").exists()
+
+
 # ---------------------------------------------------------------------------
 # _load_provider_state — internal global fallback (issue #18594 follow-up)
 #

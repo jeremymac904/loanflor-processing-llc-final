@@ -4245,10 +4245,17 @@ def resolve_codex_runtime_credentials(
     credential. See issue #32992.
     """
     read_error: Optional[AuthError] = None
+    try_cli_account_auth = False
     try:
         data = _read_codex_tokens()
     except AuthError as exc:
         read_error = exc
+        # Codex CLI is the account-level ChatGPT/Codex login on this machine.
+        # If Hermes has no copy at all, use the CLI's current access token
+        # read-only. Never consume its single-use refresh token or copy either
+        # token into a Hermes profile store.
+        if getattr(exc, "code", None) == "codex_auth_missing":
+            try_cli_account_auth = True
         if getattr(exc, "relogin_required", False) and getattr(exc, "code", None) in {
             "codex_auth_missing_access_token",
             "codex_auth_missing_refresh_token",
@@ -4325,6 +4332,21 @@ def resolve_codex_runtime_credentials(
                 code=CODEX_RATE_LIMITED_CODE,
                 relogin_required=False,
             )
+        if try_cli_account_auth:
+            cli_tokens = _import_codex_cli_tokens()
+            cli_access_token = str((cli_tokens or {}).get("access_token") or "").strip()
+            if cli_access_token:
+                return {
+                    "provider": "openai-codex",
+                    "base_url": (
+                        os.getenv("HERMES_CODEX_BASE_URL", "").strip().rstrip("/")
+                        or DEFAULT_CODEX_BASE_URL
+                    ),
+                    "api_key": cli_access_token,
+                    "source": "codex-cli-auth",
+                    "last_refresh": None,
+                    "auth_mode": "chatgpt",
+                }
         if read_error is not None:
             raise read_error
         raise AuthError(
@@ -5506,6 +5528,8 @@ def _poll_for_token(
 
 NOUS_SHARED_STORE_FILENAME = "nous_auth.json"
 _nous_shared_lock_holder = threading.local()
+_nous_shared_runtime_lock = threading.Lock()
+_nous_shared_runtime_cache: Optional[Tuple[str, Optional[float], Dict[str, Any]]] = None
 
 
 def _nous_shared_auth_dir() -> Path:
@@ -6468,6 +6492,18 @@ def resolve_nous_runtime_credentials(
     Returns dict with: provider, base_url, api_key, key_id, expires_at,
     expires_in, source ("invoke_jwt"), and auth_path.
     """
+    # Nous device-code auth is account-wide and intentionally stored outside
+    # named profiles. A Flo profile with no private providers.nous entry must
+    # still be able to use that account. Keep the short-lived inference key in
+    # process memory; do not copy account tokens into profile auth.json.
+    if get_provider_auth_state("nous") is None:
+        shared_runtime = _resolve_shared_nous_runtime_credentials(
+            timeout_seconds=timeout_seconds,
+            force_refresh=force_refresh,
+        )
+        if shared_runtime is not None:
+            return shared_runtime
+
     sequence_id = uuid.uuid4().hex[:12]
 
     with _provider_state_transaction("nous") as (
@@ -6778,6 +6814,76 @@ def resolve_nous_runtime_credentials(
     }
 
 
+def _resolve_shared_nous_runtime_credentials(
+    *, timeout_seconds: float, force_refresh: bool,
+) -> Optional[Dict[str, Any]]:
+    """Resolve Nous from the shared account store without creating profile auth."""
+    global _nous_shared_runtime_cache
+    path = _nous_shared_store_path()
+    with _nous_shared_runtime_lock:
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            if _nous_shared_runtime_cache and _nous_shared_runtime_cache[0] == str(path):
+                _nous_shared_runtime_cache = None
+            return None
+
+        now = time.time()
+        cached = _nous_shared_runtime_cache
+        if cached is not None:
+            cached_path, cached_mtime, credentials = cached
+            expiry = _parse_iso_timestamp(credentials.get("expires_at"))
+            if (
+                not force_refresh
+                and cached_path == str(path)
+                and cached_mtime == mtime
+                and expiry is not None
+                and expiry > now + ACCESS_TOKEN_REFRESH_SKEW_SECONDS
+            ):
+                result = dict(credentials)
+                result["expires_in"] = max(0, int(expiry - now))
+                return result
+
+        # This helper serializes refresh-token rotation in the shared store and
+        # writes the rotated token back there only. It returns the scoped
+        # inference credential for the current process.
+        state = _try_import_shared_nous_state(timeout_seconds=timeout_seconds)
+        if not state:
+            _nous_shared_runtime_cache = None
+            return None
+        api_key = state.get("agent_key")
+        if not isinstance(api_key, str) or not api_key:
+            _nous_shared_runtime_cache = None
+            return None
+
+        expiry = _parse_iso_timestamp(state.get("agent_key_expires_at"))
+        if expiry is None or expiry <= now:
+            _nous_shared_runtime_cache = None
+            return None
+        inference_url = (
+            _nous_inference_env_override()
+            or _validate_nous_inference_url_from_network(state.get("inference_base_url"))
+            or DEFAULT_NOUS_INFERENCE_URL
+        )
+        credentials = {
+            "provider": "nous",
+            "base_url": inference_url,
+            "api_key": api_key,
+            "key_id": state.get("agent_key_id"),
+            "expires_at": state.get("agent_key_expires_at"),
+            "expires_in": max(0, int(expiry - now)),
+            "source": "shared_account_store",
+            "auth_path": NOUS_AUTH_PATH_INVOKE_JWT,
+            "state_path": str(path),
+        }
+        try:
+            refreshed_mtime = path.stat().st_mtime
+        except OSError:
+            refreshed_mtime = None
+        _nous_shared_runtime_cache = (str(path), refreshed_mtime, credentials)
+        return dict(credentials)
+
+
 # =============================================================================
 # Status helpers
 # =============================================================================
@@ -6980,7 +7086,30 @@ def _compute_nous_auth_status() -> Dict[str, Any]:
             })
             return base_status
 
-    return _snapshot_nous_pool_status()
+    try:
+        creds = resolve_nous_runtime_credentials()
+        return {
+            "logged_in": True,
+            "portal_base_url": None,
+            "inference_base_url": creds.get("base_url"),
+            "access_expires_at": None,
+            "agent_key_expires_at": creds.get("expires_at"),
+            "has_refresh_token": True,
+            "inference_credential_present": True,
+            "credential_source": "shared_account_store",
+            "source": "runtime:shared_account_store",
+            "key_id": creds.get("key_id"),
+        }
+    except AuthError as exc:
+        pool_status = _snapshot_nous_pool_status()
+        if pool_status.get("logged_in"):
+            return pool_status
+        pool_status.update({
+            "error": str(exc),
+            "relogin_required": bool(getattr(exc, "relogin_required", False)),
+            "error_code": getattr(exc, "code", None),
+        })
+        return pool_status
 
 
 def get_nous_auth_status_local() -> Dict[str, Any]:

@@ -11137,16 +11137,18 @@ def _resolve_provider_status(provider_id: str, status_fn) -> Dict[str, Any]:
     try:
         from hermes_cli import auth as hauth
         if provider_id == "nous":
-            # Read-only accounts-tab card: refresh-free snapshot so listing
-            # providers never performs an OAuth refresh.
-            raw = hauth.get_nous_auth_status_local()
+            # Status must reflect whether Hermes can resolve the account auth
+            # for the active profile, not merely whether that profile has a
+            # private auth.json entry. Resolver-backed snapshots are cached.
+            raw = hauth.get_nous_auth_status()
             return {
                 "logged_in": bool(raw.get("logged_in")),
-                "source": "nous_portal",
+                "source": raw.get("source") or "nous_portal",
                 "source_label": raw.get("portal_base_url") or "Nous Portal",
-                "token_preview": _truncate_token(raw.get("access_token")),
-                "expires_at": raw.get("access_expires_at"),
+                "expires_at": raw.get("access_expires_at") or raw.get("agent_key_expires_at"),
                 "has_refresh_token": bool(raw.get("has_refresh_token")),
+                "error": raw.get("error"),
+                "error_code": raw.get("error_code"),
             }
         if provider_id == "openai-codex":
             raw = hauth.get_codex_auth_status()
@@ -11154,7 +11156,6 @@ def _resolve_provider_status(provider_id: str, status_fn) -> Dict[str, Any]:
                 "logged_in": bool(raw.get("logged_in")),
                 "source": raw.get("source") or "openai_codex",
                 "source_label": raw.get("auth_mode") or "OpenAI Codex",
-                "token_preview": _truncate_token(raw.get("api_key")),
                 "expires_at": None,
                 "has_refresh_token": False,
                 "last_refresh": raw.get("last_refresh"),
