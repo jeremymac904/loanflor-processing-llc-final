@@ -66,20 +66,24 @@ function entriesEqual(a: FallbackEntry[], b: FallbackEntry[]): boolean {
  */
 export function FallbackModelsField({
   value,
-  onChange
+  onChange,
+  scopeProfile
 }: {
   value: unknown
   onChange: (next: FallbackEntry[]) => void
+  scopeProfile?: string
 }) {
   const { t } = useI18n()
   const m = t.settings.model
 
   const modelOptions = useQuery({
-    queryKey: ['model-options', 'global'],
-    queryFn: () => getGlobalModelOptions()
+    queryKey: ['model-options', scopeProfile ?? 'active'],
+    queryFn: () => getGlobalModelOptions(undefined, scopeProfile)
   })
 
-  const providers = (modelOptions.data?.providers ?? []).filter(provider => provider.slug)
+  const providers = (modelOptions.data?.providers ?? []).filter(
+    provider => provider.slug && provider.authenticated !== false && (provider.models?.length ?? 0) > 0
+  )
 
   const [rows, setRows] = useState<FallbackEntry[]>(() => normalizeEntries(value))
   // Last complete chain we emitted (or seeded). Autosave echoes the same

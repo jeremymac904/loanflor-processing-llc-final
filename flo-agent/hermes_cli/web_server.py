@@ -8351,11 +8351,21 @@ async def get_env_vars(profile: Optional[str] = None):
 def _get_env_vars_sync(profile: Optional[str] = None):
     with _profile_scope(profile):
         env_on_disk = load_env()
+    # Flo can keep provider credentials encrypted with Electron safeStorage
+    # and inject them into this backend process at launch. Surface only their
+    # configured status here; the credential value is never returned.
+    safe_provider_keys = {
+        key.strip()
+        for key in os.environ.get("FLO_SAFE_PROVIDER_KEYS", "").split(",")
+        if key.strip()
+    }
     channel_keys = _channel_managed_env_keys()
     catalog_meta = _catalog_provider_env_metadata()
 
     def _row(var_name: str, info: dict, *, custom: bool = False) -> dict:
         value = env_on_disk.get(var_name)
+        if var_name in safe_provider_keys:
+            value = os.environ.get(var_name) or value
         cat_meta = catalog_meta.get(var_name) or {}
         # Hand OPTIONAL_ENV_VARS prose wins where present; the catalog fills any
         # gaps (description/url) and always supplies provider grouping hints.

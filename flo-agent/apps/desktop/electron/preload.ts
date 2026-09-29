@@ -238,6 +238,9 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   // ─── Flo connectors (Ashley-facing setup) ────────────────────────────────────
   flo: {
     connectionStatus: () => ipcRenderer.invoke('hermes:flo:connection-status'),
+    saveProviderCredential: payload => ipcRenderer.invoke('hermes:flo:save-provider-credential', payload),
+    deleteProviderCredential: payload => ipcRenderer.invoke('hermes:flo:delete-provider-credential', payload),
+    providerCredentialStatus: payload => ipcRenderer.invoke('hermes:flo:provider-credential-status', payload),
     saveGmail: payload => ipcRenderer.invoke('hermes:flo:save-gmail', payload),
     saveZapier: payload => ipcRenderer.invoke('hermes:flo:save-zapier', payload),
     checkDocumenso: () => ipcRenderer.invoke('hermes:flo:check-documenso'),
@@ -247,7 +250,7 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
     googleSetup: () => ipcRenderer.invoke('hermes:flo:google-setup'),
     googleComplete: payload => ipcRenderer.invoke('hermes:flo:google-complete', payload),
     signingSetup: () => ipcRenderer.invoke('hermes:flo:signing-setup'),
-    aiSetup: () => ipcRenderer.invoke('hermes:flo:ai-setup'),
+    aiSetup: () => ipcRenderer.invoke('hermes:flo:ai-setup')
   },
   writeClipboard: text => ipcRenderer.invoke('hermes:writeClipboard', text),
   readClipboard: () => ipcRenderer.invoke('hermes:readClipboard'),

@@ -33,6 +33,12 @@ import {
 import { FLO_BRAND } from '../flo/brand'
 import { floUpdateGate } from '../flo/release-channel'
 import { getAvailableFloSafeStorage } from './flo-safe-storage'
+import {
+  deleteProviderCredentialRecord,
+  isProviderCredentialEnvKey,
+  providerCredentialEnvironment,
+  saveProviderCredentialRecord
+} from './flo-provider-secrets'
 
 import { classifyActiveRuntime } from './active-runtime-state'
 import { destroyKeepaliveAgents, downloadAgentFor, jsonAgentFor, withRetry } from './api-transport'
@@ -12094,6 +12100,7 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
         ...process.env,
         HERMES_HOME,
         ...backend.env,
+        ...floProviderCredentialEnvironment(profile),
         // Pin the gateway's tool/terminal cwd to the same directory we chose for
         // the child process. Inherited TERMINAL_CWD (or a stale config bridge)
         // can still point at the install dir even when spawn cwd is home.
@@ -12486,6 +12493,7 @@ async function startHermes() {
           // can't reliably do that, so we set it inline for every spawn.
           HERMES_HOME,
           ...backend.env,
+          ...floProviderCredentialEnvironment(activeProfile ?? undefined),
           TERMINAL_CWD: hermesCwd,
           HERMES_DASHBOARD_SESSION_TOKEN: token,
           // Marks this dashboard backend as desktop-spawned so it runs the cron
@@ -16387,6 +16395,53 @@ function writeFloSecretsFile(data: Record<string, any>): void {
   fs.writeFileSync(file, JSON.stringify(data, null, 2), { mode: 0o600 })
 }
 
+function floProviderCredentialEnvironment(profile?: string): Record<string, string> {
+  const ss = safeStorageApi()
+  if (!ss) return { FLO_SAFE_PROVIDER_KEYS: '' }
+  const values = providerCredentialEnvironment(readFloSecretsFile(), ss, profile)
+  return { ...values, FLO_SAFE_PROVIDER_KEYS: Object.keys(values).join(',') }
+}
+
+ipcMain.handle(
+  'hermes:flo:save-provider-credential',
+  async (_event, payload: { key?: string; value?: string; profile?: string }) => {
+    const key = String(payload?.key ?? '').trim()
+    const value = String(payload?.value ?? '')
+    if (!isProviderCredentialEnvKey(key) || !value.trim()) {
+      return { ok: false, error: 'A supported provider credential is required.' }
+    }
+    const ss = safeStorageApi()
+    if (!ss) return { ok: false, error: 'Secure credential storage is unavailable on this PC.' }
+    try {
+      const next = saveProviderCredentialRecord(readFloSecretsFile(), key, value, ss, payload.profile)
+      writeFloSecretsFile(next)
+      return { ok: true, restartRequired: true }
+    } catch {
+      return { ok: false, error: 'Flo could not securely save this provider credential.' }
+    }
+  }
+)
+
+ipcMain.handle('hermes:flo:delete-provider-credential', async (_event, payload: { key?: string; profile?: string }) => {
+  const key = String(payload?.key ?? '').trim()
+  if (!isProviderCredentialEnvKey(key)) return { ok: false, error: 'Unsupported provider credential field.' }
+  try {
+    writeFloSecretsFile(deleteProviderCredentialRecord(readFloSecretsFile(), key, payload.profile))
+    return { ok: true, restartRequired: true }
+  } catch {
+    return { ok: false, error: 'Flo could not remove this provider credential.' }
+  }
+})
+
+ipcMain.handle('hermes:flo:provider-credential-status', async (_event, payload: { profile?: string } = {}) => {
+  const ss = safeStorageApi()
+  if (!ss) return { secureStorageAvailable: false, keys: [] }
+  return {
+    secureStorageAvailable: true,
+    keys: Object.keys(providerCredentialEnvironment(readFloSecretsFile(), ss, payload?.profile))
+  }
+})
+
 ipcMain.handle('hermes:flo:connection-status', async () => {
   const env = process.env
   const ss = safeStorageApi()
@@ -16404,9 +16459,9 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
       gmailDecryptable = false
     }
   }
-  const gmailConfigured = Boolean(secrets.gmail?.identifier) && (
-    gmailDecryptable || Boolean(secrets.gmail?.plainSecret || env.EMAIL_PASSWORD)
-  )
+  const gmailConfigured =
+    Boolean(secrets.gmail?.identifier) &&
+    (gmailDecryptable || Boolean(secrets.gmail?.plainSecret || env.EMAIL_PASSWORD))
 
   // Google OAuth — the existing google-workspace skill stores a token at
   // <hermes_home>/google_token.json (default ~/.hermes) when --auth-code
@@ -16415,16 +16470,21 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
   const fs = require('node:fs')
   const os = require('node:os')
   const path = require('node:path')
-  const hermesHome = (process.env.HERMES_HOME && process.env.HERMES_HOME.trim())
-    ? process.env.HERMES_HOME.trim()
-    : path.join(os.homedir(), '.hermes')
+  const hermesHome =
+    process.env.HERMES_HOME && process.env.HERMES_HOME.trim()
+      ? process.env.HERMES_HOME.trim()
+      : path.join(os.homedir(), '.hermes')
   const googleTokenCandidates = [
     path.join(hermesHome, 'google_token.json'),
     path.join(os.homedir(), '.config', 'hermes-agent', 'google_token.json'),
-    path.join(os.homedir(), '.config', 'hermes', 'google_token.json'),
+    path.join(os.homedir(), '.config', 'hermes', 'google_token.json')
   ]
   const driveConfigured = googleTokenCandidates.some(p => {
-    try { return fs.existsSync(p) } catch { return false }
+    try {
+      return fs.existsSync(p)
+    } catch {
+      return false
+    }
   })
   const calendarConfigured = driveConfigured
 
@@ -16436,7 +16496,7 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
     const userData = app.getPath('userData')
     const candidates = [
       path.join(userData, 'hermes-agent', 'profiles', 'ashley', 'config.yaml'),
-      path.join(userData, 'hermes-agent', 'config.yaml'),
+      path.join(userData, 'hermes-agent', 'config.yaml')
     ]
     for (const c of candidates) {
       try {
@@ -16471,7 +16531,7 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
       signal: AbortSignal.timeout(1500)
     }).catch(() => undefined)
     if (resp && (resp as any).ok) {
-      const data = await (resp as any).json().catch(() => ({} as any))
+      const data = await (resp as any).json().catch(() => ({}) as any)
       localAiModels = Array.isArray(data?.models) ? data.models.map((m: any) => m.name) : []
       localAiReady = localAiModels.length > 0
     }
@@ -16480,12 +16540,12 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
   }
 
   return {
-    gmail:    { configured: gmailConfigured,    identifier: secrets.gmail?.identifier ?? null },
-    drive:    { configured: driveConfigured },
+    gmail: { configured: gmailConfigured, identifier: secrets.gmail?.identifier ?? null },
+    drive: { configured: driveConfigured },
     calendar: { configured: calendarConfigured },
-    zapier:   { configured: zapierConfigured },
-    signing:  { configured: signingReady },
-    localAi:  { configured: localAiReady, models: localAiModels }
+    zapier: { configured: zapierConfigured },
+    signing: { configured: signingReady },
+    localAi: { configured: localAiReady, models: localAiModels }
   }
 })
 
@@ -16526,7 +16586,9 @@ ipcMain.handle('hermes:flo:save-zapier', async (_event, payload: { url?: string 
   const fs = require('node:fs')
   const userData = app.getPath('userData')
   const file = path.join(userData, 'flo-zapier.json')
-  fs.writeFileSync(file, JSON.stringify({ url: payload.url, storedAt: new Date().toISOString() }, null, 2), { mode: 0o600 })
+  fs.writeFileSync(file, JSON.stringify({ url: payload.url, storedAt: new Date().toISOString() }, null, 2), {
+    mode: 0o600
+  })
   return { ok: true }
 })
 
@@ -16550,14 +16612,15 @@ ipcMain.handle('hermes:flo:start-documenso', async () => {
   const fs = require('node:fs')
   const candidates = [
     path.join(process.cwd(), 'flo-start.ps1'),
-    path.join(app.getAppPath(), '..', '..', 'flo-start.ps1'),
+    path.join(app.getAppPath(), '..', '..', 'flo-start.ps1')
   ]
   for (const p of candidates) {
     if (fs.existsSync(p)) {
       const { spawn } = require('node:child_process')
       const child = IS_WINDOWS
         ? spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
-            detached: true, stdio: 'ignore'
+            detached: true,
+            stdio: 'ignore'
           })
         : spawn('bash', [p], { detached: true, stdio: 'ignore' })
       child.unref()
@@ -16574,7 +16637,7 @@ ipcMain.handle('hermes:flo:check-local-ai', async () => {
       signal: AbortSignal.timeout(2000)
     }).catch(() => undefined)
     if (resp && (resp as any).ok) {
-      const data = await (resp as any).json().catch(() => ({} as any))
+      const data = await (resp as any).json().catch(() => ({}) as any)
       const models = Array.isArray(data?.models) ? data.models.map((m: any) => m.name) : []
       return { ok: true, models, url: 'http://localhost:11434' }
     }
@@ -16607,7 +16670,7 @@ function spawnCapture(cmd: string, args: string[], opts: { cwd?: string; timeout
     encoding: 'utf8',
     timeout: opts.timeoutMs ?? 30_000,
     stdio: ['ignore', 'pipe', 'pipe'],
-    ...(IS_WINDOWS ? {} : {}),
+    ...(IS_WINDOWS ? {} : {})
   })
   return { ok: r.status === 0, status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
 }
@@ -16617,11 +16680,7 @@ function resolveFloSetupPython(scriptPath: string) {
   // install it resolves to the Microsoft Store app-execution alias, which
   // produces the misleading "Python was not found" dialog. Reuse the same
   // managed Hermes interpreter that the desktop backend already resolved.
-  const roots = [
-    ACTIVE_HERMES_ROOT,
-    HERMES_HOME,
-    path.resolve(path.dirname(scriptPath), '..', '..', '..', '..')
-  ]
+  const roots = [ACTIVE_HERMES_ROOT, HERMES_HOME, path.resolve(path.dirname(scriptPath), '..', '..', '..', '..')]
 
   for (const root of roots) {
     const candidate = findPythonForRoot(root)
@@ -16641,7 +16700,7 @@ ipcMain.handle('hermes:flo:google-setup', async () => {
   const candidates = [
     path.join(ACTIVE_HERMES_ROOT, 'skills/productivity/google-workspace/scripts/setup.py'),
     path.join(HERMES_HOME, 'skills/productivity/google-workspace/scripts/setup.py'),
-    path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py')
   ]
   const scriptPath = candidates.find(p => require('node:fs').existsSync(p))
   if (!scriptPath) {
@@ -16662,7 +16721,8 @@ ipcMain.handle('hermes:flo:google-setup', async () => {
   // shell.openExternal is the cross-platform Electron API (mac/Windows/Linux).
   let opened = false
   try {
-    opened = await shell.openExternal(url)
+    await shell.openExternal(url)
+    opened = true
   } catch {
     opened = false
   }
@@ -16671,7 +16731,9 @@ ipcMain.handle('hermes:flo:google-setup', async () => {
     try {
       require('node:child_process').spawn('open', [url], { detached: true, stdio: 'ignore' }).unref()
       opened = true
-    } catch { /* give up; renderer can still show the URL */ }
+    } catch {
+      /* give up; renderer can still show the URL */
+    }
   }
   return { ok: true, url, opened }
 })
@@ -16682,7 +16744,7 @@ ipcMain.handle('hermes:flo:google-complete', async (_event, payload: { code: str
   const candidates = [
     path.join(ACTIVE_HERMES_ROOT, 'skills/productivity/google-workspace/scripts/setup.py'),
     path.join(HERMES_HOME, 'skills/productivity/google-workspace/scripts/setup.py'),
-    path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py'),
+    path.join(process.cwd(), 'flo-agent/skills/productivity/google-workspace/scripts/setup.py')
   ]
   const scriptPath = candidates.find(p => require('node:fs').existsSync(p))
   if (!scriptPath) {
@@ -16693,7 +16755,10 @@ ipcMain.handle('hermes:flo:google-complete', async (_event, payload: { code: str
   if (!code) {
     return { ok: false, error: 'auth code required' }
   }
-  const r = spawnCapture(python, [scriptPath, '--auth-code', code], { cwd: path.dirname(scriptPath), timeoutMs: 60_000 })
+  const r = spawnCapture(python, [scriptPath, '--auth-code', code], {
+    cwd: path.dirname(scriptPath),
+    timeoutMs: 60_000
+  })
   if (!r.ok) {
     return { ok: false, error: r.stderr.trim() || 'auth-code exchange failed' }
   }
@@ -16736,7 +16801,7 @@ ipcMain.handle('hermes:flo:gmail-bootstrap', async () => {
     return { ok: false, configured: false }
   }
   try {
-    const decrypted = ss.decryptString(Buffer.from(secrets.gmail.encryptedSecret, 'base64')).toString('utf8')
+    const decrypted = ss.decryptString(Buffer.from(secrets.gmail.encryptedSecret, 'base64'))
     return {
       ok: true,
       configured: true,
@@ -16771,7 +16836,9 @@ async function dockerDesktopInstalled(): Promise<boolean> {
   for (const cmd of probes) {
     if (require('node:fs').existsSync(cmd[0])) return true
   }
-  const r = spawnSync('C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe', ['version'], { encoding: 'utf8' })
+  const r = spawnSync('C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe', ['version'], {
+    encoding: 'utf8'
+  })
   return r.status === 0
 }
 
@@ -16779,34 +16846,49 @@ async function installDockerDesktopWindows(): Promise<{ ok: boolean; error?: str
   // Try winget first (the supported Windows package manager). Falls back to
   // the official MSI download if winget is missing.
   const { spawn } = require('node:child_process')
-  const tryWinget = () => new Promise<{ ok: boolean; stderr: string }>((resolve) => {
-    const c = spawn('winget', ['install', '-e', '--id', 'Docker.DockerDesktop', '--accept-package-agreements', '--accept-source-agreements'], {
-      detached: true,
-      stdio: ['ignore', 'pipe', 'ignore']
+  const tryWinget = () =>
+    new Promise<{ ok: boolean; stderr: string }>(resolve => {
+      const c = spawn(
+        'winget',
+        ['install', '-e', '--id', 'Docker.DockerDesktop', '--accept-package-agreements', '--accept-source-agreements'],
+        {
+          detached: true,
+          stdio: ['ignore', 'pipe', 'ignore']
+        }
+      )
+      let stderr = ''
+      c.stderr?.on('data', (d: Buffer) => {
+        stderr += d.toString()
+      })
+      c.on('error', () => resolve({ ok: false, stderr }))
+      c.on('close', (code: number) => resolve({ ok: code === 0, stderr }))
+      setTimeout(() => resolve({ ok: false, stderr: 'winget install timed out' }), 180_000)
     })
-    let stderr = ''
-    c.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
-    c.on('error', () => resolve({ ok: false, stderr }))
-    c.on('close', (code: number) => resolve({ ok: code === 0, stderr }))
-    setTimeout(() => resolve({ ok: false, stderr: 'winget install timed out' }), 180_000)
-  })
   const wg = await tryWinget()
   if (wg.ok) return { ok: true }
   // Fallback: download the official MSI and run it silently (no UI).
   const tmp = require('node:path').join(require('node:os').tmpdir(), 'DockerDesktopInstaller.exe')
-  const download = await new Promise<{ ok: boolean; path?: string; error?: string }>(async (resolve) => {
+  const download = await new Promise<{ ok: boolean; path?: string; error?: string }>(async resolve => {
     try {
       const https = require('node:https')
       const fs = require('node:fs')
       const file = fs.createWriteStream(tmp)
       // Docker Hub public installer URL (stable channel).
-      const req = https.get('https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe', (res: any) => {
-        if (res.statusCode !== 200) { resolve({ ok: false, error: `HTTP ${res.statusCode}` }); return }
-        res.pipe(file)
-        file.on('finish', () => file.close(() => resolve({ ok: true, path: tmp })))
-      })
+      const req = https.get(
+        'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe',
+        (res: any) => {
+          if (res.statusCode !== 200) {
+            resolve({ ok: false, error: `HTTP ${res.statusCode}` })
+            return
+          }
+          res.pipe(file)
+          file.on('finish', () => file.close(() => resolve({ ok: true, path: tmp })))
+        }
+      )
       req.on('error', (e: Error) => resolve({ ok: false, error: e.message }))
-      req.setTimeout(120_000, () => { req.destroy(new Error('download timed out')) })
+      req.setTimeout(120_000, () => {
+        req.destroy(new Error('download timed out'))
+      })
     } catch (e: any) {
       resolve({ ok: false, error: e.message })
     }
@@ -16814,9 +16896,10 @@ async function installDockerDesktopWindows(): Promise<{ ok: boolean; error?: str
   if (!download.ok || !download.path) {
     return { ok: false, error: download.error ?? 'installer download failed' }
   }
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const c = spawn(download.path, ['install', '--quiet', '--accept-license'], {
-      detached: true, stdio: ['ignore', 'pipe', 'ignore']
+      detached: true,
+      stdio: ['ignore', 'pipe', 'ignore']
     })
     c.on('error', () => resolve({ ok: false, error: 'installer launch failed' }))
     c.on('close', (code: number) => {
@@ -16835,19 +16918,25 @@ async function startDocumensoStackWindows(): Promise<{ ok: boolean; error?: stri
     path.join(ACTIVE_HERMES_ROOT, 'flo-start.ps1'),
     path.join(HERMES_HOME, 'flo-start.ps1'),
     path.join(process.cwd(), 'flo-start.ps1'),
-    path.join(process.cwd(), 'flo-agent', 'flo-start.ps1'),
+    path.join(process.cwd(), 'flo-agent', 'flo-start.ps1')
   ]
   const script = candidates.find(p => fs.existsSync(p))
-  if (!script) return { ok: false, error: 'flo-start.ps1 not found; expected at ' + path.join(ACTIVE_HERMES_ROOT, 'flo-start.ps1') }
+  if (!script)
+    return {
+      ok: false,
+      error: 'flo-start.ps1 not found; expected at ' + path.join(ACTIVE_HERMES_ROOT, 'flo-start.ps1')
+    }
   const { spawn } = require('node:child_process')
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const c = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {
-      detached: true, stdio: ['ignore', 'pipe', 'ignore']
+      detached: true,
+      stdio: ['ignore', 'pipe', 'ignore']
     })
     c.unref()
     setTimeout(async () => {
       const resp = await fetch('http://localhost:3000/api/health', {
-        method: 'GET', signal: AbortSignal.timeout(1500)
+        method: 'GET',
+        signal: AbortSignal.timeout(1500)
       }).catch(() => undefined)
       resolve({ ok: Boolean(resp && (resp as any).ok), url: 'http://localhost:3000' })
     }, 6000)
@@ -16855,13 +16944,18 @@ async function startDocumensoStackWindows(): Promise<{ ok: boolean; error?: stri
 }
 
 ipcMain.handle('hermes:flo:signing-setup', async () => {
-  if (!await dockerDesktopInstalled()) {
+  if (!(await dockerDesktopInstalled())) {
     if (!IS_WINDOWS) {
       return { ok: false, stage: 'install-docker', error: 'Docker Desktop required; please install it on this Mac' }
     }
     const r = await installDockerDesktopWindows()
     if (!r.ok) {
-      return { ok: false, stage: 'install-docker', error: r.error ?? 'Docker Desktop install failed', needsReboot: r.needsReboot }
+      return {
+        ok: false,
+        stage: 'install-docker',
+        error: r.error ?? 'Docker Desktop install failed',
+        needsReboot: r.needsReboot
+      }
     }
     if (r.needsReboot) {
       return { ok: false, stage: 'install-docker', needsReboot: true }
@@ -16871,9 +16965,14 @@ ipcMain.handle('hermes:flo:signing-setup', async () => {
   const start = Date.now()
   while (Date.now() - start < 60_000) {
     try {
-      const r = await fetch('http://localhost:3000/api/health', { method: 'GET', signal: AbortSignal.timeout(800) }).catch(() => undefined)
+      const r = await fetch('http://localhost:3000/api/health', {
+        method: 'GET',
+        signal: AbortSignal.timeout(800)
+      }).catch(() => undefined)
       if (r && (r as any).ok) return { ok: true, url: 'http://localhost:3000' }
-    } catch { /* keep polling */ }
+    } catch {
+      /* keep polling */
+    }
     await new Promise(r => setTimeout(r, 1000))
     // Try to start the stack too — health probe alone won't bring Documenso up.
     await startDocumensoStackWindows()
@@ -16893,27 +16992,38 @@ async function installOllamaWindows(): Promise<{ ok: boolean; error?: string }> 
   if (!IS_WINDOWS) return { ok: false, error: 'Ollama install requires Windows' }
   // Try winget first (preferred). Falls back to the official MSI.
   const { spawn } = require('node:child_process')
-  const tryWinget = () => new Promise<{ ok: boolean; stderr: string }>((resolve) => {
-    const c = spawn('winget', ['install', '-e', '--id', 'Ollama.Ollama', '--accept-package-agreements', '--accept-source-agreements'], {
-      detached: true, stdio: ['ignore', 'pipe', 'ignore']
+  const tryWinget = () =>
+    new Promise<{ ok: boolean; stderr: string }>(resolve => {
+      const c = spawn(
+        'winget',
+        ['install', '-e', '--id', 'Ollama.Ollama', '--accept-package-agreements', '--accept-source-agreements'],
+        {
+          detached: true,
+          stdio: ['ignore', 'pipe', 'ignore']
+        }
+      )
+      let stderr = ''
+      c.stderr?.on('data', (d: Buffer) => {
+        stderr += d.toString()
+      })
+      c.on('error', () => resolve({ ok: false, stderr }))
+      c.on('close', (code: number) => resolve({ ok: code === 0, stderr }))
+      setTimeout(() => resolve({ ok: false, stderr: 'winget install timed out' }), 180_000)
     })
-    let stderr = ''
-    c.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
-    c.on('error', () => resolve({ ok: false, stderr }))
-    c.on('close', (code: number) => resolve({ ok: code === 0, stderr }))
-    setTimeout(() => resolve({ ok: false, stderr: 'winget install timed out' }), 180_000)
-  })
   const wg = await tryWinget()
   if (wg.ok) return { ok: true }
   // Fallback: download the official Windows installer.
   const tmp = require('node:path').join(require('node:os').tmpdir(), 'OllamaSetup.exe')
-  const download = await new Promise<{ ok: boolean; path?: string; error?: string }>(async (resolve) => {
+  const download = await new Promise<{ ok: boolean; path?: string; error?: string }>(async resolve => {
     try {
       const https = require('node:https')
       const fs = require('node:fs')
       const file = fs.createWriteStream(tmp)
       const req = https.get('https://ollama.com/download/OllamaSetup.exe', (res: any) => {
-        if (res.statusCode !== 200) { resolve({ ok: false, error: `HTTP ${res.statusCode}` }); return }
+        if (res.statusCode !== 200) {
+          resolve({ ok: false, error: `HTTP ${res.statusCode}` })
+          return
+        }
         res.pipe(file)
         file.on('finish', () => file.close(() => resolve({ ok: true, path: tmp })))
       })
@@ -16924,8 +17034,11 @@ async function installOllamaWindows(): Promise<{ ok: boolean; error?: string }> 
     }
   })
   if (!download.ok || !download.path) return { ok: false, error: download.error }
-  return new Promise((resolve) => {
-    const c = spawn(download.path, ['/S', '/D=C:\\Program Files\\Ollama'], { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
+  return new Promise(resolve => {
+    const c = spawn(download.path, ['/S', '/D=C:\\Program Files\\Ollama'], {
+      detached: true,
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
     c.on('close', (code: number) => resolve({ ok: code === 0, error: code === 0 ? undefined : `exit ${code}` }))
     setTimeout(() => resolve({ ok: false, error: 'install timed out' }), 300_000)
   })
@@ -16937,24 +17050,31 @@ async function pullDefaultModel(): Promise<{ ok: boolean; model?: string; error?
   // 3B-class models are the project default — keep this conservative so
   // we don't pull a 30 GB model when the user has 8 GB of VRAM.
   const { spawn } = require('node:child_process')
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const c = spawn('ollama', ['pull', 'llama3.2:3b'], { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
     c.unref()
     // Poll /api/tags until the model appears.
     const start = Date.now()
     const tick = async () => {
-      if (Date.now() - start > 600_000) { resolve({ ok: false, error: 'pull timed out' }); return }
+      if (Date.now() - start > 600_000) {
+        resolve({ ok: false, error: 'pull timed out' })
+        return
+      }
       try {
-        const r = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(1500) }).catch(() => undefined)
+        const r = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(1500) }).catch(
+          () => undefined
+        )
         if (r && (r as any).ok) {
-          const data = await (r as any).json().catch(() => ({} as any))
+          const data = await (r as any).json().catch(() => ({}) as any)
           const models = Array.isArray(data?.models) ? data.models.map((m: any) => m.name) : []
           if (models.length > 0) {
             resolve({ ok: true, model: models[0] })
             return
           }
         }
-      } catch { /* keep polling */ }
+      } catch {
+        /* keep polling */
+      }
       setTimeout(tick, 3000)
     }
     setTimeout(tick, 8000) // give `pull` time to register the model
@@ -16962,7 +17082,7 @@ async function pullDefaultModel(): Promise<{ ok: boolean; model?: string; error?
 }
 
 ipcMain.handle('hermes:flo:ai-setup', async () => {
-  if (!await ollamaInstalled()) {
+  if (!(await ollamaInstalled())) {
     if (!IS_WINDOWS) {
       return { ok: false, stage: 'install-ollama', error: 'Ollama install requires Windows on this Mac' }
     }
@@ -16974,16 +17094,25 @@ ipcMain.handle('hermes:flo:ai-setup', async () => {
   let daemonReady = false
   while (Date.now() - start < 60_000) {
     try {
-      const r = await fetch('http://localhost:11434/api/tags', { method: 'GET', signal: AbortSignal.timeout(800) }).catch(() => undefined)
+      const r = await fetch('http://localhost:11434/api/tags', {
+        method: 'GET',
+        signal: AbortSignal.timeout(800)
+      }).catch(() => undefined)
       if (r && (r as any).ok) {
         daemonReady = true
         break
       }
-    } catch { /* keep polling */ }
+    } catch {
+      /* keep polling */
+    }
     await new Promise(r => setTimeout(r, 1000))
   }
   if (!daemonReady) {
-    return { ok: false, stage: 'ollama-daemon', error: 'Ollama is installed but its local daemon did not start. Start Ollama, then try again.' }
+    return {
+      ok: false,
+      stage: 'ollama-daemon',
+      error: 'Ollama is installed but its local daemon did not start. Start Ollama, then try again.'
+    }
   }
   const m = await pullDefaultModel()
   if (!m.ok) return { ok: false, stage: 'pull-model', error: m.error }
@@ -16995,8 +17124,6 @@ ipcMain.handle('hermes:flo:ai-setup', async () => {
 // Update the connection-status IPC to also surface Gmail bootstrap status
 // (so the renderer knows the credential is on disk AND decryptable).
 // We don't include the password itself in the status — only that it's there.
-
-
 
 // Native save-location picker (profile export etc.) — the write itself happens
 // elsewhere (the backend, for profile archives); this only picks the path.

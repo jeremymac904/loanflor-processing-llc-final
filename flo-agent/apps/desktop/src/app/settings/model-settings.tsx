@@ -10,10 +10,9 @@ import {
   getGlobalModelInfo,
   getGlobalModelOptions,
   getMoaModels,
-  getRecommendedDefaultModel,
   saveHermesConfig,
   saveMoaModels,
-  setEnvVar,
+  saveProviderCredential,
   setModelAssignment
 } from '@/hermes'
 import type {
@@ -35,6 +34,7 @@ import { hermesConfigCacheWriter, invalidateHermesConfig, useHermesConfigRecord 
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 
 import { CONTROL_TEXT } from './constants'
+import { FallbackModelsField } from './fallback-models-field'
 import { getNested, setNested } from './helpers'
 import { ListRow, Pill, SectionHeading } from './primitives'
 import { useDeepLinkHighlight } from './use-deep-link-highlight'
@@ -550,47 +550,24 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
     [config, m.defaultsFailed, scopeProfile, setConfig]
   )
 
-  // Paste an API key for the selected `api_key` provider, persist it, then
-  // refresh so the now-authenticated provider's models populate. Auto-selects
-  // the recommended default model so the user can Apply in one more click.
+  // Provider credentials are encrypted by Electron safeStorage. Flo must be
+  // restarted before the backend can receive the key in its child environment.
   const activateApiKeyProvider = useCallback(async () => {
     const keyEnv = selectedProviderRow?.key_env
-    const slug = selectedProviderRow?.slug
 
-    if (!keyEnv || !slug || !apiKeyDraft.trim()) {
+    if (!keyEnv || !apiKeyDraft.trim()) {
       return
     }
 
-    const epoch = profileEpoch.current
     setActivating(true)
     setError('')
 
     try {
-      await setEnvVar(keyEnv, apiKeyDraft.trim(), scopeProfile)
+      await saveProviderCredential(keyEnv, apiKeyDraft.trim(), scopeProfile)
       setApiKeyDraft('')
-
-      // Pick a sensible default for the freshly-activated provider (mirrors
-      // `hermes model` curation). Best-effort — fall through to the refreshed
-      // model list if it fails.
-      let nextModel = ''
-
-      try {
-        const rec = await getRecommendedDefaultModel(slug, scopeProfile)
-        nextModel = rec.model || ''
-      } catch {
-        nextModel = ''
-      }
-
-      const options = await getGlobalModelOptions(undefined, scopeProfile)
-
-      if (profileEpoch.current !== epoch) {
-        return
-      }
-
-      setProviders(options.providers || [])
-      const refreshedRow = options.providers?.find(p => p.slug === slug)
-      const fallbackModel = refreshedRow?.models?.[0] ?? ''
-      setSelectedModel(nextModel || fallbackModel)
+      setError(
+        'Credential saved encrypted on this PC. Restart Flo to load this provider, then choose its primary model here.'
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -782,6 +759,25 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
     }
   }, [mainModel, refresh, scopeProfile])
 
+  const saveFallbackProviders = useCallback(
+    async (entries: { provider: string; model: string }[]) => {
+      if (!config) return
+      const next = { ...config, fallback_providers: entries }
+      setApplying(true)
+      setError('')
+      try {
+        const result = await saveHermesConfig(next, scopeProfile)
+        if (!result.ok) throw new Error('Flo could not save the fallback order.')
+        setConfig(next)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setApplying(false)
+      }
+    },
+    [config, scopeProfile, setConfig]
+  )
+
   if (loading && !mainModel) {
     return <ModelSettingsSkeleton />
   }
@@ -911,6 +907,19 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
             />
           </div>
         )}
+      </section>
+
+      <section>
+        <SectionHeading icon={Cpu} title="Fallback providers" />
+        <p className="mb-2 text-xs text-muted-foreground">
+          For a new request, Flo tries these in order if the primary model is unavailable. Add Local Ollama last to keep
+          an offline option.
+        </p>
+        <FallbackModelsField
+          onChange={entries => void saveFallbackProviders(entries)}
+          scopeProfile={scopeProfile}
+          value={config ? getNested(config, 'fallback_providers') : []}
+        />
       </section>
 
       <section>

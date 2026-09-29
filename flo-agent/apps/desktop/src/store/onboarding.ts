@@ -6,7 +6,7 @@ import {
   getRecommendedDefaultModel,
   listOAuthProviders,
   pollOAuthSession,
-  setEnvVar,
+  saveProviderCredential,
   startOAuthLogin,
   submitOAuthCode,
   validateProviderCredential
@@ -804,16 +804,14 @@ export async function saveOnboardingApiKey(
   // provider probes, self-hosted endpoints). We now save the value as-is and
   // let the user proceed; an actually-bad key surfaces later at chat time.
   try {
-    await setEnvVar(envKey, trimmed)
-    // For API-key flows we don't have a definitive provider id (the
-    // user picked which API key they're entering, but the corresponding
-    // backend slug — e.g. OPENROUTER_API_KEY → "openrouter" — is the
-    // env-key prefix stripped). Pass a couple of likely candidates;
-    // fetchProviderDefaultModel falls back to the first authenticated
-    // provider returned by /api/model/options if none match.
-    const slugCandidates = [envKey.replace(/_API_KEY$/, '').toLowerCase(), label.toLowerCase()]
-    // ignoreRuntimeGate=true: never block onboarding on the runtime check.
-    await completeWithModelConfirm(ctx, label, slugCandidates, () => undefined, true)
+    await saveProviderCredential(envKey, trimmed)
+    notify({
+      kind: 'info',
+      title: `${label} saved securely`,
+      message: 'Restart Flo to load this provider, then choose its model in Settings → Model.'
+    })
+    completeDesktopOnboarding()
+    ctx.onCompleted?.()
 
     return { ok: true }
   } catch (error) {

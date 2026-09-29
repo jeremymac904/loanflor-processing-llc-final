@@ -51,3 +51,17 @@ def test_every_row_has_custom_flag(monkeypatch):
     """The ``custom`` field is always present so the SPA can branch on it."""
     rows = _env_rows(monkeypatch, {"MY_CUSTOM_THING": "x"})
     assert all("custom" in row for row in rows.values())
+
+
+def test_safe_storage_provider_credential_is_reported_without_disclosing_value(monkeypatch):
+    secret = "synthetic-cloud-key-never-return-this"
+    monkeypatch.setattr(web_server, "load_env", lambda: {})
+    monkeypatch.setattr(web_server, "_channel_managed_env_keys", lambda: set())
+    monkeypatch.setenv("FLO_SAFE_PROVIDER_KEYS", "OPENAI_API_KEY")
+    monkeypatch.setenv("OPENAI_API_KEY", secret)
+
+    response = client.get("/api/env", headers=HEADERS)
+    assert response.status_code == 200
+    rows = response.json()
+    assert rows["OPENAI_API_KEY"]["is_set"] is True
+    assert secret not in str(rows)

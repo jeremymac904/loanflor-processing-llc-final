@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 
-import { deleteEnvVar, getEnvVars, revealEnvVar, setEnvVar } from '@/hermes'
+import {
+  deleteEnvVar,
+  deleteProviderCredential,
+  getEnvVars,
+  revealEnvVar,
+  saveProviderCredential,
+  setEnvVar
+} from '@/hermes'
 import { useI18n } from '@/i18n'
 import { type IconComponent } from '@/lib/icons'
 import { confirm } from '@/store/confirm'
@@ -105,10 +112,18 @@ export function useEnvCredentials(profile?: string): UseEnvCredentials {
     setSaving(key)
 
     try {
-      await setEnvVar(key, value, profile)
+      const info = vars?.[key]
+      const providerSecret =
+        info?.category === 'provider' && (info.is_password || /(?:_API_KEY|_TOKEN|_KEY)$/.test(key))
+      if (providerSecret) await saveProviderCredential(key, value, profile)
+      else await setEnvVar(key, value, profile)
       patchVar(key, { is_set: true, redacted_value: redactedValue(value) })
       clearLocalState(key)
-      notify({ kind: 'success', title: toolsets.savedTitle, message: toolsets.savedMessage(key) })
+      notify({
+        kind: providerSecret ? 'info' : 'success',
+        title: providerSecret ? 'Saved securely' : toolsets.savedTitle,
+        message: providerSecret ? 'Restart Flo to load this provider credential.' : toolsets.savedMessage(key)
+      })
     } catch (err) {
       notifyError(err, toolsets.failedSave(key))
     } finally {
@@ -129,10 +144,18 @@ export function useEnvCredentials(profile?: string): UseEnvCredentials {
     setSaving(key)
 
     try {
-      await setEnvVar(key, trimmed, profile)
+      const info = vars?.[key]
+      const providerSecret =
+        info?.category === 'provider' && (info.is_password || /(?:_API_KEY|_TOKEN|_KEY)$/.test(key))
+      if (providerSecret) await saveProviderCredential(key, trimmed, profile)
+      else await setEnvVar(key, trimmed, profile)
       patchVar(key, { is_set: true, redacted_value: redactedValue(trimmed) })
       clearLocalState(key)
-      notify({ kind: 'success', message: toolsets.savedMessage(key), title: toolsets.savedTitle })
+      notify({
+        kind: providerSecret ? 'info' : 'success',
+        message: providerSecret ? 'Restart Flo to load this provider credential.' : toolsets.savedMessage(key),
+        title: providerSecret ? 'Saved securely' : toolsets.savedTitle
+      })
 
       return { ok: true }
     } catch (err) {
@@ -152,10 +175,18 @@ export function useEnvCredentials(profile?: string): UseEnvCredentials {
     setSaving(key)
 
     try {
-      await deleteEnvVar(key, profile)
+      const info = vars?.[key]
+      const providerSecret =
+        info?.category === 'provider' && (info.is_password || /(?:_API_KEY|_TOKEN|_KEY)$/.test(key))
+      if (providerSecret) await deleteProviderCredential(key, profile)
+      else await deleteEnvVar(key, profile)
       patchVar(key, { is_set: false, redacted_value: null })
       clearLocalState(key)
-      notify({ kind: 'success', title: toolsets.removedTitle, message: toolsets.removedMessage(key) })
+      notify({
+        kind: providerSecret ? 'info' : 'success',
+        title: providerSecret ? 'Removed securely' : toolsets.removedTitle,
+        message: providerSecret ? 'Restart Flo to apply this change.' : toolsets.removedMessage(key)
+      })
     } catch (err) {
       notifyError(err, toolsets.failedRemove(key))
     } finally {

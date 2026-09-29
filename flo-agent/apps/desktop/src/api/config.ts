@@ -127,6 +127,29 @@ export function setEnvVar(key: string, value: string, profile?: ProfileScope): P
   })
 }
 
+/** Store model-provider API credentials with Electron safeStorage instead of
+ * Hermes' plaintext .env file. The backend receives the decrypted value only
+ * in its child-process environment after Flo restarts. */
+export async function saveProviderCredential(
+  key: string,
+  value: string,
+  profile?: ProfileScope
+): Promise<{ ok: boolean; restartRequired?: boolean }> {
+  const result = await (window as any).hermesDesktop.flo.saveProviderCredential({ key, value, profile })
+  if (!result?.ok) throw new Error(result?.error || 'Could not securely save provider credential.')
+  // Remove a legacy/plaintext copy only after the encrypted write succeeded.
+  await deleteEnvVar(key, profile)
+  return result
+}
+
+export async function deleteProviderCredential(key: string, profile?: ProfileScope): Promise<void> {
+  // Remove any legacy plaintext copy first. If that fails, leave the encrypted
+  // copy intact so the provider remains usable after the next restart.
+  await deleteEnvVar(key, profile)
+  const result = await (window as any).hermesDesktop.flo.deleteProviderCredential({ key, profile })
+  if (!result?.ok) throw new Error(result?.error || 'Could not remove provider credential.')
+}
+
 export function deleteEnvVar(key: string, profile?: ProfileScope): Promise<{ ok: boolean }> {
   return window.hermesDesktop.api<{ ok: boolean }>({
     ...capabilityScoped(profile),
