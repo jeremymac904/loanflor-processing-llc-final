@@ -240,6 +240,49 @@ def _esign_prepare(args: dict[str, Any]) -> dict[str, Any]:
     return {"action": "esign-prepare", "message": "The local signature request is prepared for approval.", "request": result}
 
 
+def _upload_documents(args: dict[str, Any]) -> dict[str, Any]:
+    wid = str(args.get("workspace_id") or "")
+    _workspace(wid)
+    paths = args.get("paths")
+    if not isinstance(paths, list) or not paths:
+        raise HTTPException(status_code=400, detail="At least one local document path is required")
+
+    from pathlib import Path
+    from hermes_plugins.flo_team import documents as documents_mod
+
+    results: list[dict[str, Any]] = []
+    for raw_path in paths:
+        path = Path(str(raw_path))
+        if not path.is_file():
+            raise HTTPException(status_code=400, detail="A selected document is no longer available")
+        if path.suffix.lower() not in {".pdf", ".jpg", ".jpeg", ".png"}:
+            raise HTTPException(status_code=400, detail="Only PDF and image documents can be added")
+        extracted = documents_mod.extract_text(path)
+        classification = documents_mod.classify(path.name, extracted.get("text") or "", None, None)
+        record = _payload(
+            tools.handle_flo_documents(
+                {
+                    "action": "add",
+                    "workspace_id": wid,
+                    "path": str(path),
+                    "category": classification.get("category") or "other",
+                    "subcategory": classification.get("subcategory"),
+                }
+            )
+        )
+        results.append(record)
+
+    added = sum(1 for record in results if record.get("status") != "duplicate")
+    duplicates = len(results) - added
+    prep = _prep({"workspace_id": wid}) if added else None
+    summary = f"Added {added} document{'s' if added != 1 else ''} to this file."
+    if duplicates:
+        summary += f" Skipped {duplicates} duplicate{'s' if duplicates != 1 else ''}."
+    if prep:
+        summary += " Malcolm refreshed file readiness."
+    return {"action": "upload-documents", "message": summary, "documents": results, "prep": prep}
+
+
 @router.post("/actions/{action}")
 async def run_action(action: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     args = dict(body or {})
@@ -254,6 +297,8 @@ async def run_action(action: str, body: dict[str, Any] | None = None) -> dict[st
             return _request_missing(args)
         if action == "esign-prepare":
             return _esign_prepare(args)
+        if action == "upload-documents":
+            return _upload_documents(args)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001 - keep the desktop action boundary visible

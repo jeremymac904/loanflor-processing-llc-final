@@ -60,7 +60,6 @@ import {
   sendDraftPrompt,
   STATUS_TONE,
   teamHints,
-  uploadDocumentsPrompt,
   waitingLabel,
   type WhyKind
 } from './ashley'
@@ -473,6 +472,7 @@ function DocumentsSection({
   isBusy,
   ask,
   onRequest,
+  onUpload,
   onSendForSignature,
   why
 }: {
@@ -480,6 +480,7 @@ function DocumentsSection({
   isBusy: boolean
   ask: (id: string, title: string, prompt: string) => void
   onRequest: () => void
+  onUpload: (paths: string[]) => void
   onSendForSignature: (
     documentId: string,
     templateKey: string,
@@ -501,7 +502,7 @@ function DocumentsSection({
     const paths = (await window.hermesDesktop?.selectPaths({ multiple: true }).catch(() => [])) ?? []
 
     if (paths.length > 0) {
-      ask('upload-doc', `Add documents · ${name}`, uploadDocumentsPrompt(ws, paths))
+      onUpload(paths)
     }
   }
 
@@ -1019,11 +1020,32 @@ function FilePanel({
   }
 
   // Drag-and-drop loan documents onto the file view → attach to this loan.
-  // The drop goes through the same uploadDocumentsPrompt the "Upload Missing
-  // Doc" button uses, so the path / classification / dedupe behaviour is
-  // identical to the file-picker flow.
+  // Native drops go directly to the existing local document handler. A model
+  // must not decide whether an explicit file drop should be imported.
   const [isDragOver, setIsDragOver] = useState(false)
   const dragDepth = useRef(0)
+  const importLocalDocuments = useCallback(
+    async (paths: string[]) => {
+      if (paths.length === 0) {
+        return
+      }
+      setActionBusy('upload-documents')
+      setActionResult(null)
+      try {
+        const result = await runFloAction('upload-documents', { workspace_id: ws.workspace_id, paths })
+        setActionResult(result)
+        reload()
+      } catch (error) {
+        setActionResult({
+          action: 'upload-documents',
+          message: error instanceof Error ? error.message : 'Flo could not add the selected document.'
+        })
+      } finally {
+        setActionBusy(null)
+      }
+    },
+    [reload, ws.workspace_id]
+  )
 
   const dropHandlers = useMemo(
     () => ({
@@ -1094,10 +1116,10 @@ function FilePanel({
           return
         }
 
-        ask('upload-doc', `Add documents · ${summary.name}`, uploadDocumentsPrompt(ws, paths))
+        void importLocalDocuments(paths)
       }
     }),
-    [ask, summary.name, ws]
+    [importLocalDocuments]
   )
 
   const drafts = (ws.drafts ?? []).filter(d => d.status === 'draft' || d.status === 'proposed')
@@ -1400,6 +1422,7 @@ function FilePanel({
         ask={ask}
         isBusy={isBusy}
         onRequest={startMissingRequest}
+        onUpload={paths => void importLocalDocuments(paths)}
         onSendForSignature={(documentId, templateKey, recipients, message) =>
           void runDeterministic(`esign-prepare:${documentId}`, 'esign-prepare', {
             document_id: documentId,
