@@ -4,6 +4,8 @@ description: "Flo Team runtime: six-profile roles, structured handoffs with recu
 author: "Flo Agent (LoanFlow Processing), Claude Code team-build pass 2026-09-08"
 license: MIT
 kind: backend
+python_dependencies:
+  - PyYAML>=6,<7
 hooks:
   - pre_tool_call
   - post_tool_call

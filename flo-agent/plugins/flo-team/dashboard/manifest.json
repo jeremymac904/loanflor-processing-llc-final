@@ -1,0 +1,9 @@
+{
+  "name": "flo-team",
+  "label": "Flo Team",
+  "description": "Flo Team action API",
+  "icon": "Leaf",
+  "version": "0.1.0",
+  "tab": { "hidden": true },
+  "api": "plugin_api.py"
+}

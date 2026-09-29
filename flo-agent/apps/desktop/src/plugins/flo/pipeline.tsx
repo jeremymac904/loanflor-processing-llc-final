@@ -14,14 +14,7 @@
  */
 
 import { Button, cn, host, Loader, useValue } from '@hermes/plugin-sdk'
-import {
-  type DragEvent as ReactDragEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react'
+import { type DragEvent as ReactDragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   activeEsignRequest,
@@ -55,7 +48,6 @@ import {
   missingDocuments,
   notNeededDocumentPrompt,
   ORDER_TYPE_LABEL,
-  orderPrompt,
   orderStateLabel,
   ownerHasWaiting,
   pendingCtcProposal,
@@ -63,18 +55,16 @@ import {
   prefillSignRecipients,
   reclassifyDocumentPrompt,
   requestedMissingItems,
-  requestPrompt,
   reviewDraftPrompt,
   reviewEmailPrompt,
   sendDraftPrompt,
-  sendForSignaturePrompt,
   STATUS_TONE,
   teamHints,
   uploadDocumentsPrompt,
   waitingLabel,
-  type WhyKind,
-  whyPrompt
+  type WhyKind
 } from './ashley'
+import { runFloAction, type FloActionResult } from './actions-api'
 import { preferFloProfile, reportStartFailure, runFloInBackground, startFloChat } from './chat'
 import { type TeamState, useTeamState } from './state'
 import { Fact, Pill } from './ui'
@@ -483,12 +473,19 @@ function DocumentsSection({
   isBusy,
   ask,
   onRequest,
+  onSendForSignature,
   why
 }: {
   ws: FileRecord
   isBusy: boolean
   ask: (id: string, title: string, prompt: string) => void
   onRequest: () => void
+  onSendForSignature: (
+    documentId: string,
+    templateKey: string,
+    recipients: Array<{ name: string; email: string; role: string }>,
+    message: string
+  ) => void
   why: (subject: string) => void
 }) {
   const name = ws.display_name ?? ws.workspace_id
@@ -614,11 +611,7 @@ function DocumentsSection({
               }
             }}
             onSendForSignature={(templateKey, recipients, message) =>
-              ask(
-                `esign-send:${preview.id}`,
-                `Send for signature · ${name}`,
-                sendForSignaturePrompt(ws, preview, templateKey, recipients, message)
-              )
+              onSendForSignature(preview.id, templateKey, recipients, message)
             }
             ws={ws}
           />
@@ -659,7 +652,9 @@ function EmailConditionsCard({
 }) {
   const proposal = pendingEmailConditions(ws)
 
-  if (!proposal) {return null}
+  if (!proposal) {
+    return null
+  }
   const name = ws.display_name ?? ws.workspace_id ?? 'this file'
   const items = proposal.proposed ?? []
 
@@ -679,9 +674,7 @@ function EmailConditionsCard({
           : `${items.length} new conditions detected from a lender email.`}
       </p>
       {proposal.email_already_applied ? (
-        <p className="m-0 text-xs text-(--ui-text-secondary)">
-          (Email was already applied — nothing new to add.)
-        </p>
+        <p className="m-0 text-xs text-(--ui-text-secondary)">(Email was already applied — nothing new to add.)</p>
       ) : null}
       {items.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0 pl-4 text-sm">
@@ -696,18 +689,16 @@ function EmailConditionsCard({
       <div className="flex flex-wrap gap-2">
         <Button
           disabled={isBusy || proposal.email_already_applied}
-          onClick={() => ask('email-conditions-apply',
-                            `Add conditions · ${name}`,
-                            emailConditionsApplyPrompt(ws, proposal))}
+          onClick={() =>
+            ask('email-conditions-apply', `Add conditions · ${name}`, emailConditionsApplyPrompt(ws, proposal))
+          }
           size="xs"
         >
           Add to File
         </Button>
         <Button
           disabled={isBusy}
-          onClick={() => ask('email-conditions-review',
-                            `Review email · ${name}`,
-                            reviewEmailPrompt(ws, proposal))}
+          onClick={() => ask('email-conditions-review', `Review email · ${name}`, reviewEmailPrompt(ws, proposal))}
           size="xs"
           variant="secondary"
         >
@@ -715,9 +706,13 @@ function EmailConditionsCard({
         </Button>
         <Button
           disabled={isBusy}
-          onClick={() => ask('email-conditions-dismiss',
-                            `Dismiss conditions card · ${name}`,
-                            emailConditionsDismissPrompt(ws, proposal))}
+          onClick={() =>
+            ask(
+              'email-conditions-dismiss',
+              `Dismiss conditions card · ${name}`,
+              emailConditionsDismissPrompt(ws, proposal)
+            )
+          }
           size="xs"
           variant="secondary"
         >
@@ -739,7 +734,9 @@ function CtcEmailCard({
 }) {
   const proposal = pendingCtcProposal(ws)
 
-  if (!proposal) {return null}
+  if (!proposal) {
+    return null
+  }
   const name = ws.display_name ?? ws.workspace_id ?? 'this file'
   const ambiguous = !proposal.is_ctc
 
@@ -759,16 +756,12 @@ function CtcEmailCard({
           ? 'Possible closing update — review email.'
           : `Lender email appears to confirm Clear to Close (matched: "${proposal.matched_phrase ?? 'clear to close'}").`}
       </p>
-      <p className="m-0 text-xs text-(--ui-text-secondary)">
-        Source: {proposal.sender ?? 'lender email'}
-      </p>
+      <p className="m-0 text-xs text-(--ui-text-secondary)">Source: {proposal.sender ?? 'lender email'}</p>
       <div className="flex flex-wrap gap-2">
         {!ambiguous ? (
           <Button
             disabled={isBusy}
-            onClick={() => ask('ctc-email-confirm',
-                              `Confirm CTC · ${name}`,
-                              confirmCtcPrompt(ws, proposal))}
+            onClick={() => ask('ctc-email-confirm', `Confirm CTC · ${name}`, confirmCtcPrompt(ws, proposal))}
             size="xs"
           >
             Confirm CTC
@@ -776,9 +769,7 @@ function CtcEmailCard({
         ) : null}
         <Button
           disabled={isBusy}
-          onClick={() => ask('ctc-email-review',
-                            `Review email · ${name}`,
-                            reviewEmailPrompt(ws, proposal))}
+          onClick={() => ask('ctc-email-review', `Review email · ${name}`, reviewEmailPrompt(ws, proposal))}
           size="xs"
           variant="secondary"
         >
@@ -786,9 +777,7 @@ function CtcEmailCard({
         </Button>
         <Button
           disabled={isBusy}
-          onClick={() => ask('ctc-email-dismiss',
-                            `Dismiss CTC card · ${name}`,
-                            dismissCtcPrompt(ws, proposal))}
+          onClick={() => ask('ctc-email-dismiss', `Dismiss CTC card · ${name}`, dismissCtcPrompt(ws, proposal))}
           size="xs"
           variant="secondary"
         >
@@ -830,12 +819,11 @@ function ConditionsSection({
         const showConsolidated =
           (isBorrower || isLO) && groupedOwnerCount(ws, group.owner) >= 2 && !ownerHasWaiting(ws, group.owner)
 
-        const buttonLabel =
-          isBorrower
-            ? `Request Borrower Items (${groupedOwnerCount(ws, 'Borrower')})`
-            : isLO
-              ? `Request LO Items (${groupedOwnerCount(ws, 'Loan Officer')})`
-              : null
+        const buttonLabel = isBorrower
+          ? `Request Borrower Items (${groupedOwnerCount(ws, 'Borrower')})`
+          : isLO
+            ? `Request LO Items (${groupedOwnerCount(ws, 'Loan Officer')})`
+            : null
 
         return (
           <div
@@ -870,15 +858,10 @@ function ConditionsSection({
                       <span>{conditionItem(c)}</span>
                       <Pill tone={conditionStatusTone(status)}>{status}</Pill>
                       {c.needs_sage ? <Pill>Needs Sage</Pill> : null}
-                      <WhyButton
-                        busy={isBusy}
-                        onClick={() => why(c.text ?? conditionItem(c), 'condition')}
-                      />
+                      <WhyButton busy={isBusy} onClick={() => why(c.text ?? conditionItem(c), 'condition')} />
                     </div>
                     {conditionPlainEnglish(c) !== conditionItem(c) ? (
-                      <p className="m-0 pl-0 text-xs text-(--ui-text-secondary)">
-                        {conditionPlainEnglish(c)}
-                      </p>
+                      <p className="m-0 pl-0 text-xs text-(--ui-text-secondary)">{conditionPlainEnglish(c)}</p>
                     ) : null}
                   </li>
                 )
@@ -913,10 +896,7 @@ function ConditionsSection({
               <li className="text-xs text-(--ui-text-secondary)" key={(c.id ?? c.text) + '-r-' + i}>
                 <span className="font-medium">{conditionItem(c)}</span>
                 {c.needs_review_reason ? <> · {c.needs_review_reason}</> : null}
-                <WhyButton
-                  busy={isBusy}
-                  onClick={() => why(c.text ?? conditionItem(c), 'condition')}
-                />
+                <WhyButton busy={isBusy} onClick={() => why(c.text ?? conditionItem(c), 'condition')} />
               </li>
             ))}
           </ul>
@@ -924,9 +904,7 @@ function ConditionsSection({
       ) : null}
 
       {openTotal + waiting.length === 0 ? (
-        <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">
-          Nothing open here. Flo will flag the next step.
-        </p>
+        <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">Nothing open here. Flo will flag the next step.</p>
       ) : null}
     </div>
   )
@@ -1017,6 +995,8 @@ function FilePanel({
 }) {
   const { ask, background, busy } = useAsk(state)
   const summary = fileSummary(ws, state.approvals, state.tasks)
+  const [actionBusy, setActionBusy] = useState<null | string>(null)
+  const [actionResult, setActionResult] = useState<FloActionResult | null>(null)
 
   const hints = teamHints(
     state.activity.filter(a => a.workspace_id === ws.workspace_id),
@@ -1030,8 +1010,7 @@ function FilePanel({
 
   const ctcAll = ctcReadiness(ws)
 
-  const isCtcConfirmed = (ws: FileRecord) =>
-    ws.milestone === 'Clear to Close' && Boolean(ws.ctc_confirmed_at)
+  const isCtcConfirmed = (ws: FileRecord) => ws.milestone === 'Clear to Close' && Boolean(ws.ctc_confirmed_at)
 
   const ctcCelebrate = (ws: FileRecord) => {
     const name = ws.display_name ?? ws.workspace_id ?? 'this file'
@@ -1091,10 +1070,14 @@ function FilePanel({
         const paths: string[] = []
 
         for (const item of Array.from(event.dataTransfer.items ?? [])) {
-          if (item.kind !== 'file') {continue}
+          if (item.kind !== 'file') {
+            continue
+          }
           const f = item.getAsFile()
 
-          if (!f) {continue}
+          if (!f) {
+            continue
+          }
           // Electron exposes the absolute path via webUtils on the
           // preload bridge (window.hermesDesktop.getPathForFile). It is
           // not on the File object itself outside Electron; fall back to
@@ -1112,13 +1095,33 @@ function FilePanel({
         }
 
         ask('upload-doc', `Add documents · ${summary.name}`, uploadDocumentsPrompt(ws, paths))
-      },
+      }
     }),
     [ask, summary.name, ws]
   )
 
   const drafts = (ws.drafts ?? []).filter(d => d.status === 'draft' || d.status === 'proposed')
-  const isBusy = busy !== null
+  const isBusy = busy !== null || actionBusy !== null
+
+  const runDeterministic = useCallback(
+    async (id: string, action: string, body: Record<string, unknown>) => {
+      setActionBusy(id)
+      setActionResult(null)
+      try {
+        const result = await runFloAction(action, { workspace_id: ws.workspace_id, ...body })
+        setActionResult(result)
+        reload()
+      } catch (error) {
+        setActionResult({
+          action,
+          message: error instanceof Error ? error.message : 'Flo could not finish that action.'
+        })
+      } finally {
+        setActionBusy(null)
+      }
+    },
+    [reload, ws.workspace_id]
+  )
   const draft = missingDocumentDraft(ws)
   const requestedItems = requestedMissingItems(ws)
   const [requestPanel, setRequestPanel] = useState(false)
@@ -1145,12 +1148,13 @@ function FilePanel({
 
     if (!draft && !borrowerRequestWaiting(ws)) {
       setRequesting(true)
-      background('request-missing', `Request items · ${summary.name}`, requestPrompt(ws))
+      void runDeterministic('request-missing', 'request-missing', {}).finally(() => setRequesting(false))
     }
   }
 
-  const why = (subject: string, kind: WhyKind) =>
-    ask(`why:${subject}`, `Why? ${summary.name}`, whyPrompt(ws, subject, kind))
+  const why = (subject: string, _kind: WhyKind) => {
+    void runDeterministic(`why:${subject}`, 'why', { subject })
+  }
 
   return (
     <div
@@ -1212,29 +1216,37 @@ function FilePanel({
           data-testid="ctc-confirmed-banner"
         >
           <p className="m-0 text-sm font-semibold">{ctcCelebrate(ws)}</p>
-          <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">
-            Next: prepare for closing.
-          </p>
+          <p className="m-0 mt-1 text-xs text-(--ui-text-secondary)">Next: prepare for closing.</p>
         </div>
       ) : (
-        <div
-          className="rounded-md border border-(--ui-stroke-tertiary) p-3 text-sm"
-          data-testid="ctc-readiness"
-        >
-          <span className="text-[0.6875rem] uppercase tracking-wide text-(--ui-text-tertiary)">
-            CTC readiness
-          </span>
+        <div className="rounded-md border border-(--ui-stroke-tertiary) p-3 text-sm" data-testid="ctc-readiness">
+          <span className="text-[0.6875rem] uppercase tracking-wide text-(--ui-text-tertiary)">CTC readiness</span>
           <p className="m-0 mt-1 text-sm">{ctcAll.summary}</p>
           <ul className="m-0 mt-1 flex flex-wrap gap-2 p-0 text-xs">
-            {ctcAll.open_count > 0 ? <li><Pill tone="warn">{ctcAll.open_count} open</Pill></li> : null}
-            {ctcAll.waiting_count > 0 ? <li><Pill>{ctcAll.waiting_count} waiting</Pill></li> : null}
-            {ctcAll.needs_review_count > 0 ? <li><Pill tone="bad">{ctcAll.needs_review_count} need review</Pill></li> : null}
-            {ctcAll.cleared_count > 0 ? <li><Pill tone="good">{ctcAll.cleared_count} cleared</Pill></li> : null}
+            {ctcAll.open_count > 0 ? (
+              <li>
+                <Pill tone="warn">{ctcAll.open_count} open</Pill>
+              </li>
+            ) : null}
+            {ctcAll.waiting_count > 0 ? (
+              <li>
+                <Pill>{ctcAll.waiting_count} waiting</Pill>
+              </li>
+            ) : null}
+            {ctcAll.needs_review_count > 0 ? (
+              <li>
+                <Pill tone="bad">{ctcAll.needs_review_count} need review</Pill>
+              </li>
+            ) : null}
+            {ctcAll.cleared_count > 0 ? (
+              <li>
+                <Pill tone="good">{ctcAll.cleared_count} cleared</Pill>
+              </li>
+            ) : null}
           </ul>
           {ctcAll.all_tracked ? (
             <p className="m-0 mt-2 text-xs text-(--ui-text-secondary)">
-              Flo will mark Clear to Close once an actual lender / UW
-              notice arrives and you confirm.
+              Flo will mark Clear to Close once an actual lender / UW notice arrives and you confirm.
             </p>
           ) : null}
         </div>
@@ -1246,7 +1258,47 @@ function FilePanel({
         {summary.risk ? <p className="m-0 mt-1 text-sm text-destructive">Risk: {summary.risk}</p> : null}
       </div>
 
+      {actionResult ? (
+        <div
+          className="rounded-md border border-(--ui-accent) bg-(--ui-bg-quaternary) p-3"
+          data-testid="deterministic-action-result"
+        >
+          {actionResult.action !== 'why' ? <p className="m-0 text-sm font-medium">{actionResult.message}</p> : null}
+          {actionResult.action === 'prep' ? (
+            <ul className="m-0 mt-2 list-disc pl-5 text-xs text-(--ui-text-secondary)">
+              <li>Readiness: {String(actionResult.readiness ?? 'Needs review')}</li>
+              <li>AUS: {String(actionResult.aus ?? 'Needs review')}</li>
+              <li>Income: {String(actionResult.income ?? 'Needs review')}</li>
+              <li>Assets: {String(actionResult.assets ?? 'Needs review')}</li>
+              {Array.isArray(actionResult.missing_items) && actionResult.missing_items.length > 0 ? (
+                <li>Missing: {(actionResult.missing_items as string[]).join(', ')}</li>
+              ) : null}
+              {Array.isArray(actionResult.discrepancies) && actionResult.discrepancies.length > 0 ? (
+                <li>Discrepancies: {(actionResult.discrepancies as string[]).join('; ')}</li>
+              ) : null}
+              <li>Best next move: {String(actionResult.best_next_move ?? 'Review the report.')}</li>
+            </ul>
+          ) : null}
+          {actionResult.action === 'why' ? (
+            <>
+              <p className="m-0 mt-2 whitespace-pre-wrap text-sm text-(--ui-text-secondary)">{actionResult.message}</p>
+              {actionResult.section ? (
+                <p className="m-0 mt-1 text-xs text-(--ui-text-tertiary)">Section: {String(actionResult.section)}</p>
+              ) : null}
+              {Array.isArray(actionResult.sources) && actionResult.sources.length > 0 ? (
+                <p className="m-0 mt-1 text-xs text-(--ui-text-tertiary)">
+                  Source: {(actionResult.sources as string[]).join(', ')}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
+        <Button disabled={isBusy} onClick={() => void runDeterministic('prep', 'prep', {})} size="sm">
+          Prep File
+        </Button>
         {summary.missing.length > 0 ? (
           <Button disabled={isBusy} onClick={startMissingRequest} size="sm">
             Request Missing Documents
@@ -1255,7 +1307,7 @@ function FilePanel({
         {!hasTitle ? (
           <Button
             disabled={isBusy}
-            onClick={() => ask('order-title', `Order title · ${summary.name}`, orderPrompt(ws, 'title'))}
+            onClick={() => void runDeterministic('order-title', 'order', { order_type: 'title' })}
             size="sm"
             variant="secondary"
           >
@@ -1265,7 +1317,7 @@ function FilePanel({
         {!hasHoi ? (
           <Button
             disabled={isBusy}
-            onClick={() => ask('order-hoi', `Order HOI · ${summary.name}`, orderPrompt(ws, 'hoi'))}
+            onClick={() => void runDeterministic('order-hoi', 'order', { order_type: 'hoi' })}
             size="sm"
             variant="secondary"
           >
@@ -1275,7 +1327,7 @@ function FilePanel({
         {!hasWvoe ? (
           <Button
             disabled={isBusy}
-            onClick={() => ask('order-wvoe', `Order WVOE · ${summary.name}`, orderPrompt(ws, 'wvoe'))}
+            onClick={() => void runDeterministic('order-wvoe', 'order', { order_type: 'wvoe' })}
             size="sm"
             variant="secondary"
           >
@@ -1348,6 +1400,14 @@ function FilePanel({
         ask={ask}
         isBusy={isBusy}
         onRequest={startMissingRequest}
+        onSendForSignature={(documentId, templateKey, recipients, message) =>
+          void runDeterministic(`esign-prepare:${documentId}`, 'esign-prepare', {
+            document_id: documentId,
+            template_key: templateKey,
+            recipients,
+            message
+          })
+        }
         why={item => why(item, 'missing')}
         ws={ws}
       />
@@ -1380,7 +1440,9 @@ function FilePanel({
         ) : (
           <ConditionsSection
             isBusy={isBusy}
-            requestBorrower={() => ask('borrower-request', `Borrower items · ${summary.name}`, borrowerRequestPrompt(ws))}
+            requestBorrower={() =>
+              ask('borrower-request', `Borrower items · ${summary.name}`, borrowerRequestPrompt(ws))
+            }
             requestLO={() => ask('lo-request', `Loan-officer items · ${summary.name}`, loRequestPrompt(ws))}
             why={why}
             ws={ws}

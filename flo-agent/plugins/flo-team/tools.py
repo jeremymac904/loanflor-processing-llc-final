@@ -1710,7 +1710,7 @@ FLO_ESIGN_SCHEMA = {
 def _esign_client():
     from . import esign as esign_mod
 
-    return esign_mod.default_client()
+    return esign_mod.default_client(team_root=_root())
 
 
 def _esign_public(rec: dict) -> dict:

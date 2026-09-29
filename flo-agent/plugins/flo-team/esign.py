@@ -65,6 +65,8 @@ STATUS_LABEL = {
 ACTIVE_STATUSES = ("sent", "partially_signed", "signed")  # still needs polling for a result
 _TERMINAL = ("retrieved", "declined", "cancelled")
 TEMPLATE_REGISTRY_FILENAME = "esign_templates.json"
+LOCAL_CONFIG_FILENAME = "config.json"
+_LOCAL_CONFIG_KEYS = ("DOCUMENSO_API_URL", "DOCUMENSO_API_TOKEN", "DOCUMENSO_LOE_TEMPLATE_ID")
 
 
 class EsignError(ValueError):
@@ -119,7 +121,16 @@ class DocumensoClient:
     def create_from_template(self, template_id: str, recipients: List[Dict[str, str]], *, external_id: str, title: Optional[str] = None) -> Dict[str, Any]:
         """POST /api/v2/template/use — recipients substitute the template's placeholder signers by position (id).
         This endpoint is deprecated upstream (removal 2027-03-01); migrate to /api/v2/envelope/use when needed."""
-        payload = {"templateId": template_id, "recipients": recipients, "distributeDocument": False, "externalId": external_id}
+        # Documenso's template endpoint requires the numeric placeholder id,
+        # not only the name/email/role fields collected by Flo.  Template
+        # signer ids are positional and the approved Flo template has one
+        # signer, so keep the existing recipient contract and add that id at
+        # the API boundary.
+        template_recipients = [
+            {**recipient, "id": index + 1, "role": str(recipient.get("role") or "SIGNER").upper()}
+            for index, recipient in enumerate(recipients)
+        ]
+        payload = {"templateId": template_id, "recipients": template_recipients, "distributeDocument": False, "externalId": external_id}
         if title:
             payload["title"] = title
         return self._json("POST", "/api/v2/template/use", json_body=payload)
@@ -148,8 +159,27 @@ class DocumensoClient:
         return self._json("POST", "/api/v2/envelope/cancel", json_body={"envelopeId": envelope_id, "reason": reason or ""})
 
 
-def default_client(*, env: Optional[Dict[str, str]] = None) -> DocumensoClient:
-    env = env if env is not None else os.environ
+def _local_config(team_root) -> Dict[str, str]:
+    """Read non-repository, machine-local e-sign settings persisted by Flo."""
+    if team_root is None:
+        return {}
+    path = Path(team_root) / "esign" / LOCAL_CONFIG_FILENAME
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {}
+    return {key: str(raw[key]) for key in _LOCAL_CONFIG_KEYS if raw.get(key)}
+
+
+def _effective_env(team_root=None, env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    merged = dict(env if env is not None else os.environ)
+    for key, value in _local_config(team_root).items():
+        merged.setdefault(key, value)
+    return merged
+
+
+def default_client(*, team_root=None, env: Optional[Dict[str, str]] = None) -> DocumensoClient:
+    env = _effective_env(team_root, env)
     base_url = env.get("DOCUMENSO_API_URL") or ""
     token = env.get("DOCUMENSO_API_TOKEN") or ""
     if not base_url or not token:
@@ -308,7 +338,7 @@ def load_templates(team_root, *, env: Optional[Dict[str, str]] = None) -> Dict[s
     (category, page count, signer roles); the actual Documenso ``templateId`` comes from an environment
     variable named in the registry entry, never hardcoded, since it is only known once someone has built
     the template in the Documenso editor for a real self-hosted instance."""
-    env = env if env is not None else os.environ
+    env = _effective_env(team_root, env)
     path = Path(__file__).with_name("knowledge") / TEMPLATE_REGISTRY_FILENAME
     if not path.exists():
         return {}

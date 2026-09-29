@@ -36,6 +36,7 @@ import {
 import { useMemo } from 'react'
 
 import { FLO_ACTIONS } from './actions'
+import { bindFloActions } from './actions-api'
 import { ADVANCED_ROUTE, AdvancedPage } from './advanced'
 import { APPROVALS_ROUTE, ApprovalsPage } from './approvals'
 import { NEXT_MOVE_PROMPT, STATUS_TONE, todayModel } from './ashley'
@@ -135,7 +136,10 @@ function TodayPage() {
             ) : (
               <ol className="m-0 flex list-none flex-col gap-2 p-0">
                 {model.top.map((item, i) => (
-                  <li className="flex gap-3 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4" key={item.workspaceId}>
+                  <li
+                    className="flex gap-3 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4"
+                    key={item.workspaceId}
+                  >
                     <span className="text-lg font-semibold text-(--ui-text-tertiary)">{i + 1}</span>
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <div className="flex items-center gap-2">
@@ -236,6 +240,7 @@ const plugin: HermesPlugin = {
   name: 'Flo',
   description: 'Today, Pipeline and Approvals for Ashley; team, sources and providers under Advanced.',
   register(ctx) {
+    ctx.onDispose(bindFloActions(ctx.rest))
     ctx.registerMany([
       { id: 'theme', area: THEMES_AREA, data: floTheme },
       {
