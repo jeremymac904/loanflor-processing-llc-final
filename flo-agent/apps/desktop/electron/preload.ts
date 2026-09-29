@@ -238,6 +238,21 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   // ─── Flo connectors (Ashley-facing setup) ────────────────────────────────────
   flo: {
     connectionStatus: () => ipcRenderer.invoke('hermes:flo:connection-status'),
+    smsStatus: () => ipcRenderer.invoke('hermes:flo:sms-status'),
+    smsSaveCredentials: (payload: { accountSid: string; apiKeySid: string; apiKeySecret: string }) =>
+      ipcRenderer.invoke('hermes:flo:sms-save-credentials', payload),
+    smsSaveAshleyMobile: (value: string) => ipcRenderer.invoke('hermes:flo:sms-save-ashley-mobile', value),
+    smsGetContacts: (workspaceId: string) => ipcRenderer.invoke('hermes:flo:sms-get-contacts', workspaceId),
+    smsSaveContacts: (payload: { workspaceId: string; contacts: unknown[] }) =>
+      ipcRenderer.invoke('hermes:flo:sms-save-contacts', payload),
+    smsGetMessages: (workspaceId: string) => ipcRenderer.invoke('hermes:flo:sms-get-messages', workspaceId),
+    smsGetUnmatched: () => ipcRenderer.invoke('hermes:flo:sms-get-unmatched'),
+    smsAssignMessage: (payload: { sid: string; workspaceId: string; contactId: string }) =>
+      ipcRenderer.invoke('hermes:flo:sms-assign-message', payload),
+    smsSync: () => ipcRenderer.invoke('hermes:flo:sms-sync'),
+    smsSend: (payload: { workspaceId: string; contactId: string; to: string; body: string }) =>
+      ipcRenderer.invoke('hermes:flo:sms-send', payload),
+
     saveProviderCredential: payload => ipcRenderer.invoke('hermes:flo:save-provider-credential', payload),
     deleteProviderCredential: payload => ipcRenderer.invoke('hermes:flo:delete-provider-credential', payload),
     providerCredentialStatus: payload => ipcRenderer.invoke('hermes:flo:provider-credential-status', payload),

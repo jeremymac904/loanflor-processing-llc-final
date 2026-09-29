@@ -17,6 +17,7 @@ import {
   Info,
   Keyboard,
   KeyRound,
+  MessageCircle,
   Package,
   RefreshCw,
   Search,
@@ -42,6 +43,7 @@ import { SKILLS_ROUTE } from '../routes'
 import { AboutSettings } from './about-settings'
 import { AppearanceSettings } from './appearance-settings'
 import { BillingSettings } from './billing'
+import { CommunicationsSettings } from './communications-settings'
 import { ConfigSettings } from './config-settings'
 import { SECTIONS } from './constants'
 import { GatewaySettings } from './gateway-settings'
@@ -63,6 +65,7 @@ const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   'keybinds',
   'keys',
   'notifications',
+  'communications',
   'billing',
   'plugins',
   'sessions',
@@ -186,6 +189,13 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         id: 'notifications',
         label: t.settings.nav.notifications,
         onSelect: () => setActiveView('notifications')
+      },
+      {
+        active: activeView === 'communications',
+        icon: MessageCircle,
+        id: 'communications',
+        label: 'Communications',
+        onSelect: () => setActiveView('communications')
       },
       {
         active: activeView === 'billing',
@@ -400,6 +410,8 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
       <KeysSettings view={keysView} />
     ) : activeView === 'notifications' ? (
       <NotificationsSettings />
+    ) : activeView === 'communications' ? (
+      <CommunicationsSettings />
     ) : activeView === 'billing' ? (
       <BillingSettings />
     ) : activeView === 'plugins' ? (

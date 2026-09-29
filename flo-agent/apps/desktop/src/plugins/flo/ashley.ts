@@ -121,7 +121,7 @@ export interface FileRecord extends WorkspaceRow {
   /** Website loan submission (lfprocessing.net) that opened this file. */
   submission?: null | {
     submission_id?: string
-    loan_officer?: { name?: string; company?: string }
+    loan_officer?: { name?: string; company?: string; phone?: string }
     borrowers?: Array<{ role?: string; name?: string; email?: string; phone?: string }>
     transaction_label?: string
     program_label?: string
@@ -220,7 +220,9 @@ export function pendingEmailConditions(ws: FileRecord): EmailConditionsProposal 
   const list = ws.pending_email_ingests ?? []
 
   for (const p of list) {
-    if (p && p.status === 'pending') {return p}
+    if (p && p.status === 'pending') {
+      return p
+    }
   }
 
   return null
@@ -231,7 +233,9 @@ export function pendingCtcProposal(ws: FileRecord): CtcProposal | null {
   const list = ws.pending_ctc_proposals ?? []
 
   for (const p of list) {
-    if (p && p.status === 'pending') {return p}
+    if (p && p.status === 'pending') {
+      return p
+    }
   }
 
   return null
@@ -319,7 +323,9 @@ export function waitingLabel(owner: string | null | undefined): string {
 export function conditionItem(c: FileCondition): string {
   const item = (c.required_item ?? '').trim()
 
-  if (item) {return item}
+  if (item) {
+    return item
+  }
   const text = (c.text ?? '').trim()
 
   return text.length > 80 ? text.slice(0, 77).trimEnd() + '…' : text
@@ -330,10 +336,14 @@ export function conditionItem(c: FileCondition): string {
 export function conditionPlainEnglish(c: FileCondition): string {
   const pe = (c.plain_english ?? '').trim()
 
-  if (pe) {return pe}
+  if (pe) {
+    return pe
+  }
   const text = (c.text ?? '').trim()
 
-  if (!text) {return conditionItem(c)}
+  if (!text) {
+    return conditionItem(c)
+  }
 
   return text.length > 160 ? text.slice(0, 157).trimEnd() + '…' : text
 }
@@ -346,11 +356,17 @@ export type ConditionStatus = 'Open' | 'Waiting' | 'Needs Ashley' | 'Needs Revie
 export function conditionStatus(c: FileCondition): ConditionStatus {
   const state = String(c.state ?? c.status ?? 'open').toLowerCase()
 
-  if (state === 'cleared') {return 'Cleared'}
+  if (state === 'cleared') {
+    return 'Cleared'
+  }
 
-  if (state === 'waiting') {return 'Waiting'}
+  if (state === 'waiting') {
+    return 'Waiting'
+  }
 
-  if (c.needs_review) {return 'Needs Review'}
+  if (c.needs_review) {
+    return 'Needs Review'
+  }
 
   // Anything not cleared / waiting / needs_review is "Open". A condition
   // that needs Sage is flagged here so the file view shows [Why?] for it
@@ -374,9 +390,7 @@ export function conditionStatusTone(s: ConditionStatus) {
  * status. Used by the Conditions section inside the file view and by
  * Today. Preserves insertion order. */
 export function allConditions(ws: FileRecord): FileCondition[] {
-  return (ws.conditions ?? []).filter(
-    (c): c is FileCondition => typeof c === 'object' && c !== null
-  )
+  return (ws.conditions ?? []).filter((c): c is FileCondition => typeof c === 'object' && c !== null)
 }
 
 export function openConditions(ws: FileRecord): FileCondition[] {
@@ -389,7 +403,10 @@ export function openConditionsByOwner(ws: FileRecord, owner: string): FileCondit
   const want = (owner ?? '').trim().toLowerCase()
 
   return openConditions(ws).filter(
-    c => String(c.owner ?? '').trim().toLowerCase() === want
+    c =>
+      String(c.owner ?? '')
+        .trim()
+        .toLowerCase() === want
   )
 }
 
@@ -401,7 +418,9 @@ export function waitingConditionsByOwner(ws: FileRecord, owner: string): FileCon
   return allConditions(ws).filter(
     c =>
       conditionStatus(c) === 'Waiting' &&
-      String(c.owner ?? '').trim().toLowerCase() === want
+      String(c.owner ?? '')
+        .trim()
+        .toLowerCase() === want
   )
 }
 
@@ -410,12 +429,16 @@ export function waitingConditionsByOwner(ws: FileRecord, owner: string): FileCon
 export function conditionsByOwner(ws: FileRecord): Array<{ owner: string; items: FileCondition[] }> {
   const grouped = new Map<string, FileCondition[]>()
 
-  for (const owner of OWNER_ORDER) {grouped.set(owner, [])}
+  for (const owner of OWNER_ORDER) {
+    grouped.set(owner, [])
+  }
 
   for (const c of openConditions(ws)) {
     const o = String(c.owner ?? 'Other').trim() || 'Other'
 
-    if (!grouped.has(o)) {grouped.set(o, [])}
+    if (!grouped.has(o)) {
+      grouped.set(o, [])
+    }
     grouped.get(o)!.push(c)
   }
 
@@ -424,7 +447,9 @@ export function conditionsByOwner(ws: FileRecord): Array<{ owner: string; items:
   for (const owner of OWNER_ORDER) {
     const items = grouped.get(owner) ?? []
 
-    if (items.length > 0) {out.push({ owner, items })}
+    if (items.length > 0) {
+      out.push({ owner, items })
+    }
   }
 
   return out
@@ -436,7 +461,9 @@ export function waitingOwners(ws: FileRecord): string[] {
   const set = new Set<string>()
 
   for (const c of allConditions(ws)) {
-    if (conditionStatus(c) === 'Waiting' && c.owner) {set.add(String(c.owner))}
+    if (conditionStatus(c) === 'Waiting' && c.owner) {
+      set.add(String(c.owner))
+    }
   }
 
   return OWNER_ORDER.filter(o => set.has(o))
@@ -1465,7 +1492,9 @@ export function editApprovalPrompt(view: ApprovalView): string {
 
 /** Item lines for one consolidated request draft, plain-English only. */
 function _conditionList(items: FileCondition[]): string {
-  if (items.length === 0) {return 'whatever is still outstanding'}
+  if (items.length === 0) {
+    return 'whatever is still outstanding'
+  }
 
   return items.map(c => `- ${conditionItem(c)}`).join('\n')
 }
@@ -1523,11 +1552,13 @@ export function ownerHasWaiting(ws: FileRecord, owner: string): boolean {
  * email-conditions card. The proposed rows came from the earlier
  * propose call and are passed through verbatim. */
 export function emailConditionsApplyPrompt(ws: FileRecord, proposal: EmailConditionsProposal): string {
-  const items = (proposal.proposed ?? []).map(p => {
-    const owner = p.owner ? ` (${p.owner})` : ''
+  const items = (proposal.proposed ?? [])
+    .map(p => {
+      const owner = p.owner ? ` (${p.owner})` : ''
 
-    return `- ${p.required_item ?? p.plain_english ?? p.condition_type ?? 'item'}${owner}`
-  }).join('\n')
+      return `- ${p.required_item ?? p.plain_english ?? p.condition_type ?? 'item'}${owner}`
+    })
+    .join('\n')
 
   return `Add the conditions from this lender email to ${fileName(ws)} (Deal Room ${ws.workspace_id}):\n${items}\nUse flo_conditions_ingest action=apply with the proposed rows from the earlier propose call. After the apply, re-render the file's Conditions section and Today / Pipeline counts. The audit fields (source = lender_email, source_ref = email id) must be on every new condition.`
 }
@@ -1545,7 +1576,7 @@ export function reviewEmailPrompt(ws: FileRecord, proposal: EmailConditionsPropo
     `Show me the email that produced this card for ${fileName(ws)} (Deal Room ${ws.workspace_id}).`,
     `Sender: ${proposal.sender ?? 'unknown'}`,
     `Subject: ${proposal.subject ?? '(no subject)'}`,
-    `Received: ${proposal.received_at ?? 'unknown'}`,
+    `Received: ${proposal.received_at ?? 'unknown'}`
   ]
 
   if (proposal.kind === 'conditions_email') {
@@ -1586,9 +1617,7 @@ export type CtcReadiness = {
  * the lender" — never "you are clear to close" — because Flo does not
  * grant CTC. */
 export function ctcReadiness(ws: FileRecord): CtcReadiness {
-  const conditions = (ws.conditions ?? []).filter(
-    (c): c is FileCondition => typeof c === 'object' && c !== null
-  )
+  const conditions = (ws.conditions ?? []).filter((c): c is FileCondition => typeof c === 'object' && c !== null)
 
   let openCount = 0
   let waitingCount = 0
@@ -1598,10 +1627,15 @@ export function ctcReadiness(ws: FileRecord): CtcReadiness {
   for (const c of conditions) {
     const status = conditionStatus(c)
 
-    if (status === 'Cleared') {clearedCount += 1}
-    else if (status === 'Waiting') {waitingCount += 1}
-    else if (status === 'Needs Review') {needsReviewCount += 1}
-    else {openCount += 1}
+    if (status === 'Cleared') {
+      clearedCount += 1
+    } else if (status === 'Waiting') {
+      waitingCount += 1
+    } else if (status === 'Needs Review') {
+      needsReviewCount += 1
+    } else {
+      openCount += 1
+    }
   }
 
   const total = openCount + waitingCount + needsReviewCount + clearedCount
@@ -1615,9 +1649,13 @@ export function ctcReadiness(ws: FileRecord): CtcReadiness {
   } else {
     const bits: string[] = []
 
-    if (openCount) {bits.push(`${openCount} open`)}
+    if (openCount) {
+      bits.push(`${openCount} open`)
+    }
 
-    if (waitingCount) {bits.push(`${waitingCount} waiting`)}
+    if (waitingCount) {
+      bits.push(`${waitingCount} waiting`)
+    }
 
     if (needsReviewCount) {
       bits.push(`${needsReviewCount} need${needsReviewCount === 1 ? 's' : ''} review`)

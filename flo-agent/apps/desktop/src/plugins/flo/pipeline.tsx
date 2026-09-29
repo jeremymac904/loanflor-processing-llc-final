@@ -16,6 +16,7 @@
 import { Button, cn, host, Loader, useValue } from '@hermes/plugin-sdk'
 import { type DragEvent as ReactDragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { type FloActionResult, runFloAction } from './actions-api'
 import {
   activeEsignRequest,
   askFloPrompt,
@@ -63,8 +64,8 @@ import {
   waitingLabel,
   type WhyKind
 } from './ashley'
-import { runFloAction, type FloActionResult } from './actions-api'
 import { preferFloProfile, reportStartFailure, runFloInBackground, startFloChat } from './chat'
+import { SmsPanel } from './sms-panel'
 import { type TeamState, useTeamState } from './state'
 import { Fact, Pill } from './ui'
 
@@ -656,6 +657,7 @@ function EmailConditionsCard({
   if (!proposal) {
     return null
   }
+
   const name = ws.display_name ?? ws.workspace_id ?? 'this file'
   const items = proposal.proposed ?? []
 
@@ -738,6 +740,7 @@ function CtcEmailCard({
   if (!proposal) {
     return null
   }
+
   const name = ws.display_name ?? ws.workspace_id ?? 'this file'
   const ambiguous = !proposal.is_ctc
 
@@ -1024,13 +1027,16 @@ function FilePanel({
   // must not decide whether an explicit file drop should be imported.
   const [isDragOver, setIsDragOver] = useState(false)
   const dragDepth = useRef(0)
+
   const importLocalDocuments = useCallback(
     async (paths: string[]) => {
       if (paths.length === 0) {
         return
       }
+
       setActionBusy('upload-documents')
       setActionResult(null)
+
       try {
         const result = await runFloAction('upload-documents', { workspace_id: ws.workspace_id, paths })
         setActionResult(result)
@@ -1095,11 +1101,13 @@ function FilePanel({
           if (item.kind !== 'file') {
             continue
           }
+
           const f = item.getAsFile()
 
           if (!f) {
             continue
           }
+
           // Electron exposes the absolute path via webUtils on the
           // preload bridge (window.hermesDesktop.getPathForFile). It is
           // not on the File object itself outside Electron; fall back to
@@ -1129,6 +1137,7 @@ function FilePanel({
     async (id: string, action: string, body: Record<string, unknown>) => {
       setActionBusy(id)
       setActionResult(null)
+
       try {
         const result = await runFloAction(action, { workspace_id: ws.workspace_id, ...body })
         setActionResult(result)
@@ -1144,6 +1153,7 @@ function FilePanel({
     },
     [reload, ws.workspace_id]
   )
+
   const draft = missingDocumentDraft(ws)
   const requestedItems = requestedMissingItems(ws)
   const [requestPanel, setRequestPanel] = useState(false)
@@ -1422,7 +1432,6 @@ function FilePanel({
         ask={ask}
         isBusy={isBusy}
         onRequest={startMissingRequest}
-        onUpload={paths => void importLocalDocuments(paths)}
         onSendForSignature={(documentId, templateKey, recipients, message) =>
           void runDeterministic(`esign-prepare:${documentId}`, 'esign-prepare', {
             document_id: documentId,
@@ -1431,9 +1440,12 @@ function FilePanel({
             message
           })
         }
+        onUpload={paths => void importLocalDocuments(paths)}
         why={item => why(item, 'missing')}
         ws={ws}
       />
+
+      <SmsPanel ask={ask} ws={ws} />
 
       <details>
         <summary className="cursor-pointer text-sm">Income &amp; Assets</summary>

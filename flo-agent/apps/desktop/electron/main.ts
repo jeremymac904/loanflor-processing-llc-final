@@ -33,6 +33,7 @@ import {
 import { FLO_BRAND } from '../flo/brand'
 import { floUpdateGate } from '../flo/release-channel'
 import { getAvailableFloSafeStorage } from './flo-safe-storage'
+import { createFloSmsService, FLO_SMS_NUMBER } from './flo-sms'
 import {
   deleteProviderCredentialRecord,
   isProviderCredentialEnvKey,
@@ -16442,6 +16443,164 @@ ipcMain.handle('hermes:flo:provider-credential-status', async (_event, payload: 
   }
 })
 
+function readFloTwilioCredentials() {
+  const secret = readFloSecretsFile().twilio
+
+  if (!secret?.accountSid || !secret?.apiKeySid || !secret?.encryptedApiKeySecret) {
+    return null
+  }
+  const ss = safeStorageApi()
+
+  if (!ss) {
+    return null
+  }
+
+  try {
+    return {
+      accountSid: String(secret.accountSid),
+      apiKeySid: String(secret.apiKeySid),
+      apiKeySecret: ss.decryptString(Buffer.from(String(secret.encryptedApiKeySecret), 'base64')),
+      fromNumber: FLO_SMS_NUMBER
+    }
+  } catch {
+    return null
+  }
+}
+
+let floSmsService: ReturnType<typeof createFloSmsService> | null = null
+
+function getFloSmsService() {
+  if (!floSmsService) {
+    const filePath = path.join(app.getPath('userData'), 'flo-communications.json')
+    floSmsService = createFloSmsService({ filePath, credentials: readFloTwilioCredentials })
+  }
+
+  return floSmsService
+}
+
+ipcMain.handle('hermes:flo:sms-status', async () => {
+  const status = getFloSmsService().getStatus()
+  const hasStoredCredential = Boolean(readFloSecretsFile().twilio?.encryptedApiKeySecret)
+
+  if (!hasStoredCredential) {
+    return { ...status, state: 'not_connected', configured: false, accountSid: null, apiKeySid: null }
+  }
+
+  if (!readFloTwilioCredentials() || status.state === 'not_connected') {
+    return { ...status, state: 'needs_attention', configured: true }
+  }
+
+  return { ...status, ashleyMobile: getFloSmsService().getAshleyMobile() }
+})
+
+ipcMain.handle(
+  'hermes:flo:sms-save-credentials',
+  async (_event, payload: { accountSid?: string; apiKeySid?: string; apiKeySecret?: string }) => {
+    const accountSid = String(payload?.accountSid ?? '').trim()
+    const apiKeySid = String(payload?.apiKeySid ?? '').trim()
+    const apiKeySecret = String(payload?.apiKeySecret ?? '')
+
+    if (!/^AC[\da-f]{32}$/i.test(accountSid) || !/^SK[\da-f]{32}$/i.test(apiKeySid) || !apiKeySecret.trim()) {
+      return { ok: false, error: 'Enter a valid Account SID, API Key SID, and API Key Secret.' }
+    }
+
+    const ss = safeStorageApi()
+
+    if (!ss) {
+      return { ok: false, error: 'Secure storage is unavailable on this computer.' }
+    }
+
+    try {
+      const secrets = readFloSecretsFile()
+      secrets.twilio = {
+        accountSid,
+        apiKeySid,
+        encryptedApiKeySecret: ss.encryptString(apiKeySecret).toString('base64'),
+        storage: 'safeStorage',
+        storedAt: new Date().toISOString()
+      }
+      writeFloSecretsFile(secrets)
+      const result = await getFloSmsService().checkCredentials()
+
+      return result
+    } catch (error) {
+      getFloSmsService().markNeedsAttention()
+      const status = getFloSmsService().getStatus()
+
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Twilio credentials could not be verified.',
+        status
+      }
+    }
+  }
+)
+
+ipcMain.handle('hermes:flo:sms-save-ashley-mobile', async (_event, value: string) => {
+  try {
+    return { ok: true, ...getFloSmsService().saveAshleyMobile(String(value ?? '')) }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Could not save Ashley’s mobile number.' }
+  }
+})
+
+ipcMain.handle('hermes:flo:sms-get-contacts', async (_event, workspaceId: string) =>
+  getFloSmsService().getContacts(String(workspaceId ?? ''))
+)
+ipcMain.handle(
+  'hermes:flo:sms-save-contacts',
+  async (_event, payload: { workspaceId: string; contacts: unknown[] }) => {
+    try {
+      return {
+        ok: true,
+        contacts: getFloSmsService().setContacts(
+          String(payload?.workspaceId ?? ''),
+          Array.isArray(payload?.contacts) ? payload.contacts : []
+        )
+      }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'Contacts could not be saved.' }
+    }
+  }
+)
+ipcMain.handle('hermes:flo:sms-get-messages', async (_event, workspaceId: string) =>
+  getFloSmsService().getMessages(String(workspaceId ?? ''))
+)
+ipcMain.handle('hermes:flo:sms-get-unmatched', async () => getFloSmsService().getUnmatchedMessages())
+ipcMain.handle(
+  'hermes:flo:sms-assign-message',
+  async (_event, payload: { sid: string; workspaceId: string; contactId: string }) => {
+    try {
+      return getFloSmsService().assignMessage(
+        String(payload?.sid ?? ''),
+        String(payload?.workspaceId ?? ''),
+        String(payload?.contactId ?? '')
+      )
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'Message could not be assigned.' }
+    }
+  }
+)
+ipcMain.handle('hermes:flo:sms-sync', async () => getFloSmsService().sync())
+ipcMain.handle(
+  'hermes:flo:sms-send',
+  async (_event, payload: { workspaceId: string; contactId: string; to: string; body: string }) => {
+    try {
+      return await getFloSmsService().sendMessage({
+        workspaceId: String(payload?.workspaceId ?? ''),
+        contactId: String(payload?.contactId ?? ''),
+        to: String(payload?.to ?? ''),
+        body: String(payload?.body ?? ''),
+        approvedBy: 'Ashley',
+        approvedAt: new Date().toISOString()
+      })
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Twilio could not send this message.' }
+    }
+  }
+)
+
+
 ipcMain.handle('hermes:flo:connection-status', async () => {
   const env = process.env
   const ss = safeStorageApi()
@@ -16544,6 +16703,7 @@ ipcMain.handle('hermes:flo:connection-status', async () => {
     drive: { configured: driveConfigured },
     calendar: { configured: calendarConfigured },
     zapier: { configured: zapierConfigured },
+    twilio: getFloSmsService().getStatus(),
     signing: { configured: signingReady },
     localAi: { configured: localAiReady, models: localAiModels }
   }
@@ -18190,6 +18350,7 @@ app.whenReady().then(() => {
   // Settings → Gateway. Must run before createWindow() and the first
   // connection resolution.
   migrateLegacyEncryptedSecretsOnce()
+  getFloSmsService().startPolling()
 
   if (IS_MAC) {
     Menu.setApplicationMenu(buildApplicationMenu())
