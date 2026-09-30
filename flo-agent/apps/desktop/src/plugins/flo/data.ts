@@ -87,6 +87,8 @@ export interface ActivityRow {
   tool?: string
   decision?: string
   layer?: string
+  state?: string
+  status?: string
 }
 
 export interface KnowledgeSource {
@@ -140,8 +142,22 @@ export interface KnowledgeCenterRow {
 export interface KnowledgeCenterData {
   generated_at: string
   rows: KnowledgeCenterRow[]
-  guidance_pending: Array<{ guidance_id: string; text: string; scope: string; workspace_id?: null | string; source_ref: string; status: string }>
-  overlays: Array<{ overlay_id: string; lender: string; program: string; lifecycle: string; ae_confirmation_status: string; text: string }>
+  guidance_pending: Array<{
+    guidance_id: string
+    text: string
+    scope: string
+    workspace_id?: null | string
+    source_ref: string
+    status: string
+  }>
+  overlays: Array<{
+    overlay_id: string
+    lender: string
+    program: string
+    lifecycle: string
+    ae_confirmation_status: string
+    text: string
+  }>
   note?: string
 }
 

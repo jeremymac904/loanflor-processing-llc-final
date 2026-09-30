@@ -76,19 +76,26 @@ export function ApprovalsPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-6 py-8">
       <header className="flex items-center gap-3">
-        <h1 className="m-0 text-lg font-semibold tracking-wide">Approvals</h1>
+        <h1 className="flo-display m-0 text-2xl">Approvals</h1>
         <span className="text-xs text-(--ui-text-tertiary)">Nothing leaves the building without your okay.</span>
       </header>
       {!state ? <Loader /> : null}
-      {state && visible.length === 0 ? <p className="m-0 text-sm text-(--ui-text-secondary)">Nothing waiting on you. 💚</p> : null}
+      {state && visible.length === 0 ? (
+        <p className="m-0 text-sm text-(--ui-text-secondary)">Nothing waiting on you. 💚</p>
+      ) : null}
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {visible.map(v => (
-          <li className="flex flex-col gap-2 rounded-md border border-(--ui-stroke-tertiary) p-4" key={v.proposalId}>
+          <li
+            className="flo-surface flex flex-col gap-2 border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4"
+            key={v.proposalId}
+          >
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold">{v.what}</span>
               {v.workspaceId ? <Pill>{names.get(v.workspaceId) ?? v.workspaceId}</Pill> : null}
               {v.expired ? <Pill tone="bad">expired</Pill> : null}
-              <span className="ml-auto text-xs text-(--ui-text-tertiary)">{formatAgo(Date.parse(v.createdAt), AGO)}</span>
+              <span className="ml-auto text-xs text-(--ui-text-tertiary)">
+                {formatAgo(Date.parse(v.createdAt), AGO)}
+              </span>
             </div>
             {v.who ? (
               <p className="m-0 text-sm">
@@ -101,7 +108,9 @@ export function ApprovalsPage() {
               {v.proposing}
             </p>
             {v.preview ? (
-              <pre className="m-0 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-(--ui-bg-quaternary) p-2 font-sans text-xs">{v.preview}</pre>
+              <pre className="m-0 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-(--ui-bg-quaternary) p-2 font-sans text-xs">
+                {v.preview}
+              </pre>
             ) : null}
             <div className="flex flex-wrap gap-2">
               <Button disabled={v.expired} onClick={() => host.newChat(v.agent)} size="sm">
@@ -126,18 +135,32 @@ export function ApprovalsPage() {
         ))}
       </ul>
       {snoozedCount > 0 ? (
-        <button className="self-start text-xs text-(--ui-text-tertiary) hover:underline" onClick={() => setShowSnoozed(s => !s)} type="button">
+        <button
+          className="self-start text-xs text-(--ui-text-tertiary) hover:underline"
+          onClick={() => setShowSnoozed(s => !s)}
+          type="button"
+        >
           {showSnoozed ? 'Hide' : 'Show'} {snoozedCount} set aside for later
         </button>
       ) : null}
       {decided.length > 0 ? (
         <details>
-          <summary className="cursor-pointer text-xs text-(--ui-text-secondary)">Recently decided ({decided.length})</summary>
+          <summary className="cursor-pointer text-xs text-(--ui-text-secondary)">
+            Recently decided ({decided.length})
+          </summary>
           <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0 text-xs">
             {decided.map(card => (
               <li className="flex gap-2" key={card.proposal_id}>
                 <span>{approvalView(card).what}</span>
-                <Pill tone={card.status === 'executed' ? 'good' : card.status === 'rejected' || card.status === 'blocked' ? 'bad' : 'muted'}>
+                <Pill
+                  tone={
+                    card.status === 'executed'
+                      ? 'good'
+                      : card.status === 'rejected' || card.status === 'blocked'
+                        ? 'bad'
+                        : 'muted'
+                  }
+                >
                   {decidedLabel(card.status)}
                 </Pill>
               </li>

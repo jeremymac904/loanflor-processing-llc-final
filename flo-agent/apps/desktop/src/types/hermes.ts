@@ -556,10 +556,11 @@ export type TimelineDisplayMetadata =
     }
   | { reactions: MessageReaction[] }
 
-/** One emoji reaction on a message. One per author, iOS-Tapback style. */
+/** One reaction per reactor on a message; agent_id distinguishes team profiles. */
 export interface MessageReaction {
   emoji: string
   author: 'agent' | 'user'
+  agent_id?: string
   /** Epoch seconds. */
   at: number
 }

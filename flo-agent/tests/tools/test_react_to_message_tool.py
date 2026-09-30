@@ -20,3 +20,17 @@ def test_reaction_database_closes_when_write_fails(monkeypatch):
 
     assert "write failed" in result
     db.close.assert_called_once()
+
+
+def test_agent_profile_identity_reaches_persisted_reaction(monkeypatch):
+    db = MagicMock()
+    db.latest_message_row_id.return_value = 42
+    db.set_message_reaction.return_value = [{"emoji": "💚", "author": "agent", "agent_id": "flo", "at": 1}]
+    emitted = MagicMock()
+    monkeypatch.setattr(reactions.desktop_ui, "emit", emitted)
+
+    result = reactions._react_to_message_with_db("💚", db=db, session_key="chat-1", agent_id="flo")
+
+    assert '"agent_id": "flo"' in result
+    db.set_message_reaction.assert_called_once_with("chat-1", 42, "💚", author="agent", agent_id="flo")
+    assert emitted.call_args.args[0] == "message.reaction"

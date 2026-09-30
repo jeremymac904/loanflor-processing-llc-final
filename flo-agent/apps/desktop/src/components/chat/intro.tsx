@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { host } from '@hermes/plugin-sdk'
 
 import { capitalize, normalize } from '@/lib/text'
+import floBadge from '@/plugins/flo/flo-badge.png'
 
 import { FLO_BRAND } from '../../../flo/brand'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
-import { Wordmark } from './wordmark'
 
 type IntroCopy = {
   headline: string
@@ -147,9 +148,6 @@ function pickCopy(copies: IntroCopy[], seed = 0): IntroCopy {
   return copies[Math.abs(seed) % copies.length] || FALLBACK_COPY[0]
 }
 
-// Flo downstream: the empty-state wordmark is the product display name.
-const WORDMARK = FLO_BRAND.displayName.toUpperCase()
-
 function resolveCopy(personality?: string, seed?: number): IntroCopy {
   const personalityKey = normalizeKey(personality)
 
@@ -163,17 +161,38 @@ function resolveCopy(personality?: string, seed?: number): IntroCopy {
 export function Intro({ personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
   const copy = resolveCopy(personality, mountSeed + (seed ?? 0))
+  const flo = FLO_BRAND.productName.toLowerCase() === 'flo'
 
   return (
     <div
-      className="pointer-events-none flex w-full min-w-0 flex-col items-center justify-center px-0.5 py-6 text-center text-muted-foreground sm:px-6 lg:px-8"
+      className="flex w-full min-w-0 flex-col items-center justify-center px-4 py-6 text-center text-muted-foreground sm:px-6 lg:px-8"
       data-slot="aui_intro"
     >
-      <div className="w-full min-w-0">
-        <Wordmark className="mb-1" text={WORDMARK} />
-
+      {flo ? (
+        <div className="flex max-w-xl flex-col items-center gap-3">
+          <img alt="Flo" className="size-20 object-contain drop-shadow-sm" draggable={false} src={floBadge} />
+          <h1 className="flo-display m-0 text-3xl leading-tight text-foreground sm:text-4xl">Good morning, Ash ✨</h1>
+          <p className="m-0 text-base text-(--ui-text-secondary)">What are we getting done today?</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm">
+            <button
+              className="rounded-lg border border-(--ui-stroke-tertiary) px-3 py-2 text-foreground transition-colors hover:bg-(--chrome-action-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-accent)"
+              onClick={() => host.navigate('/pipeline')}
+              type="button"
+            >
+              Open Pipeline
+            </button>
+            <button
+              className="rounded-lg bg-primary px-3 py-2 text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-accent)"
+              onClick={() => document.querySelector<HTMLElement>('[data-slot="composer-rich-input"]')?.focus()}
+              type="button"
+            >
+              Ask Flo
+            </button>
+          </div>
+        </div>
+      ) : (
         <p className="m-0 text-center leading-normal tracking-tight">{copy.body}</p>
-      </div>
+      )}
     </div>
   )
 }

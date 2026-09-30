@@ -30,8 +30,7 @@ import {
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
   type SidebarNavContribution,
-  THEMES_AREA,
-  Wordmark
+  THEMES_AREA
 } from '@hermes/plugin-sdk'
 import { useMemo } from 'react'
 
@@ -77,10 +76,9 @@ function TodayPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-8">
       <header className="flex items-center gap-4">
-        <img alt="" aria-hidden className="size-16 shrink-0 select-none" draggable={false} src={floBadge} />
+        <img alt="Flo" className="size-16 shrink-0 select-none" draggable={false} src={floBadge} />
         <div className="flex flex-col gap-1">
-          <Wordmark text="FLO" />
-          <p className="m-0 text-lg font-medium">{model?.greeting ?? 'Morning Ash ☕'}</p>
+          <h1 className="flo-display m-0 text-3xl leading-tight">{model?.greeting ?? 'Morning Ash ☕'}</h1>
           <p className="m-0 text-sm text-(--ui-text-secondary)">
             {model && model.top.length > 0
               ? 'I’ve got the messy stuff sorted. Here’s what matters.'
@@ -97,14 +95,14 @@ function TodayPage() {
             <section className="flex flex-col gap-2">
               {model.newLoans.map(loan => (
                 <div
-                  className="flex flex-wrap items-center gap-4 rounded-md border border-(--ui-accent) p-4"
+                  className="flo-surface flex flex-wrap items-center gap-4 border border-(--ui-accent) bg-(--ui-bg-secondary) p-4"
                   key={loan.workspaceId}
                 >
                   <div className="flex min-w-0 flex-col gap-1">
                     <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-(--ui-accent)">
                       New loan
                     </span>
-                    <span className="text-base font-semibold">{loan.name}</span>
+                    <span className="flo-display text-xl">{loan.name}</span>
                     <span className="text-sm text-(--ui-text-secondary)">
                       Submitted by {loan.submittedBy}
                       {loan.program ? ` · ${loan.program}` : ''}
@@ -137,7 +135,7 @@ function TodayPage() {
               <ol className="m-0 flex list-none flex-col gap-2 p-0">
                 {model.top.map((item, i) => (
                   <li
-                    className="flex gap-3 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4"
+                    className="flo-surface flex gap-3 border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4"
                     key={item.workspaceId}
                   >
                     <span className="text-lg font-semibold text-(--ui-text-tertiary)">{i + 1}</span>

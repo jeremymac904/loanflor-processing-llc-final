@@ -11809,16 +11809,28 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         emoji: Optional[str],
         *,
         author: str = "user",
+        agent_id: Optional[str] = None,
     ) -> Optional[List[Dict[str, Any]]]:
         """Set (or with ``emoji=None`` clear) *author*'s reaction on one message.
 
-        iOS Tapback semantics: one reaction per author per message. Re-sending
+        iOS Tapback semantics: one reaction per reactor per message. An agent
+        profile gets its own slot; legacy agent reactions have an empty id.
+        Re-sending
         the same emoji clears it, a different emoji replaces it. Returns the
         message's full reaction list after the write, or ``None`` when the row
         doesn't exist or isn't part of *session_id*.
         """
         if not session_id or message_row_id is None:
             return None
+
+        reactor_id = _scrub_surrogates(agent_id or "") if author == "agent" else ""
+
+        def same_reactor(reaction):
+            return (
+                isinstance(reaction, dict)
+                and reaction.get("author") == author
+                and (reaction.get("agent_id") or "") == reactor_id
+            )
 
         def _do(conn):
             row = conn.execute(
@@ -11833,13 +11845,13 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
             reactions = [
                 r
                 for r in (existing if isinstance(existing, list) else [])
-                if isinstance(r, dict) and r.get("author") != author
+                if isinstance(r, dict) and not same_reactor(r)
             ]
             previous = next(
                 (
                     r
                     for r in (existing if isinstance(existing, list) else [])
-                    if isinstance(r, dict) and r.get("author") == author
+                    if same_reactor(r)
                 ),
                 None,
             )
@@ -11848,9 +11860,10 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
                 emoji is not None and previous is not None and previous.get("emoji") == emoji
             )
             if emoji and not toggling_off:
-                reactions.append(
-                    {"emoji": _scrub_surrogates(emoji), "author": author, "at": time.time()}
-                )
+                reaction = {"emoji": _scrub_surrogates(emoji), "author": author, "at": time.time()}
+                if reactor_id:
+                    reaction["agent_id"] = reactor_id
+                reactions.append(reaction)
 
             if reactions:
                 meta[self.REACTIONS_METADATA_KEY] = reactions

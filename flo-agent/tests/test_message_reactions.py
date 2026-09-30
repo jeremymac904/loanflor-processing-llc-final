@@ -69,6 +69,36 @@ def test_authors_are_independent(session, db):
     assert [r["author"] for r in remaining] == ["agent"]
 
 
+def test_team_agent_reactions_keep_identity_and_survive_reload(session, db):
+    key, rows = session
+    db.set_message_reaction(key, rows[0], "💚", author="agent", agent_id="flo")
+    together = db.set_message_reaction(key, rows[0], "✅", author="agent", agent_id="malcolm")
+    assert {(r["agent_id"], r["emoji"]) for r in together} == {("flo", "💚"), ("malcolm", "✅")}
+    db.set_message_reaction(key, rows[0], "💚", author="agent", agent_id="flo")  # retract Flo only
+    reopened = SessionDB(db_path=db.db_path)
+    assert [(r["agent_id"], r["emoji"]) for r in reopened.get_message_reactions(key, rows[0])] == [
+        ("malcolm", "✅")
+    ]
+
+
+def test_reactions_do_not_leak_between_customer_file_chat_sessions(session, db):
+    key, rows = session
+    another = db.create_session("another-file-chat", "test")
+    db.append_message(another, "user", "separate customer file")
+    other_row = db.get_messages_as_conversation(another, include_row_ids=True)[0]["_row_id"]
+
+    db.set_message_reaction(key, rows[0], ":flo-heart:", author="agent", agent_id="flo")
+    db.set_message_reaction(another, other_row, "✅", author="agent", agent_id="malcolm")
+
+    reopened = SessionDB(db_path=db.db_path)
+    assert [(r["agent_id"], r["emoji"]) for r in reopened.get_message_reactions(key, rows[0])] == [
+        ("flo", ":flo-heart:")
+    ]
+    assert [(r["agent_id"], r["emoji"]) for r in reopened.get_message_reactions(another, other_row)] == [
+        ("malcolm", "✅")
+    ]
+
+
 def test_rejects_rows_outside_the_session(session, db):
     """A row id from another conversation is never writable."""
     key, rows = session

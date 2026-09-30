@@ -20,6 +20,7 @@ import {
 } from '@/components/assistant-ui/thread/content'
 import { MESSAGE_PARTS_COMPONENTS } from '@/components/assistant-ui/thread/message-parts'
 import { ReactionPicker } from '@/components/assistant-ui/thread/message-reactions'
+import { CustomReactionAsset, customReaction } from '@/components/assistant-ui/thread/custom-reactions'
 import { ResponseLoadingIndicator, TurnActivityIndicator } from '@/components/assistant-ui/thread/status'
 import { MessageTimelineTimestamp } from '@/components/assistant-ui/thread/timeline-timestamp'
 import { useMessageReactions, useTapbackDoubleClick } from '@/components/assistant-ui/thread/use-message-reactions'
@@ -666,8 +667,18 @@ const AssistantActionBar: FC<MessageActionProps & { durationS?: number }> = ({
             {shownReactions.length > 0 ? (
               <span className="flex items-center gap-0.5 text-[0.8125rem] leading-none">
                 {shownReactions.map(reaction => (
-                  <span className="reaction-pop" key={`${reaction.author}-${reaction.emoji}`}>
-                    {reaction.emoji}
+                  <span
+                    className="reaction-pop"
+                    key={`${reaction.author}-${reaction.agent_id ?? ''}-${reaction.emoji}`}
+                    title={
+                      reaction.author === 'agent' ? `Reacted by ${reaction.agent_id || 'Hermes'}` : 'Ashley reacted'
+                    }
+                  >
+                    {customReaction(reaction.emoji) ? (
+                      <CustomReactionAsset id={reaction.emoji} size="small" />
+                    ) : (
+                      reaction.emoji
+                    )}
                   </span>
                 ))}
               </span>

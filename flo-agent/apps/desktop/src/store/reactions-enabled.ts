@@ -1,7 +1,7 @@
 /**
- * Message reactions (iMessage-style tapbacks) — opt-in.
+ * Message reactions (iMessage-style tapbacks) — enabled in Flo by default.
  *
- * Off by default: reactions add affordances to every message row (the ☺ slot,
+ * Reactions add affordances to every message row (the ☺ slot,
  * right-click pickers, :shortcode: completions), and the agent gains a tool
  * that reacts to your messages. Presentation-scoped, so the renderer owns it
  * (desktop AGENTS.md: state lives with its authority).
@@ -17,7 +17,7 @@ import { activeGateway } from '@/store/gateway'
 
 const KEY = 'hermes.desktop.reactions.v1'
 
-export const $reactionsEnabled = atom<boolean>(typeof window === 'undefined' ? false : storedString(KEY) === 'on')
+export const $reactionsEnabled = atom<boolean>(typeof window === 'undefined' ? false : storedString(KEY) !== 'off')
 
 export function setReactionsEnabled(enabled: boolean): void {
   $reactionsEnabled.set(enabled)

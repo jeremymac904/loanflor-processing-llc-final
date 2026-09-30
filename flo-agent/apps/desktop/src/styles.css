@@ -3,6 +3,149 @@
 @import 'tw-shimmer';
 @import 'katex/dist/katex.min.css';
 @import '@vscode/codicons/dist/codicon.css';
+@import '@fontsource-variable/fraunces/index.css';
+@import '@fontsource-variable/nunito-sans/index.css';
+
+/* Flo's display voice is reserved for the moments that can carry it. Dense
+   loan facts, document names, amounts and controls keep the readable UI face. */
+:root {
+  --flo-font-display: 'Fraunces Variable', Georgia, serif;
+  --flo-radius-surface: 0.875rem;
+  --flo-shadow-surface: 0 0.25rem 1.25rem color-mix(in srgb, #1f5a2d 7%, transparent);
+  --flo-motion-quick: 180ms;
+  --flo-motion-moment: 650ms;
+}
+
+.flo-display {
+  font-family: var(--flo-font-display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.flo-surface {
+  border-radius: var(--flo-radius-surface);
+  box-shadow: var(--flo-shadow-surface);
+}
+
+.flo-botanical-accent::before {
+  content: '✦';
+  color: #b8964a;
+  font-size: 0.7em;
+  margin-right: 0.5em;
+}
+
+.flo-moment {
+  position: fixed;
+  z-index: 90;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(23rem, calc(100vw - 2.5rem));
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--dt-border);
+  border-radius: var(--flo-radius-surface);
+  background: var(--dt-card);
+  color: var(--dt-card-foreground);
+  box-shadow: var(--flo-shadow-surface);
+  animation: flo-moment-in var(--flo-motion-moment) ease-out both;
+}
+
+.flo-moment--ctc {
+  border-color: #b8964a;
+}
+.flo-moment--success {
+  width: min(19rem, calc(100vw - 2.5rem));
+  padding: 0.55rem 0.7rem;
+}
+.flo-moment__sticker {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 52px;
+  background-size: 384px 468px;
+  background-repeat: no-repeat;
+  animation: flo-sticker-frames 900ms steps(6) 2;
+}
+.flo-moment__sticker--new-loan,
+.flo-moment__sticker--success {
+  background-position-y: -156px;
+}
+.flo-moment__sticker--approval {
+  background-position-y: -416px;
+}
+.flo-moment__sticker--ctc {
+  background-position-y: -208px;
+}
+.flo-moment--success .flo-moment__sticker {
+  transform: scale(0.75);
+  margin: -0.35rem;
+}
+.flo-moment__leaf {
+  color: #b8964a;
+  animation: flo-leaf-bloom 900ms ease-out both;
+}
+.flo-moment--ctc .flo-moment__leaf {
+  font-size: 1.25rem;
+}
+
+@keyframes flo-sticker-frames {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: -288px;
+  }
+}
+
+/* Flo's native sidebar keeps Hermes' information density and interaction
+   model; these theme-scoped touches soften the chrome without hiding state. */
+:root[data-hermes-theme='flo-desktop'] [data-slot='sidebar-menu-button'] {
+  border-radius: 0.625rem;
+  transition:
+    background-color var(--flo-motion-quick) ease,
+    border-color var(--flo-motion-quick) ease;
+}
+:root[data-hermes-theme='flo-desktop'] [data-slot='sidebar-group-label'] {
+  color: var(--ui-text-secondary);
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+:root[data-hermes-theme='flo-desktop'] [data-slot='sidebar-menu-button']:focus-visible {
+  outline: 2px solid var(--dt-ring);
+  outline-offset: 2px;
+}
+
+@keyframes flo-moment-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes flo-leaf-bloom {
+  from {
+    opacity: 0;
+    transform: rotate(-40deg) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flo-moment,
+  .flo-moment__leaf,
+  .flo-moment__sticker {
+    animation: none;
+  }
+}
 
 /* Titlebar clusters: 24×24 hit targets, 13.9px glyphs. codicon.css is
    unlayered (`font: 16px/1`); Tailwind utilities in @layer lose that fight. */
@@ -2954,7 +3097,8 @@ button[data-slot='aui_msg-reactions'] svg {
    Widgets on the shared shell (components/chat/widget-shell.ts →
    `--ui-widget-surface-background`) and any chat-surface card are matched on
    their class, so new ones inherit this without touching the list. */
-[data-hud-shell] [data-slot='composer-bounds']
+[data-hud-shell]
+  [data-slot='composer-bounds']
   :is(
     [data-slot='clarify-inline'],
     [data-slot='tool-block'],
