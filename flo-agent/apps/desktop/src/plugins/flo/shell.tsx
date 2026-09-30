@@ -94,10 +94,6 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
         <aside className="flo-primary-sidebar" aria-label="Flo navigation">
           <div className="flo-sidebar-brand">
             <img alt="Flo" draggable={false} src={floBadge} />
-            <div>
-              <strong>Flo</strong>
-              <span>Mortgage Operations</span>
-            </div>
           </div>
 
           <nav className="flo-primary-nav">
@@ -156,8 +152,10 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
         </aside>
 
         <main className="flo-main-canvas">
-          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-top" src={botanicalCorner} />
-          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-bottom" src={botanicalCorner} />
+          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-top-left" src={botanicalCorner} />
+          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-top-right" src={botanicalCorner} />
+          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-bottom-left" src={botanicalCorner} />
+          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-bottom-right" src={botanicalCorner} />
           <div className="flo-gold-sparkle flo-gold-sparkle-one">✦</div>
           <div className="flo-gold-sparkle flo-gold-sparkle-two">✧</div>
           <div className="flo-chat-canvas">{children}</div>
