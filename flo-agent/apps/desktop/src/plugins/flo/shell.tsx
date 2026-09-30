@@ -1,9 +1,10 @@
 import { useStore } from '@nanostores/react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { sessionTitle } from '@/lib/chat-runtime'
 import { $sessions } from '@/store/session'
+import { $activeGatewayProfile, normalizeProfileKey, selectProfile } from '@/store/profile'
 import { routeSessionId, sessionRoute } from '@/app/routes'
 
 import { PIPELINE_ROUTE } from './pipeline'
@@ -48,7 +49,20 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const sessions = useStore($sessions)
+  const activeProfile = useStore($activeGatewayProfile)
   const { state } = useTeamState()
+  const floProfileSelected = useRef(false)
+
+  useEffect(() => {
+    if (floProfileSelected.current || !state?.profiles.some(profile => normalizeProfileKey(profile.name) === 'flo')) {
+      return
+    }
+
+    floProfileSelected.current = true
+    if (normalizeProfileKey(activeProfile) !== 'flo') {
+      selectProfile('flo')
+    }
+  }, [activeProfile, state?.profiles])
 
   const recentSessions = useMemo(
     () =>
