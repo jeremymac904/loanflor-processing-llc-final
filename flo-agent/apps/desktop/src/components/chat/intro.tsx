@@ -161,7 +161,7 @@ function resolveCopy(personality?: string, seed?: number): IntroCopy {
 export function Intro({ personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
   const copy = resolveCopy(personality, mountSeed + (seed ?? 0))
-  const flo = FLO_BRAND.displayName.toLowerCase() === 'flo'
+  const flo = FLO_BRAND.productName.toLowerCase() === 'flo'
 
   return (
     <div
