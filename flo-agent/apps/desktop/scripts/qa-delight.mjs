@@ -11,9 +11,8 @@ const dataDir = path.join(sandbox, 'user-data')
 const hermesHome = path.join(sandbox, 'hermes-home')
 const repoRoot = path.resolve(desktopRoot, '..', '..')
 const realBackend = process.argv[3] === 'real'
-if (realBackend && !process.env.HERMES_DESKTOP_PYTHON) {
-  throw new Error('Set HERMES_DESKTOP_PYTHON to an existing local Hermes venv Python for packaged backend QA')
-}
+const hermesPython = process.env.HERMES_DESKTOP_PYTHON ?? 'C:\\Users\\ashle\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe'
+if (realBackend && !fs.existsSync(hermesPython)) throw new Error(`Missing Hermes Python: ${hermesPython}`)
 fs.mkdirSync(dataDir, { recursive: true })
 fs.mkdirSync(hermesHome, { recursive: true })
 if (realBackend) fs.writeFileSync(path.join(hermesHome, 'config.yaml'), 'model:\n  default: llama3.2:3b\n  provider: ollama\n')
@@ -34,7 +33,7 @@ const app = await _electron.launch({
     HERMES_DESKTOP_SKIP_QUIT_CONFIRM: '1',
     ...(realBackend ? {
       HERMES_DESKTOP_HERMES_ROOT: repoRoot,
-      HERMES_DESKTOP_PYTHON: process.env.HERMES_DESKTOP_PYTHON
+      HERMES_DESKTOP_PYTHON: hermesPython
     } : {
       HERMES_DESKTOP_BOOT_FAKE: '1',
       HERMES_DESKTOP_BOOT_FAKE_STEP_MS: '120'
