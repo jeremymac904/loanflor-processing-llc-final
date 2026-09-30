@@ -4243,17 +4243,36 @@ def resolve_codex_runtime_credentials(
     pool seed, a partial re-auth, or pool-only restoration from a backup — gets a bare
     HTTP 401 ``Missing Authentication header`` from the wire instead of a usable
     credential. See issue #32992.
+
+    A valid machine-level ChatGPT/Codex CLI session is the shared account login
+    for every Hermes profile. Prefer it read-only over legacy per-profile
+    copies so team agents inherit one account connection without token copies.
     """
+    if not force_refresh:
+        cli_tokens = _import_codex_cli_tokens()
+        cli_access_token = str((cli_tokens or {}).get("access_token") or "").strip()
+        if cli_access_token:
+            return {
+                "provider": "openai-codex",
+                "base_url": (
+                    os.getenv("HERMES_CODEX_BASE_URL", "").strip().rstrip("/")
+                    or DEFAULT_CODEX_BASE_URL
+                ),
+                "api_key": cli_access_token,
+                "source": "codex-cli-auth",
+                "last_refresh": None,
+                "auth_mode": "chatgpt",
+            }
+
     read_error: Optional[AuthError] = None
     try_cli_account_auth = False
     try:
         data = _read_codex_tokens()
     except AuthError as exc:
         read_error = exc
-        # Codex CLI is the account-level ChatGPT/Codex login on this machine.
-        # If Hermes has no copy at all, use the CLI's current access token
-        # read-only. Never consume its single-use refresh token or copy either
-        # token into a Hermes profile store.
+        # Codex CLI is also tried above as the account-level source. Keep this
+        # fallback for missing/invalid Hermes records and never consume its
+        # single-use refresh token or copy either token into a Hermes profile.
         if getattr(exc, "code", None) == "codex_auth_missing":
             try_cli_account_auth = True
         if getattr(exc, "relogin_required", False) and getattr(exc, "code", None) in {
@@ -6493,16 +6512,17 @@ def resolve_nous_runtime_credentials(
     expires_in, source ("invoke_jwt"), and auth_path.
     """
     # Nous device-code auth is account-wide and intentionally stored outside
-    # named profiles. A Flo profile with no private providers.nous entry must
-    # still be able to use that account. Keep the short-lived inference key in
-    # process memory; do not copy account tokens into profile auth.json.
-    if get_provider_auth_state("nous") is None:
-        shared_runtime = _resolve_shared_nous_runtime_credentials(
-            timeout_seconds=timeout_seconds,
-            force_refresh=force_refresh,
-        )
-        if shared_runtime is not None:
-            return shared_runtime
+    # named profiles. Prefer that shared account for every profile, including
+    # profiles that still contain legacy mirrored providers.nous entries.
+    # Keep the short-lived inference key in process memory; do not copy account
+    # tokens into profile auth.json. A private profile auth record remains a
+    # fallback only when the shared account is unavailable.
+    shared_runtime = _resolve_shared_nous_runtime_credentials(
+        timeout_seconds=timeout_seconds,
+        force_refresh=force_refresh,
+    )
+    if shared_runtime is not None:
+        return shared_runtime
 
     sequence_id = uuid.uuid4().hex[:12]
 
