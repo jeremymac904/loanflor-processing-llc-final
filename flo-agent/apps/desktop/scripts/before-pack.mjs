@@ -56,11 +56,94 @@
  *   - appOutDir:            the unpacked app directory about to be staged
  *   - electronPlatformName: 'win32' | 'darwin' | 'linux'
  *   - arch:                 Arch enum (0=ia32, 1=x64, 2=armv7l, 3=arm64, 4=universal)
+ *
+ * 3. Asserts the Windows icon assets are present and complete BEFORE staging.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The Flo brand icon is the single asset behind every place Windows shows
+ * "Flo" as a program: the `Flo.exe` version resource (drives taskbar, Alt+Tab,
+ * title-bar and the icons of any shortcut whose IconLocation is the exe), the
+ * `resources/icon.ico` that `electron/app-icon.ts` hands to BrowserWindow, and
+ * `package.json build.icon`, which electron-builder embeds into installers so
+ * NSIS-created Desktop/Start Menu shortcuts inherit the same image.
+ *
+ * That chain is fail-SILENT. If `assets/icon.ico` goes missing, or is
+ * regenerated with only a 256x256 frame, nothing errors: the build still
+ * succeeds and still produces a `Flo.exe` — one with no icon resource at all.
+ * Windows then falls back to the generic application glyph, and the user sees
+ * a blank tile on the Desktop, in the Start Menu and on the taskbar. The
+ * shortcut still launches correctly, so it reads as a cosmetic nit and the
+ * branding regression survives indefinitely (this is exactly the state the
+ * live Ashley install shipped in).
+ *
+ * Checking the frame table up front turns that silent cosmetic regression into
+ * a loud build failure naming the exact missing sizes.
  */
-import { existsSync, rmSync, renameSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, renameSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Arch } from 'electron-builder'
 import { stageNodePty, stageGetWindows } from './stage-native-deps.mjs'
+
+/**
+ * Sizes Windows actually samples for a program icon. A .ico missing any of
+ * these still "builds", but Explorer/Taskbar silently upscales the nearest
+ * smaller frame and the artwork goes soft — worst exactly where the logo has
+ * to read fastest (16x16 taskbar, 32x32 Alt+Tab).
+ */
+export const REQUIRED_WINDOWS_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256]
+
+/**
+ * Parse an .ico directory table into its frame sizes (width x height, with the
+ * 0 -> 256 sentinel expanded). Returns [] for a non-ico buffer rather than
+ * throwing, so the caller reports one clear "unreadable icon" error instead of
+ * an opaque Buffer index crash.
+ */
+export function readIcoSizes(buf) {
+  // ICONDIR: reserved(2) type(2)=1 count(2), then count x 16-byte ICONDIRENTRY.
+  if (!Buffer.isBuffer(buf) || buf.length < 6 || buf.readUInt16LE(0) !== 0 || buf.readUInt16LE(2) !== 1) {
+    return []
+  }
+  const count = buf.readUInt16LE(4)
+  const sizes = []
+  for (let i = 0; i < count; i++) {
+    const off = 6 + i * 16
+    if (off + 16 > buf.length) break
+    // A dimension byte of 0 encodes 256 (the field is 1 byte, 8 bits wide).
+    const w = buf[off] === 0 ? 256 : buf[off]
+    const h = buf[off + 1] === 0 ? 256 : buf[off + 1]
+    sizes.push(w === h ? w : `${w}x${h}`)
+  }
+  return sizes
+}
+
+/**
+ * Verify the Windows icon assets the packaging config depends on.
+ * Returns { ok: true, sizes } or { ok: false, reason }.
+ */
+export function checkWindowsIconAssets(projectDir) {
+  const icoPath = path.join(projectDir, 'assets', 'icon.ico')
+  if (!existsSync(icoPath)) {
+    return { ok: false, reason: `missing Windows icon: ${icoPath}` }
+  }
+  const sizes = readIcoSizes(readFileSync(icoPath))
+  if (sizes.length === 0) {
+    return { ok: false, reason: `assets/icon.ico is not a readable .ico (empty or bad header)` }
+  }
+  const missing = REQUIRED_WINDOWS_ICON_SIZES.filter((s) => !sizes.includes(s))
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      reason:
+        `assets/icon.ico is missing frame(s) ${missing.join(', ')} ` +
+        `(has ${sizes.join(', ')}). Windows will upscale a smaller frame and the ` +
+        `Flo icon will look soft in the taskbar/Alt+Tab — regenerate the .ico ` +
+        `with all of: ${REQUIRED_WINDOWS_ICON_SIZES.join(', ')}.`
+    }
+  }
+  return { ok: true, sizes }
+}
 
 export function cleanStaleAppOutDir(appOutDir) {
   if (!appOutDir || typeof appOutDir !== 'string') {
@@ -113,6 +196,19 @@ export function preserveRollbackBackup(appOutDir, productExeName = 'Hermes.exe')
 export default async function beforePack(context) {
   const appOutDir = context && context.appOutDir
   const platformName = context && context.electronPlatformName
+  const projectDir = path.dirname(fileURLToPath(import.meta.url))
+
+  // Branding gate. Runs before ANY staging so a bad icon never reaches a
+  // packaged Flo.exe. Only enforced for Windows targets — the mac/Linux
+  // packaging paths use icon.icns / a different asset entirely.
+  if (platformName === 'win32') {
+    const iconCheck = checkWindowsIconAssets(projectDir)
+    if (!iconCheck.ok) {
+      throw new Error(`[before-pack] ${iconCheck.reason}`)
+    }
+    console.log(`[before-pack] verified Windows icon frames: ${iconCheck.sizes.join(', ')}`)
+  }
+
   try {
     // Windows: keep the previous working build as rollback material for the
     // post-build integrity gate (#69179) instead of destroying it. Falls
