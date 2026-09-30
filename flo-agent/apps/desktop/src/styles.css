@@ -3618,6 +3618,149 @@ button[data-slot='aui_msg-reactions'] svg {
   display: none !important;
 }
 
+/* --------------------------------------------------------------------------
+   Flo Ashley shell — the approved mortgage-workspace frame. The runtime and
+   routed workspace remain the production Hermes surfaces; only the default
+   customer-facing composition is replaced here.                                 */
+
+.flo-ashley-shell {
+  --flo-forest-950: #173c2d;
+  --flo-forest-800: #24533d;
+  --flo-forest-700: #2f6549;
+  --flo-moss-500: #78966f;
+  --flo-moss-200: #dce7d8;
+  --flo-ivory: #fbf8ef;
+  --flo-cream: #f4efe2;
+  --flo-taupe: #e9dfcf;
+  --flo-gold: #b89445;
+  --flo-border: #d8d7c9;
+  --flo-shadow: 0 18px 48px rgb(33 68 48 / 0.1);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  color: var(--flo-forest-950);
+  background: var(--flo-ivory);
+  font-family: 'Nunito Sans', 'Segoe UI', sans-serif;
+}
+
+.flo-window-bar {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  color: #637269;
+  background: #f8f6ef;
+  border-bottom: 1px solid #e3e0d7;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  -webkit-app-region: drag;
+}
+
+.flo-window-bar i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--flo-gold);
+}
+
+.flo-shell-body { display: grid; grid-template-columns: 294px minmax(0, 1fr); height: calc(100vh - 34px); }
+
+.flo-primary-sidebar {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1.35rem 1.15rem 1rem;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #f5f1e6 0%, #f8f5ec 100%);
+  border-right: 1px solid #dbd9ce;
+}
+
+.flo-sidebar-brand { display: flex; align-items: center; gap: 0.75rem; padding: 0 0.55rem 1.2rem; }
+.flo-sidebar-brand img { width: 52px; height: 52px; object-fit: contain; filter: drop-shadow(0 5px 10px rgb(36 83 61 / 0.16)); }
+.flo-sidebar-brand div { display: flex; flex-direction: column; line-height: 1.1; }
+.flo-sidebar-brand strong { font-family: Fraunces, Georgia, serif; font-size: 1.72rem; font-weight: 650; color: var(--flo-forest-950); }
+.flo-sidebar-brand span { margin-top: 0.2rem; font-size: 0.65rem; font-weight: 800; color: #7a857d; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.flo-primary-nav { display: flex; flex-direction: column; gap: 0.22rem; }
+.flo-primary-nav button {
+  display: flex; align-items: center; gap: 0.72rem; width: 100%; padding: 0.67rem 0.78rem;
+  border: 1px solid transparent; border-radius: 0.7rem; color: #4e5c54; background: transparent;
+  font-size: 0.88rem; font-weight: 700; text-align: left; transition: 140ms ease;
+}
+.flo-primary-nav button > span { width: 1.18rem; text-align: center; color: #6d826f; font-size: 1rem; }
+.flo-primary-nav button:hover { background: rgb(255 255 255 / 0.62); color: var(--flo-forest-950); }
+.flo-primary-nav button.is-active { color: var(--flo-forest-950); background: #e5ecdf; border-color: #d0ddca; box-shadow: inset 3px 0 var(--flo-gold); }
+
+.flo-sidebar-label { margin: 1.25rem 0 0.55rem; padding: 0 0.55rem; color: #8a8f86; font-size: 0.64rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.flo-current-file button { width: 100%; display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 0.5rem; padding: 0.8rem; border: 1px solid #cad9c7; border-radius: 0.9rem; background: #eef4e9; text-align: left; box-shadow: 0 6px 18px rgb(42 82 57 / 0.07); }
+.flo-current-file button:hover { border-color: #9db49c; transform: translateY(-1px); }
+.flo-current-file-leaf { width: 26px; color: var(--flo-forest-700); }
+.flo-current-file button span { min-width: 0; display: flex; flex-direction: column; }
+.flo-current-file strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--flo-forest-950); font-size: 0.84rem; }
+.flo-current-file small { margin-top: 0.18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #708077; font-size: 0.69rem; }
+.flo-current-file b { color: var(--flo-gold); font-size: 1.25rem; }
+.flo-current-file p, .flo-session-list p { margin: 0; padding: 0 0.55rem; color: #7d867f; font-size: 0.75rem; }
+
+.flo-recent-sessions { min-height: 0; }
+.flo-session-list { display: flex; flex-direction: column; gap: 0.12rem; }
+.flo-session-list button { display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; padding: 0.53rem 0.58rem; border: 0; border-radius: 0.55rem; background: transparent; color: #506058; text-align: left; }
+.flo-session-list button:hover { background: rgb(255 255 255 / 0.72); color: var(--flo-forest-950); }
+.flo-session-list button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; font-weight: 700; }
+.flo-session-list time { flex: none; color: #999b92; font-size: 0.63rem; }
+.flo-settings-link { margin-top: auto; display: flex; align-items: center; gap: 0.55rem; padding: 0.7rem 0.75rem; border: 0; border-top: 1px solid #deddd3; color: #788178; background: transparent; font-size: 0.72rem; font-weight: 700; }
+.flo-settings-link:hover { color: var(--flo-forest-800); }
+
+.flo-main-canvas { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: radial-gradient(circle at 50% 30%, #fffdf7 0%, var(--flo-ivory) 52%, #f5f0e5 100%); }
+.flo-chat-canvas { position: relative; z-index: 2; width: 100%; height: 100%; }
+.flo-botanical-corner { position: absolute; z-index: 1; width: min(25vw, 310px); pointer-events: none; user-select: none; opacity: 0.94; }
+.flo-botanical-corner-top { top: -12px; left: -8px; }
+.flo-botanical-corner-bottom { right: -12px; bottom: -10px; transform: rotate(180deg); }
+.flo-gold-sparkle { position: absolute; z-index: 1; color: var(--flo-gold); opacity: 0.62; pointer-events: none; }
+.flo-gold-sparkle-one { top: 18%; right: 13%; font-size: 1.2rem; }
+.flo-gold-sparkle-two { left: 19%; bottom: 22%; font-size: 0.9rem; }
+
+.flo-hero { gap: 0.82rem; transform: translateY(-2.2rem); }
+.flo-hero-portrait { width: 142px; height: 142px; display: grid; place-items: center; margin-bottom: 0.25rem; border-radius: 50%; background: radial-gradient(circle, #e4eedc 0 56%, transparent 57%); filter: drop-shadow(0 12px 24px rgb(35 76 52 / 0.14)); }
+.flo-hero-portrait img { width: 134px; height: 134px; object-fit: contain; }
+.flo-hero h1 { color: var(--flo-forest-950); font-weight: 600; letter-spacing: -0.025em; }
+.flo-hero p { color: #64746a; }
+.flo-hero-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; width: min(690px, calc(100vw - 390px)); margin-top: 1.25rem; }
+.flo-hero-actions button { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 0.48rem; padding: 0.7rem 1rem; border: 1px solid #cbd7c7; border-radius: 0.8rem; background: rgb(255 255 255 / 0.82); color: var(--flo-forest-800); box-shadow: 0 7px 22px rgb(38 74 52 / 0.08); font-size: 0.78rem; font-weight: 800; transition: 150ms ease; }
+.flo-hero-actions button:hover:not(:disabled) { transform: translateY(-2px); border-color: #9db29a; background: #fff; box-shadow: 0 10px 26px rgb(38 74 52 / 0.13); }
+.flo-hero-actions button:last-child { color: white; border-color: var(--flo-forest-800); background: var(--flo-forest-800); }
+.flo-hero-actions button:disabled { opacity: 0.45; }
+
+.flo-chat-canvas [data-slot='aui_thread-viewport'] { background: transparent !important; }
+.flo-chat-canvas [data-slot='aui_thread-content'] { max-width: 800px !important; }
+.flo-chat-canvas [data-slot='aui_user-message-root'] .composer-human-message { max-width: min(72%, 620px); margin-left: auto; border-color: #d8cbbb !important; border-radius: 1.15rem 1.15rem 0.3rem 1.15rem !important; background: var(--flo-taupe) !important; box-shadow: 0 7px 18px rgb(72 57 38 / 0.07); }
+.flo-chat-canvas [data-slot='aui_assistant-message-root'] { position: relative; max-width: min(78%, 660px); margin-right: auto; padding: 0.85rem 1rem 0.45rem 3.35rem; border: 1px solid #cbdac8; border-radius: 1.15rem 1.15rem 1.15rem 0.3rem; background: #e8f0e4; box-shadow: 0 7px 20px rgb(32 74 49 / 0.08); overflow: visible; }
+.flo-chat-canvas [data-slot='aui_assistant-message-root']::before { content: ''; position: absolute; top: 0.72rem; left: 0.72rem; width: 34px; height: 34px; border-radius: 50%; background: url('./plugins/flo/flo-badge.png') center / contain no-repeat, #dbe8d6; box-shadow: 0 3px 9px rgb(34 77 51 / 0.14); }
+.flo-chat-canvas [data-slot='aui_msg-reactions'] { border-color: #cad8c5; background: #fffdf7; box-shadow: 0 4px 12px rgb(29 66 44 / 0.08); }
+
+.flo-chat-canvas [data-slot='composer-dock'] { width: min(820px, calc(100% - 4rem)) !important; bottom: 1.15rem !important; }
+.flo-chat-canvas [data-slot='composer-root'] { border-radius: 1.15rem !important; }
+.flo-chat-canvas [data-slot='composer-surface'] { border: 1px solid #cbd4c7 !important; border-radius: 1.15rem !important; background: rgb(255 255 255 / 0.95) !important; box-shadow: 0 12px 34px rgb(31 67 46 / 0.13) !important; }
+.flo-chat-canvas [data-slot='composer-rich-input'] { min-height: 28px; }
+
+html:has([data-flo-shell]) [aria-label='App controls'],
+html:has([data-flo-shell]) [aria-label='Window controls'],
+html:has([data-flo-shell]) [aria-label='Pane controls'] { display: none !important; }
+
+@media (max-width: 900px) {
+  .flo-shell-body { grid-template-columns: 236px minmax(0, 1fr); }
+  .flo-primary-sidebar { padding-inline: 0.75rem; }
+  .flo-sidebar-brand span { display: none; }
+  .flo-hero-actions { width: min(620px, calc(100vw - 290px)); grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flo-primary-nav button, .flo-current-file button, .flo-hero-actions button { transition: none; }
+  .flo-current-file button:hover, .flo-hero-actions button:hover:not(:disabled) { transform: none; }
+}
+
 /* The dock's fade-to-surface gradient assumes a chat column behind it; over a
    transparent HUD it's a grey smear. */
 [data-hud-shell] [data-slot='composer-root'] > .pointer-events-none {

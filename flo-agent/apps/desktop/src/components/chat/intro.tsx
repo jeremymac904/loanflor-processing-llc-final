@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { host } from '@hermes/plugin-sdk'
 
+import { requestComposerFocus, requestComposerInsert, requestComposerSubmit } from '@/app/chat/composer/focus'
 import { capitalize, normalize } from '@/lib/text'
 import floBadge from '@/plugins/flo/flo-badge.png'
+import { useTeamState } from '@/plugins/flo/state'
 
 import { FLO_BRAND } from '../../../flo/brand'
 
@@ -162,6 +164,19 @@ export function Intro({ personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
   const copy = resolveCopy(personality, mountSeed + (seed ?? 0))
   const flo = FLO_BRAND.productName.toLowerCase() === 'flo'
+  const { state } = useTeamState()
+  const currentFile = useMemo(
+    () => [...(state?.workspaces ?? [])].sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))[0] ?? null,
+    [state?.workspaces]
+  )
+
+  const reviewFolder = () => {
+    const prompt = 'Flo, review the new client folder.'
+    if (!requestComposerSubmit(prompt, { target: 'main' })) {
+      requestComposerInsert(prompt, { target: 'main' })
+      requestComposerFocus('main')
+    }
+  }
 
   return (
     <div
@@ -169,23 +184,30 @@ export function Intro({ personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       {flo ? (
-        <div className="flex max-w-xl flex-col items-center gap-3">
-          <img alt="Flo" className="size-20 object-contain drop-shadow-sm" draggable={false} src={floBadge} />
-          <h1 className="flo-display m-0 text-3xl leading-tight text-foreground sm:text-4xl">Good morning, Ash ✨</h1>
-          <p className="m-0 text-base text-(--ui-text-secondary)">What are we getting done today?</p>
-          <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm">
+        <div className="flo-hero flex max-w-3xl flex-col items-center">
+          <div className="flo-hero-portrait">
+            <img alt="Flo" draggable={false} src={floBadge} />
+          </div>
+          <h1 className="flo-display m-0 text-4xl leading-tight text-foreground sm:text-5xl">Good morning, Ash ✨</h1>
+          <p className="m-0 text-lg text-(--ui-text-secondary)">What are we getting done today?</p>
+          <div className="flo-hero-actions">
             <button
-              className="rounded-lg border border-(--ui-stroke-tertiary) px-3 py-2 text-foreground transition-colors hover:bg-(--chrome-action-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-accent)"
-              onClick={() => host.navigate('/pipeline')}
+              disabled={!currentFile}
+              onClick={() => currentFile && host.navigate(`/pipeline?file=${encodeURIComponent(currentFile.workspace_id)}`)}
               type="button"
             >
-              Open Pipeline
+              <span aria-hidden>↗</span>
+              Continue Last File
+            </button>
+            <button onClick={reviewFolder} type="button">
+              <span aria-hidden>⌁</span>
+              Review New Client Folder
             </button>
             <button
-              className="rounded-lg bg-primary px-3 py-2 text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-accent)"
-              onClick={() => document.querySelector<HTMLElement>('[data-slot="composer-rich-input"]')?.focus()}
+              onClick={() => requestComposerFocus('main')}
               type="button"
             >
+              <span aria-hidden>✦</span>
               Ask Flo
             </button>
           </div>

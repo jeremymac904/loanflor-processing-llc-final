@@ -45,6 +45,7 @@ import { NEW_SESSION_TITLE, sessionTitle as storedSessionTitle } from '@/lib/cha
 import { Download, FileText, LayoutDashboard, PanelBottom, PanelTop, Terminal, Upload, Zap } from '@/lib/icons'
 import { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
 import { TRANSCRIPT_DIRECTIVE_AREA, type TranscriptDirectiveContribution } from '@/lib/transcript-directives'
+import { FLO_BRAND } from '../../../flo/brand'
 import { setYoloEnabled } from '@/lib/yolo-session'
 import { pruneComposerPopoutZones } from '@/store/composer-popout'
 import {
@@ -92,6 +93,7 @@ import { $workspaceIsPage } from '../routes'
 
 import { FilesPane, LogsPane, ReviewPaneContent } from './panes'
 import { ContribWiring, WiredPane } from './wiring'
+import { FloAshleyShell } from '@/plugins/flo/shell'
 
 /**
  * Stripped-down app root (bb/contrib-areas) on the layout TREE model, mounting
@@ -831,6 +833,25 @@ export function ContribController() {
       <ContribWiring>
         <BrowserPopoutShell />
       </ContribWiring>
+    )
+  }
+
+  if (FLO_BRAND.productName.toLowerCase() === 'flo') {
+    return (
+      <SidebarProvider
+        className="h-screen min-h-0 flex-col bg-background"
+        onOpenChange={setSidebarOpen}
+        open={sidebarOpen}
+        style={{ '--sidebar-width': '100%' } as CSSProperties}
+      >
+        <ContribWiring>
+          <AppContextMenu />
+          <FloAshleyShell onOpenSettings={() => window.location.assign('#/settings')}>
+            <WiredPane part="chatRoutes" />
+          </FloAshleyShell>
+          <SessionTileCloseConfirm />
+        </ContribWiring>
+      </SidebarProvider>
     )
   }
 
