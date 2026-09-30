@@ -9,7 +9,6 @@ import { routeSessionId, sessionRoute } from '@/app/routes'
 
 import { PIPELINE_ROUTE } from './pipeline'
 import { APPROVALS_ROUTE } from './approvals'
-import botanicalCorner from './assets/botanical-corner.svg'
 import floBadge from './flo-badge.png'
 import { useTeamState } from './state'
 
@@ -52,6 +51,7 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
   const activeProfile = useStore($activeGatewayProfile)
   const { state } = useTeamState()
   const floProfileSelected = useRef(false)
+  const isSettingsRoute = location.pathname.startsWith('/settings')
 
   useEffect(() => {
     if (floProfileSelected.current || !state?.profiles.some(profile => normalizeProfileKey(profile.name) === 'flo')) {
@@ -151,13 +151,7 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
           </button>
         </aside>
 
-        <main className="flo-main-canvas">
-          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-top-left" src={botanicalCorner} />
-          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-top-right" src={botanicalCorner} />
-          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-bottom-left" src={botanicalCorner} />
-          <img alt="" aria-hidden className="flo-botanical-corner flo-botanical-corner-bottom-right" src={botanicalCorner} />
-          <div className="flo-gold-sparkle flo-gold-sparkle-one">✦</div>
-          <div className="flo-gold-sparkle flo-gold-sparkle-two">✧</div>
+        <main className={`flo-main-canvas${isSettingsRoute ? ' flo-main-canvas-settings' : ' flo-main-canvas-background'}`}>
           <div className="flo-chat-canvas">{children}</div>
         </main>
       </div>
