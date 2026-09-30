@@ -3734,6 +3734,7 @@ button[data-slot='aui_msg-reactions'] svg {
 
 .flo-chat-canvas [data-slot='aui_thread-viewport'] { background: transparent !important; }
 .flo-chat-canvas [data-slot='aui_thread-content'] { max-width: 800px !important; }
+.flo-chat-canvas:has([data-slot='aui_intro']) [data-slot='aui_response-loading'] { display: none !important; }
 .flo-chat-canvas [data-slot='aui_user-message-root'] .composer-human-message { max-width: min(72%, 620px); margin-left: auto; border-color: #d8cbbb !important; border-radius: 1.15rem 1.15rem 0.3rem 1.15rem !important; background: var(--flo-taupe) !important; box-shadow: 0 7px 18px rgb(72 57 38 / 0.07); }
 .flo-chat-canvas [data-slot='aui_assistant-message-root'] { position: relative; max-width: min(78%, 660px); margin-right: auto; padding: 0.85rem 1rem 0.45rem 3.35rem; border: 1px solid #cbdac8; border-radius: 1.15rem 1.15rem 1.15rem 0.3rem; background: #e8f0e4; box-shadow: 0 7px 20px rgb(32 74 49 / 0.08); overflow: visible; }
 .flo-chat-canvas [data-slot='aui_assistant-message-root']::before { content: ''; position: absolute; top: 0.72rem; left: 0.72rem; width: 34px; height: 34px; border-radius: 50%; background: url('./plugins/flo/flo-badge.png') center / contain no-repeat, #dbe8d6; box-shadow: 0 3px 9px rgb(34 77 51 / 0.14); }
