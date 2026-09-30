@@ -8,15 +8,15 @@
  * (a backend skin of the same name would shadow a contributed theme).
  */
 
-const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+const SANS = '"Nunito Sans Variable", "Segoe UI", system-ui, sans-serif'
 const MONO = 'ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace'
 
 const GREEN_DEEP = '#1f5a2d'
 const GREEN_LEAF = '#3f8f3a'
 const GOLD = '#b8964a'
 const GOLD_LIGHT = '#d8c08a'
-const CREAM = '#f7f2e6'
-const CREAM_DEEP = '#efe6d0'
+const CREAM = '#f8f5eb'
+const CREAM_DEEP = '#eee8d9'
 
 export const FLO_THEME_NAME = 'flo-desktop'
 
@@ -25,32 +25,32 @@ export const floTheme = {
   label: 'Flo',
   description: 'LoanFlow Processing greens and gold',
   colors: {
-    background: '#fbf9f3',
-    foreground: '#1e2a22',
+    background: '#fcfaf5',
+    foreground: '#203b2d',
     card: CREAM,
-    cardForeground: '#1e2a22',
+    cardForeground: '#203b2d',
     muted: CREAM_DEEP,
-    mutedForeground: '#5f6b62',
+    mutedForeground: '#586d5e',
     popover: '#ffffff',
-    popoverForeground: '#1e2a22',
+    popoverForeground: '#203b2d',
     primary: GREEN_DEEP,
     primaryForeground: '#ffffff',
-    secondary: '#e2efdf',
-    secondaryForeground: '#1e2a22',
-    accent: '#eef5ea',
-    accentForeground: '#1e2a22',
-    border: '#d9d2bf',
+    secondary: '#e6f0e3',
+    secondaryForeground: '#203b2d',
+    accent: '#edf5eb',
+    accentForeground: '#203b2d',
+    border: '#dcd9c9',
     input: '#ffffff',
     ring: GOLD,
     midground: GOLD,
-    midgroundForeground: '#1e2a22',
+    midgroundForeground: '#203b2d',
     composerRing: GREEN_LEAF,
     destructive: '#b3261e',
     destructiveForeground: '#ffffff',
     sidebarBackground: CREAM,
-    sidebarBorder: '#d9d2bf',
-    userBubble: '#e2efdf',
-    userBubbleBorder: '#c9dcc5'
+    sidebarBorder: '#dcd9c9',
+    userBubble: '#e6f0e3',
+    userBubbleBorder: '#cbdcc9'
   },
   darkColors: {
     background: '#0f1a13',

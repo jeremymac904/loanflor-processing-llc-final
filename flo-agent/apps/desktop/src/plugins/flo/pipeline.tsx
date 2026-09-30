@@ -1190,7 +1190,7 @@ function FilePanel({
 
   return (
     <div
-      className="relative flex flex-col gap-4 rounded-md border border-(--ui-stroke-tertiary) p-4"
+      className="flo-surface relative flex flex-col gap-4 border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4"
       data-file-workspace={ws.workspace_id}
       data-testid="file-panel"
       {...dropHandlers}
@@ -1205,7 +1205,7 @@ function FilePanel({
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="m-0 text-base font-semibold uppercase tracking-wide">{summary.name}</h2>
+        <h2 className="flo-display m-0 text-xl">{summary.name}</h2>
         {summary.readiness === 'New submission' ? <Pill tone="warn">NEW LOAN</Pill> : null}
         <Pill tone={STATUS_TONE[summary.status]}>{summary.status}</Pill>
         <Pill>{summary.milestone}</Pill>
@@ -1564,7 +1564,7 @@ export function PipelinePage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 py-8">
       <header className="flex items-center gap-3">
-        <h1 className="m-0 text-lg font-semibold tracking-wide">Pipeline</h1>
+        <h1 className="flo-display m-0 text-2xl">Pipeline</h1>
         <span className="text-xs text-(--ui-text-tertiary)">
           {rows.length} {rows.length === 1 ? 'file' : 'files'}
         </span>
@@ -1581,7 +1581,7 @@ export function PipelinePage() {
             {rows.map(r => (
               <li key={r.workspaceId}>
                 <button
-                  className="flex w-full flex-col gap-1 rounded-md border border-(--ui-stroke-tertiary) p-3 text-left hover:bg-(--chrome-action-hover)"
+                  className="flo-surface flex w-full flex-col gap-1 border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-3 text-left transition-colors hover:bg-(--chrome-action-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-accent)"
                   onClick={() => setSelected(r.workspaceId)}
                   type="button"
                 >
