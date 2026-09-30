@@ -254,7 +254,12 @@ export function chatReactionsEquivalent(a: ChatMessage['reactions'], b: ChatMess
 
   return (
     aList.length === bList.length &&
-    aList.every((reaction, index) => reaction.emoji === bList[index].emoji && reaction.author === bList[index].author)
+    aList.every(
+      (reaction, index) =>
+        reaction.emoji === bList[index].emoji &&
+        reaction.author === bList[index].author &&
+        reaction.agent_id === bList[index].agent_id
+    )
   )
 }
 

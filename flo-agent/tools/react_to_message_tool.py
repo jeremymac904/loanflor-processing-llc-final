@@ -38,6 +38,7 @@ def _react_to_message_with_db(
     *,
     db,
     session_key: str,
+    agent_id: str = "",
 ) -> str:
     """Attach (or with an empty ``emoji`` retract) the agent's reaction."""
     if not session_key:
@@ -62,7 +63,7 @@ def _react_to_message_with_db(
 
     try:
         reactions = db.set_message_reaction(
-            session_key, int(row_id), emoji or None, author="agent"
+            session_key, int(row_id), emoji or None, author="agent", agent_id=agent_id
         )
     except Exception as exc:
         return tool_error(f"Failed to set the reaction: {exc}")
@@ -108,6 +109,7 @@ def react_to_message_tool(emoji: str, message_row_id=None, messages_back=None) -
             messages_back,
             db=db,
             session_key=session_key,
+            agent_id=get_session_env("HERMES_SESSION_PROFILE", "") or "",
         )
     finally:
         try:
@@ -145,8 +147,10 @@ REACT_TO_MESSAGE_SCHEMA = {
         "never as a status signal. NEVER narrate or explain a reaction ('I reacted "
         "with...', 'Reacting now') — the emoji appearing on the bubble is the whole "
         "point, and commentary kills it. Defaults to the user's most recent message. "
-        "One reaction per message: a different emoji replaces yours, an empty string "
-        "retracts it."
+        "One reaction per profile per message: a different emoji replaces yours, an empty string "
+        "retracts it. Flo and team profiles can also use bundled local reaction ids "
+        "such as :flo-heart:, :ctc-boom:, :malcolm-approved:, :sage-source-found:, "
+        ":chadwick-on-it:, :whisper-drafted:, and :franklin-idea:."
     ),
     "parameters": {
         "type": "object",

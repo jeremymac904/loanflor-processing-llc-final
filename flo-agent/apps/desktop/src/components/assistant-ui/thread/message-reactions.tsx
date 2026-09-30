@@ -2,10 +2,16 @@ import { EmojiPicker } from 'frimousse'
 import { type FC, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import {
+  CUSTOM_REACTIONS,
+  CustomReactionAsset,
+  customReaction
+} from '@/components/assistant-ui/thread/custom-reactions'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { triggerHaptic } from '@/lib/haptics'
 import { Plus } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import floBadge from '@/plugins/flo/flo-badge.png'
 import { QUICK_REACTIONS } from '@/store/reactions'
 import type { MessageReaction } from '@/types/hermes'
 
@@ -122,7 +128,26 @@ export const ReactionPicker: FC<{
         side="top"
       >
         {expanded ? (
-          <FullEmojiPicker onSelect={onSelect} />
+          <div className="flex flex-col gap-2">
+            <div className="max-h-24 w-76 overflow-y-auto border-b border-(--ui-stroke-tertiary) pb-2">
+              <span className="px-1 text-[0.6875rem] font-semibold text-(--ui-text-secondary)">Flo &amp; Team</span>
+              <div className="mt-1 grid grid-cols-8 gap-1">
+                {CUSTOM_REACTIONS.map(([id, label]) => (
+                  <button
+                    aria-label={label}
+                    className="grid size-8 place-items-center rounded-md hover:bg-(--chrome-action-hover) focus-visible:outline-2 focus-visible:outline-(--ui-accent)"
+                    key={id}
+                    onClick={() => onSelect(`:${id}:`)}
+                    title={label}
+                    type="button"
+                  >
+                    <CustomReactionAsset id={`:${id}:`} size="small" />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <FullEmojiPicker onSelect={onSelect} />
+          </div>
         ) : (
           <>
             {QUICK_REACTIONS.map(emoji => (
@@ -178,7 +203,7 @@ export const ReactionBadge: FC<{
           <button
             aria-label={`Remove ${reaction.emoji} reaction`}
             className="reaction-pop cursor-pointer leading-none transition-transform hover:scale-110 active:scale-95"
-            key={`${reaction.author}-${reaction.emoji}`}
+            key={`${reaction.author}-${reaction.agent_id ?? ''}-${reaction.emoji}`}
             onClick={event => {
               event.preventDefault()
               event.stopPropagation()
@@ -191,18 +216,40 @@ export const ReactionBadge: FC<{
             }}
             type="button"
           >
-            {reaction.emoji}
+            {customReaction(reaction.emoji) ? <CustomReactionAsset id={reaction.emoji} size="small" /> : reaction.emoji}
           </button>
         ) : (
-          <span
-            className="reaction-pop leading-none"
-            key={`${reaction.author}-${reaction.emoji}`}
-            title="Reacted by Hermes"
-          >
-            {reaction.emoji}
-          </span>
+          <AgentReactionBadge
+            key={`${reaction.author}-${reaction.agent_id ?? ''}-${reaction.emoji}`}
+            reaction={reaction}
+          />
         )
       )}
+    </span>
+  )
+}
+
+export const AgentReactionBadge: FC<{ reaction: MessageReaction }> = ({ reaction }) => {
+  const agent =
+    reaction.author === 'user'
+      ? 'Ashley'
+      : reaction.agent_id
+        ? reaction.agent_id.charAt(0).toUpperCase() + reaction.agent_id.slice(1)
+        : 'Hermes'
+  return (
+    <span className="reaction-pop inline-flex items-center gap-0.5 leading-none" title={`Reacted by ${agent}`}>
+      {reaction.agent_id === 'flo' ? (
+        <img alt="" aria-hidden className="size-4 rounded-full object-contain" src={floBadge} />
+      ) : (
+        <span
+          aria-hidden
+          className="inline-grid size-4 place-items-center rounded-full bg-(--dt-accent) text-[0.55rem] font-bold text-(--dt-accent-foreground)"
+        >
+          {agent.charAt(0)}
+        </span>
+      )}
+      {customReaction(reaction.emoji) ? <CustomReactionAsset id={reaction.emoji} size="small" /> : reaction.emoji}
+      <span className="sr-only">{agent} reacted</span>
     </span>
   )
 }

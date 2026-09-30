@@ -1398,6 +1398,9 @@ DEFAULT_CONFIG = {
     "display": {
         "compact": False,
         "personality": "",
+        # Flo desktop ships its selective, persisted message reactions on by
+        # default. The Appearance switch can still disable them per profile.
+        "message_reactions": True,
         "resume_display": "full",
         # Recap tuning for /resume and startup resume. The defaults match the
         # historical hardcoded values; expose them as config so power users can
