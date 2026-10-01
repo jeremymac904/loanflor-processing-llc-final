@@ -36,6 +36,30 @@ export interface BackendClaim extends BackendIdentity {
   parentStartMarker?: string
 }
 
+const REAP_PROBE_CONCURRENCY = 8
+
+async function mapConcurrent<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(items.length, Math.max(1, limit))
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = nextIndex++
+
+        if (index >= items.length) {
+          return
+        }
+
+        results[index] = await work(items[index])
+      }
+    })
+  )
+
+  return results
+}
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
 }
@@ -220,56 +244,90 @@ export function createBackendOwnership(deps: BackendOwnershipDeps) {
         return []
       }
 
-      const survivors: BackendOwnershipEntry[] = []
-      const reaped: number[] = []
+      // Most records belong to the same few Electron launches. Probe each
+      // parent identity once instead of spawning a PowerShell process for
+      // every backend record (Windows start-marker probes are comparatively
+      // expensive). Run independent probes with a small concurrency bound so
+      // a large stale ownership file cannot exceed the renderer's cold-boot
+      // budget while still avoiding an unbounded process storm.
+      const parentKey = (entry: BackendOwnershipEntry) =>
+        Number.isInteger(entry.parentPid) && isNonEmptyString(entry.parentStartMarker)
+          ? `${entry.parentPid}\u0000${entry.parentStartMarker}`
+          : null
+      const uniqueParents = new Map<string, BackendOwnershipEntry>()
 
       for (const entry of entries) {
-        // A backend whose Electron parent is still running is NOT an orphan:
-        // reaping it would kill a live instance's session. This is what stops
-        // a second launch from SIGTERMing the running instance's backend even
-        // if it reaches reapOrphans (see main.ts startHermes + #87295).
-        let parentAlive: boolean | undefined
+        const key = parentKey(entry)
 
-        try {
-          parentAlive = await deps.matchesParent(entry)
-        } catch {
-          survivors.push(entry)
-
-          continue
+        if (key !== null && !uniqueParents.has(key)) {
+          uniqueParents.set(key, entry)
         }
+      }
 
-        if (parentAlive === true) {
-          survivors.push(entry)
-
-          continue
+      const parentProbeResults = await mapConcurrent(
+        [...uniqueParents.entries()],
+        REAP_PROBE_CONCURRENCY,
+        async ([key, entry]) => {
+          try {
+            return { key, ok: true as const, alive: await deps.matchesParent(entry) }
+          } catch {
+            return { key, ok: false as const, alive: undefined }
+          }
         }
+      )
+      const parentState = new Map(parentProbeResults.map(result => [result.key, result]))
+      const survivors: BackendOwnershipEntry[] = []
+      const candidates: BackendOwnershipEntry[] = []
 
+      for (const entry of entries) {
+        const key = parentKey(entry)
+        const parent = key === null ? null : parentState.get(key)
+
+        if (parent?.ok === false || parent?.alive === true) {
+          // A failed parent probe is uncertain, and a live parent definitively
+          // owns this backend. In either case retain without probing the child.
+          survivors.push(entry)
+        } else {
+          // A missing parent marker (legacy entries) keeps the previous
+          // identity-only behavior; a confirmed-dead parent is eligible for
+          // exact child identity validation below.
+          candidates.push(entry)
+        }
+      }
+
+      const reapResults = await mapConcurrent(candidates, REAP_PROBE_CONCURRENCY, async entry => {
         let matches: boolean | undefined
 
         try {
           matches = await deps.matchesIdentity(entry)
         } catch {
-          survivors.push(entry)
-
-          continue
+          return { entry, reaped: false, keep: true }
         }
 
         if (matches === false) {
-          continue
+          return { entry, reaped: false, keep: false }
         }
 
         if (matches !== true) {
-          survivors.push(entry)
-
-          continue
+          return { entry, reaped: false, keep: true }
         }
 
         try {
           await deps.stop(entry)
-          reaped.push(entry.pid)
+
+          return { entry, reaped: true, keep: false }
         } catch {
-          // Preserve failed ownership so a later startup can retry it.
-          survivors.push(entry)
+          // Preserve failed ownership so a later launch can retry.
+          return { entry, reaped: false, keep: true }
+        }
+      })
+      const reaped: number[] = []
+
+      for (const result of reapResults) {
+        if (result.keep) {
+          survivors.push(result.entry)
+        } else if (result.reaped) {
+          reaped.push(result.entry.pid)
         }
       }
 

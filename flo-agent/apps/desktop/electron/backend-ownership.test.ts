@@ -226,6 +226,50 @@ test('startup reap preserves a record when parent liveness probing fails', async
   assert.deepEqual(parseBackendOwnership(store.value()), [entry])
 })
 
+test('startup reap deduplicates parent probes and checks stale records concurrently', async () => {
+  const entries = Array.from({ length: 40 }, (_, index) => ({
+    ...ownershipEntry({ pid: 1000 + index }),
+    parentPid: 500 + Math.floor(index / 4),
+    parentStartMarker: `parent-${Math.floor(index / 4)}`
+  }))
+  const store = memoryStore(stored(entries))
+  let parentProbeCount = 0
+  let identityProbeCount = 0
+  let activeParentChecks = 0
+  let maxActiveParentChecks = 0
+  let activeIdentityChecks = 0
+  let maxActiveIdentityChecks = 0
+  const ownership = createOwnership(store, {
+    matchesParent: async () => {
+      parentProbeCount += 1
+      activeParentChecks += 1
+      maxActiveParentChecks = Math.max(maxActiveParentChecks, activeParentChecks)
+      await new Promise(resolve => setTimeout(resolve, 5))
+      activeParentChecks -= 1
+
+      return false
+    },
+    matchesIdentity: async () => {
+      identityProbeCount += 1
+      activeIdentityChecks += 1
+      maxActiveIdentityChecks = Math.max(maxActiveIdentityChecks, activeIdentityChecks)
+      await new Promise(resolve => setTimeout(resolve, 5))
+      activeIdentityChecks -= 1
+
+      return false
+    }
+  })
+
+  assert.deepEqual(await ownership.reapOrphans(), [])
+  assert.equal(parentProbeCount, 10)
+  assert.equal(identityProbeCount, 40)
+  assert.equal(maxActiveParentChecks > 1, true)
+  assert.equal(maxActiveParentChecks <= 8, true)
+  assert.equal(maxActiveIdentityChecks > 1, true)
+  assert.equal(maxActiveIdentityChecks <= 8, true)
+  assert.equal(parseBackendOwnership(store.value()).length, 0)
+})
+
 test('claim persists the parent identity so a later reap can see it', async () => {
   const store = memoryStore()
   const ownership = createOwnership(store)
