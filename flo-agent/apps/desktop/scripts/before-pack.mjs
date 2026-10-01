@@ -196,7 +196,10 @@ export function preserveRollbackBackup(appOutDir, productExeName = 'Hermes.exe')
 export default async function beforePack(context) {
   const appOutDir = context && context.appOutDir
   const platformName = context && context.electronPlatformName
-  const projectDir = path.dirname(fileURLToPath(import.meta.url))
+  // The hook lives in scripts/, while package-owned assets live at the
+  // desktop project root. Keep projectDir rooted at apps/desktop so the
+  // Windows icon validator and any package-relative checks resolve assets.
+  const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
   // Branding gate. Runs before ANY staging so a bad icon never reaches a
   // packaged Flo.exe. Only enforced for Windows targets — the mac/Linux

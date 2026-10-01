@@ -2,9 +2,18 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { test } from 'vitest'
 
-import beforePack, { cleanStaleAppOutDir, preserveRollbackBackup } from '../scripts/before-pack.mjs'
+import beforePack, { checkWindowsIconAssets, cleanStaleAppOutDir, preserveRollbackBackup } from '../scripts/before-pack.mjs'
+
+test('Windows icon validation resolves package assets from the desktop project root', () => {
+  const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const result = checkWindowsIconAssets(projectRoot)
+
+  assert.equal(result.ok, true, result.reason)
+  assert.deepEqual(result.sizes, [16, 24, 32, 48, 64, 128, 256])
+})
 
 test('cleanStaleAppOutDir removes a populated unpacked directory', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-before-pack-'))
