@@ -163,6 +163,19 @@ export function serializeBackendOwnership(entries: BackendOwnershipEntry[]): str
 }
 
 /**
+ * A timed-out identity/start-marker probe is not proof that a process is
+ * alive. Use an independent PID-liveness result to recognize definite exit,
+ * while never treating a live/reused PID as the same process incarnation.
+ */
+export function identityProbeFailureResult(errorCode: unknown, pidIsAlive?: boolean): boolean | undefined {
+  if (errorCode === 'ENOENT' || errorCode === 'ESRCH' || pidIsAlive === false) {
+    return false
+  }
+
+  return undefined
+}
+
+/**
  * Persistent ownership for local backend roots.
  *
  * Claiming is asynchronous so a failed persistence transaction can await child
@@ -283,19 +296,23 @@ export function createBackendOwnership(deps: BackendOwnershipDeps) {
         const key = parentKey(entry)
         const parent = key === null ? null : parentState.get(key)
 
-        if (parent?.ok === false || parent?.alive === true) {
-          // A failed parent probe is uncertain, and a live parent definitively
-          // owns this backend. In either case retain without probing the child.
+        if (parent?.alive === true) {
+          // A confirmed live parent still owns its backend record. The child
+          // may have exited intentionally while the desktop remains open; the
+          // conservative policy is not to discard ownership in that case.
           survivors.push(entry)
         } else {
-          // A missing parent marker (legacy entries) keeps the previous
-          // identity-only behavior; a confirmed-dead parent is eligible for
-          // exact child identity validation below.
+          // Probe the child even when the parent probe failed. A confirmed
+          // child identity mismatch proves the child is gone; the caller's
+          // parent probe must still report false before such a record can be
+          // pruned. This keeps probe failures from bypassing child validation.
           candidates.push(entry)
         }
       }
 
       const reapResults = await mapConcurrent(candidates, REAP_PROBE_CONCURRENCY, async entry => {
+        const parentKeyForEntry = parentKey(entry)
+        const parent = parentKeyForEntry === null ? null : parentState.get(parentKeyForEntry)
         let matches: boolean | undefined
 
         try {
@@ -305,10 +322,20 @@ export function createBackendOwnership(deps: BackendOwnershipDeps) {
         }
 
         if (matches === false) {
-          return { entry, reaped: false, keep: false }
+          // Prune only when both process identities are known to be gone. A
+          // failed/unknown parent probe is not evidence that its process died.
+          const trackedParentConfirmedDead = parent !== null && parent.ok && parent.alive === false
+
+          return { entry, reaped: false, keep: parent !== null && !trackedParentConfirmedDead }
         }
 
         if (matches !== true) {
+          return { entry, reaped: false, keep: true }
+        }
+
+        if (parent !== null && (!parent.ok || parent.alive !== false)) {
+          // The child is live but we could not establish that its parent is
+          // gone. Never kill a live backend on an uncertain parent result.
           return { entry, reaped: false, keep: true }
         }
 

@@ -49,12 +49,23 @@ test('canImportHermesCli returns false when binary does not exist', () => {
   assert.equal(canImportHermesCli(ghost), false)
 })
 
-test('hermes runtime import probe checks config dependencies', () => {
+test('hermes runtime import probe validates CLI, model, and gateway dependencies', () => {
   const probe = hermesRuntimeImportProbe()
-  // dotenv is the first third-party import on the CLI boot path
-  // (hermes_cli/env_loader.py); a mid-update venv missing python-dotenv
-  // passed the old probe and produced an unrecoverable boot loop.
-  assert.match(probe, /\bimport dotenv\b/)
+  for (const module of [
+    'yaml',
+    'openai',
+    'hermes_cli',
+    'websockets',
+    'fastapi',
+    'cryptography',
+    'numpy',
+    'httpx',
+    'pydantic',
+    'hermes_cli.main',
+    'hermes_cli.web_server'
+  ]) {
+    assert.match(probe, new RegExp(`\\b${module.replace('.', '\\.')}\\b`))
+  }
   assert.match(probe, /\bimport hermes_cli\.config\b/)
 })
 

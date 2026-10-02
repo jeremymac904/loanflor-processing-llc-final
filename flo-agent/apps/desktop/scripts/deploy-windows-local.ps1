@@ -49,6 +49,16 @@ if (-not (Test-Path -LiteralPath (Join-Path $SourceDir 'Flo.exe'))) {
   throw "[deploy-windows] '$SourceDir' does not look like a built Flo package (no Flo.exe). Run the Windows pack first."
 }
 
+# A present executable is not enough: release\win-unpacked can be left behind
+# by an older build. Refuse to deploy unless its embedded source stamp exactly
+# matches the clean, fetched canonical source that npm run deploy:win packed.
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $ScriptDir '..\..\..')).Path
+$stampGuard = Join-Path $ScriptDir 'assert-deploy-stamp.mjs'
+& node $stampGuard --source-dir $SourceDir --repo-root $repoRoot
+if ($LASTEXITCODE -ne 0) {
+  throw "[deploy-windows] source/build stamp validation failed; refusing to deploy stale or uncommitted output."
+}
+
 Write-Host '[deploy-windows] source     :' $SourceDir
 Write-Host '[deploy-windows] install    :' $InstallDir
 Write-Host '[deploy-windows] appdata    :' (Join-Path $env:APPDATA 'Flo') '(never written to)'

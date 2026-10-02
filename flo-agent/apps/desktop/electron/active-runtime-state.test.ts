@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { classifyActiveRuntime, hasValidBootstrapMarker } from './active-runtime-state'
+import { classifyActiveRuntime, hasValidBootstrapMarker, mustBootstrapManagedRuntime } from './active-runtime-state'
 
 const VALID_MARKER = {
   pinnedCommit: '1234567890abcdef1234567890abcdef12345678',
@@ -57,4 +57,23 @@ test('a repair that deleted the marker does not strand a healthy install', () =>
   // #72166: the repair handler clears the marker unconditionally. Runtime
   // usability, not marker presence, must decide the next boot.
   assert.equal(classifyActiveRuntime(null, 1, true).shouldUseActiveRuntime, true)
+})
+
+test('an unusable managed runtime goes directly to bootstrap even with a valid marker', () => {
+  assert.equal(
+    mustBootstrapManagedRuntime({ activeSourceExists: true, runtimeUsable: false, repairRequested: false }),
+    true
+  )
+})
+
+test('an explicit repair of a managed runtime cannot fall through to an unrelated global Python', () => {
+  assert.equal(
+    mustBootstrapManagedRuntime({ activeSourceExists: true, runtimeUsable: true, repairRequested: true }),
+    true
+  )
+})
+
+test('a healthy managed runtime is used and an absent runtime may use normal first-run resolution', () => {
+  assert.equal(mustBootstrapManagedRuntime({ activeSourceExists: true, runtimeUsable: true, repairRequested: false }), false)
+  assert.equal(mustBootstrapManagedRuntime({ activeSourceExists: false, runtimeUsable: false, repairRequested: false }), false)
 })

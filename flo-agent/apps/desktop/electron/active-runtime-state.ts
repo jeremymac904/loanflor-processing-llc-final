@@ -9,6 +9,14 @@ export interface ActiveRuntimeState {
   usabilityReason: 'usable' | 'unusable'
 }
 
+export function mustBootstrapManagedRuntime(input: {
+  activeSourceExists: boolean
+  runtimeUsable: boolean
+  repairRequested: boolean
+}): boolean {
+  return input.activeSourceExists && (!input.runtimeUsable || input.repairRequested)
+}
+
 export function hasValidBootstrapMarker(
   marker: BootstrapMarkerLike | null | undefined,
   schemaVersion: number

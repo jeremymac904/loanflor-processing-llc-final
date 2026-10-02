@@ -120,12 +120,15 @@ function execProbeSync(
  * @returns {string}
  */
 function hermesRuntimeImportProbe() {
-  // Import the application config module rather than naming its YAML
-  // implementation here. Hermes' current main branch uses hermes_yaml while
-  // older supported checkouts used PyYAML's yaml module. config.py imports the
-  // correct implementation for the installed checkout, so the probe remains
-  // compatible with both without accepting a half-installed runtime.
-  return 'import dotenv; import hermes_cli.config'
+  // A bootstrap marker is provenance, not a health signal. Probe the runtime
+  // imports Flo actually needs before trusting the managed interpreter: basic
+  // CLI configuration, the model client, and the web gateway stack. Keep the
+  // probe in one subprocess so a partially installed venv cannot pass by
+  // importing only hermes_cli.config and then die during gateway startup.
+  return (
+    'import yaml, openai, hermes_cli, websockets, fastapi, cryptography, numpy, httpx, pydantic; ' +
+    'import hermes_cli.config, hermes_cli.main, hermes_cli.web_server'
+  )
 }
 
 /**
@@ -138,11 +141,10 @@ function hermesRuntimeImportProbe() {
  * site-packages -- and the resolver returns a backend that immediately
  * dies on spawn.
  *
- * The probe intentionally imports hermes_cli.config, not just the top-level
- * package: a broken/empty Windows launcher venv can still see the source tree
- * through PYTHONPATH but lack a config dependency, then die on the first real
- * CLI import. The config module owns the YAML implementation choice, which
- * changed between the Hermes revisions supported by the desktop launcher.
+ * The probe imports both application entry points and their critical runtime
+ * dependencies, not just the top-level package: a broken/empty Windows
+ * launcher venv can still see the source tree through PYTHONPATH but lack a
+ * gateway/model dependency, then die only after desktop startup begins.
  *
  * @param {string} pythonPath - Absolute path to a python.exe / python.
  * @param {object} [opts.env] - Additional environment for the probe.

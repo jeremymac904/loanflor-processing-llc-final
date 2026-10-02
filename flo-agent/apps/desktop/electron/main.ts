@@ -41,7 +41,7 @@ import {
   saveProviderCredentialRecord
 } from './flo-provider-secrets'
 
-import { classifyActiveRuntime } from './active-runtime-state'
+import { classifyActiveRuntime, mustBootstrapManagedRuntime } from './active-runtime-state'
 import { destroyKeepaliveAgents, downloadAgentFor, jsonAgentFor, withRetry } from './api-transport'
 import { appIconCandidates, resolveAppIcon } from './app-icon'
 import { stopBackendChild as stopBackendChildImpl, stopBackendTreesForUpdate } from './backend-child'
@@ -65,7 +65,12 @@ import {
   makeUnsignedOauthError,
   waitForHermesReady
 } from './backend-health'
-import { backendCommandMatches, createBackendOwnership, createBackendShutdownCoordinator } from './backend-ownership'
+import {
+  backendCommandMatches,
+  createBackendOwnership,
+  createBackendShutdownCoordinator,
+  identityProbeFailureResult
+} from './backend-ownership'
 import {
   canImportHermesCli,
   execProbeSync,
@@ -3335,7 +3340,23 @@ async function processIdentityMatches(identity) {
   try {
     return (await processStartMarker(identity.pid)) === identity.startMarker
   } catch (error) {
-    return error?.code === 'ENOENT' || error?.code === 'ESRCH' ? false : undefined
+    return identityProbeFailureResult(error?.code, isPidAlive(identity.pid))
+  }
+}
+
+function isPidAlive(pid) {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch (error) {
+    const code = error?.code
+
+    if (code === 'ENOENT' || code === 'ESRCH') {
+      return false
+    }
+
+    return code === 'EPERM' ? true : undefined
   }
 }
 
@@ -3363,7 +3384,7 @@ async function backendParentMatches(entry) {
   try {
     return (await processStartMarker(entry.parentPid)) === entry.parentStartMarker
   } catch (error) {
-    return error?.code === 'ENOENT' || error?.code === 'ESRCH' ? false : undefined
+    return identityProbeFailureResult(error?.code, isPidAlive(entry.parentPid))
   }
 }
 
@@ -4688,6 +4709,22 @@ function createActiveBackend(backendArgs) {
   }
 }
 
+function createBootstrapNeededBackend(backendArgs) {
+  return {
+    kind: 'bootstrap-needed',
+    label: 'Hermes Agent runtime requires bootstrap repair',
+    command: null,
+    args: backendArgs,
+    bootstrap: true,
+    env: {},
+    shell: false,
+    activeRoot: ACTIVE_HERMES_ROOT,
+    installStamp: INSTALL_STAMP,
+    isPackaged: IS_PACKAGED,
+    platform: process.platform
+  }
+}
+
 function resolveHermesBackend(backendArgs) {
   // 1. Explicit override -- HERMES_DESKTOP_HERMES_ROOT points at a developer
   //    checkout. Honour it as-is (no bootstrap; the user is driving).
@@ -4731,6 +4768,20 @@ function resolveHermesBackend(backendArgs) {
     }
 
     return createActiveBackend(backendArgs)
+  }
+
+  if (
+    mustBootstrapManagedRuntime({
+      activeSourceExists: isHermesSourceRoot(ACTIVE_HERMES_ROOT),
+      runtimeUsable: activeRuntime.shouldUseActiveRuntime,
+      repairRequested: bootstrapRepairRequested
+    })
+  ) {
+    rememberLog(
+      `[bootstrap] Managed Hermes runtime at ${ACTIVE_HERMES_ROOT} failed the critical import probe or repair was requested; bypassing unrelated PATH/system Python and rebuilding the managed runtime.`
+    )
+
+    return createBootstrapNeededBackend(backendArgs)
   }
 
   if (bootstrapRepairRequested) {
@@ -4849,20 +4900,7 @@ function resolveHermesBackend(backendArgs) {
   //    resolveHermesBackend was the old "no payload" path and forced the
   //    user into a dead end. With the bootstrap protocol, "no install yet"
   //    is a recoverable state the GUI can drive through.
-  return {
-    kind: 'bootstrap-needed',
-    label: 'Hermes Agent not installed yet; bootstrap required',
-    command: null,
-    args: backendArgs,
-    bootstrap: true,
-    env: {},
-    shell: false,
-    // Hints for the bootstrap runner / UI layer:
-    activeRoot: ACTIVE_HERMES_ROOT,
-    installStamp: INSTALL_STAMP, // may be null in dev
-    isPackaged: IS_PACKAGED,
-    platform: process.platform
-  }
+  return createBootstrapNeededBackend(backendArgs)
 }
 
 async function ensureRuntime(backend) {

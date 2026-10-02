@@ -7,6 +7,7 @@ import {
   type BackendIdentity,
   createBackendOwnership,
   createBackendShutdownCoordinator,
+  identityProbeFailureResult,
   parseBackendOwnership
 } from './backend-ownership'
 
@@ -60,6 +61,13 @@ function createOwnership(store = memoryStore(), overrides: Partial<Parameters<ty
     ...overrides
   })
 }
+
+test('identity probe timeout uses independent PID liveness without trusting a reused live PID', () => {
+  assert.equal(identityProbeFailureResult('ETIMEDOUT', false), false)
+  assert.equal(identityProbeFailureResult('ENOENT'), false)
+  assert.equal(identityProbeFailureResult('ETIMEDOUT', true), undefined)
+  assert.equal(identityProbeFailureResult('ETIMEDOUT'), undefined)
+})
 
 test('claim persists the caller-supplied exact identity before resolving', async () => {
   const store = memoryStore()
@@ -207,6 +215,22 @@ test('startup reap still reaps a backend whose parent is gone or reused', async 
   assert.deepEqual(await ownership.reapOrphans(), [55])
   assert.deepEqual(stop.mock.calls, [[gone]])
   assert.deepEqual(parseBackendOwnership(store.value()), [reused])
+})
+
+test('startup reap prunes a dead child only after its tracked parent is confirmed gone', async () => {
+  const dead = { ...ownershipEntry({ pid: 58 }), parentPid: 202, parentStartMarker: 'os-start-dead' }
+  const liveParent = { ...ownershipEntry({ pid: 59 }), parentPid: 203, parentStartMarker: 'os-start-live' }
+  const store = memoryStore(stored([dead, liveParent]))
+  const stop = vi.fn()
+  const ownership = createOwnership(store, {
+    matchesParent: async entry => entry.parentPid === 202 ? false : true,
+    matchesIdentity: async () => false,
+    stop
+  })
+
+  assert.deepEqual(await ownership.reapOrphans(), [])
+  assert.equal(stop.mock.calls.length, 0)
+  assert.deepEqual(parseBackendOwnership(store.value()), [liveParent])
 })
 
 test('startup reap preserves a record when parent liveness probing fails', async () => {
