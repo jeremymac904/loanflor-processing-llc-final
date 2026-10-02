@@ -453,6 +453,7 @@ import { installWindowsSystemCaTrust } from './windows-system-ca'
 import { readWindowsUserEnvVar } from './windows-user-env'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
 import { readWslWindowsClipboardImage } from './wsl-clipboard-image'
+import { syncBundledFloTeamPlugin } from './sync-bundled-flo-team'
 import { resolvePickerDefaultPath, setActiveGatewayProfile, setWslBridgeProfileState } from './wsl-path-bridge'
 
 const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
@@ -18359,6 +18360,17 @@ app.on('open-url', (event, url) => {
 })
 
 app.whenReady().then(() => {
+  try {
+    const teamPlugin = syncBundledFloTeamPlugin(path.join(process.resourcesPath, 'flo-team-plugin'), HERMES_HOME)
+    if (teamPlugin.status === 'synced' && teamPlugin.copiedFiles > 0) {
+      rememberLog(`[flo-team] refreshed ${teamPlugin.copiedFiles} bundled backend plugin file(s)`)
+    }
+  } catch (error) {
+    // Keep the app and Hermes usable if the plugin directory is not writable;
+    // the intake endpoint will report its own availability when Ashley uses it.
+    rememberLog(`[flo-team] bundled backend plugin refresh failed: ${String(error)}`)
+  }
+
   // Warm the login-shell PATH resolution immediately so it usually completes
   // before the backend start path awaits the same single-flight promise.
   void ensureLoginShellPath()

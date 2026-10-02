@@ -9,13 +9,57 @@ does not add business logic or a second state store.
 from __future__ import annotations
 
 import json
+import importlib.util
+import sys
+import types
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-# Lifecycle plugins are loaded under Hermes' isolated import namespace.  Reuse
-# that already-loaded module so the dashboard API and model tools share the same
-# role/state implementation.
+# The dashboard mounts plugin API modules before the profile's lifecycle plugin
+# manager is initialized.  In a profile child (notably ``--profile flo``), the
+# ``hermes_plugins`` namespace therefore may not exist yet.  Load the bundled
+# plugin package from this API's own trusted plugin directory using the same
+# namespace the lifecycle loader uses.  Later lifecycle loading reuses these
+# modules instead of making the API unavailable only in that profile.
+def _ensure_flo_team_package() -> None:
+    package_name = "hermes_plugins.flo_team"
+    if package_name in sys.modules:
+        return
+
+    namespace = sys.modules.get("hermes_plugins")
+    namespace_created = namespace is None
+    if namespace is None:
+        namespace = types.ModuleType("hermes_plugins")
+        namespace.__path__ = []  # type: ignore[attr-defined]
+        namespace.__package__ = "hermes_plugins"
+        sys.modules["hermes_plugins"] = namespace
+
+    plugin_dir = Path(__file__).resolve().parents[1]
+    init_file = plugin_dir / "__init__.py"
+    spec = importlib.util.spec_from_file_location(
+        package_name,
+        init_file,
+        submodule_search_locations=[str(plugin_dir)],
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("Cannot load the Flo Team package for its local API")
+    package = importlib.util.module_from_spec(spec)
+    package.__package__ = package_name
+    package.__path__ = [str(plugin_dir)]  # type: ignore[attr-defined]
+    sys.modules[package_name] = package
+    try:
+        spec.loader.exec_module(package)
+    except BaseException:
+        for name in [name for name in sys.modules if name == package_name or name.startswith(package_name + ".")]:
+            sys.modules.pop(name, None)
+        if namespace_created:
+            sys.modules.pop("hermes_plugins", None)
+        raise
+
+
+_ensure_flo_team_package()
 from hermes_plugins.flo_team import tools
 from hermes_plugins.flo_team.workspace import WorkspaceStore
 
