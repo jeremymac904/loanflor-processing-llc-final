@@ -381,7 +381,7 @@ def add_local(team_root, workspace_id: str, path: str, *, category: str, subcate
     src = Path(path)
     if not src.is_file():
         raise FileNotFoundError(path)
-    if src.suffix.lower() not in (".pdf", ".jpg", ".jpeg", ".png"):
+    if src.suffix.lower() not in (".pdf", ".jpg", ".jpeg", ".png", ".xml"):
         raise ValueError("file type not accepted")
     if category not in CATEGORIES:
         raise ValueError(f"category must be one of {CATEGORIES}")
@@ -393,6 +393,7 @@ def add_local(team_root, workspace_id: str, path: str, *, category: str, subcate
            "subcategory": subcategory, "borrower_ref": borrower_ref, "original_filename": src.name[:160],
            "display_name": f"{now_iso()[:10]}_{_slug(subcategory or CATEGORY_FOLDER[category])}_{len(store.list(workspace_id)) + 1:02d}{src.suffix.lower()}",
            "storage_key": None, "mime_type": None, "size_bytes": len(data), "sha256": digest, "uploaded_at": now_iso(), "uploaded_by": by, "received_at": now_iso(),
+           "original_path": str(src),
            "status": "duplicate" if twin else "received", "classification_source": by, "notes": f"Same content as {twin['display_name']}" if twin else "",
            "local_path": None, "text_path": None, "text_chars": 0, "page_count": None, "checks": {}, "history": []}
     if not twin:

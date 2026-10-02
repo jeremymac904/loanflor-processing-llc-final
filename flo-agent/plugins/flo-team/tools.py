@@ -871,13 +871,20 @@ def handle_flo_fileprep(args: dict, **_: Any) -> str:
                                            program=program, underwriting_method=method, documentation_level=args.get("documentation_level"))
         out = {"program": program, "underwriting_method": method, "matrix": matrix, "income_review": income, "asset_review": asset_review, "aus_review": du_review, "du_review": du_review if program == "fannie" else None}
         if args.get("store_readiness", True):
-            out["readiness"] = json.loads(handle_flo_readiness({
-                "workspace_id": wid, "checklist": fileprep_mod.as_checklist(matrix), "aus_status": "present" if du_review["present"] else "missing",
+            # This explicit file-prep workflow is Malcolm's deterministic
+            # readiness pass. Flo is the authorized controller initiating it;
+            # keep the saved report/activity attribution truthful to the
+            # specialist whose existing workflow produced it.
+            readiness_args = {
+                "checklist": fileprep_mod.as_checklist(matrix), "aus_status": "present" if du_review["present"] else "missing",
                 "discrepancies": list(income.get("warnings", [])) + [f"assets: {q}" for q in asset_review.get("sourcing_questions", [])],
                 "income_prep_complete": income.get("status") == "OK", "assets_prep_complete": asset_review.get("status") == "OK",
                 "open_questions": income.get("guideline_questions", []) + [c["detail"] for c in du_review.get("conflicts", [])],
                 "source_refs": [s.get("official_url") for s in matrix.get("sources", []) if s.get("official_url")],
-            }))
+            }
+            report = readiness_mod.build_report(workspace=store.get(wid), **readiness_args, agent="malcolm")
+            store.set_readiness(wid, "malcolm", report)
+            out["readiness"] = report
         return _result(out)
     except (WorkspaceError, HandoffError, ValueError, ArithmeticError) as exc:
         return _error(str(exc))

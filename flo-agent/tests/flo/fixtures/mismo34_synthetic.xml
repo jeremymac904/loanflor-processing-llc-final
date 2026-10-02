@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MESSAGE xmlns="http://www.mismo.org/residential/2009/schemas" xmlns:xlink="http://www.w3.org/1999/xlink" MISMOReferenceModelIdentifier="3.4">
+  <ABOUT_VERSIONS><ABOUT_VERSION><CreatedDateTime>2026-01-02T10:00:00</CreatedDateTime><DataVersionIdentifier>3.4</DataVersionIdentifier></ABOUT_VERSION></ABOUT_VERSIONS>
+  <DEAL_SETS><DEAL_SET><DEALS><DEAL>
+    <LOANS><LOAN id="loan-1">
+      <LOAN_IDENTIFIERS><LOAN_IDENTIFIER><LoanIdentifier>SMITH-TEST-1042</LoanIdentifier></LOAN_IDENTIFIER></LOAN_IDENTIFIERS>
+      <LOAN_PURPOSE_TYPE>Purchase</LOAN_PURPOSE_TYPE>
+      <BASE_LOAN_AMOUNT>320000</BASE_LOAN_AMOUNT><TOTAL_LOAN_AMOUNT>325000</TOTAL_LOAN_AMOUNT>
+      <NOTE_INTEREST_RATE>6.5</NOTE_INTEREST_RATE><LOAN_TERM_MONTHS>360</LOAN_TERM_MONTHS>
+      <AMORTIZATION_TYPE>Fixed</AMORTIZATION_TYPE><LIEN_PRIORITY_TYPE>FirstLien</LIEN_PRIORITY_TYPE>
+      <LOAN_PROGRAM_TYPE>Conventional</LOAN_PROGRAM_TYPE>
+    </LOAN></LOANS>
+    <PARTIES><PARTY><INDIVIDUAL><BORROWER id="borrower-1">
+      <NAME><FirstName>Jamie</FirstName><LastName>Smith</LastName></NAME>
+      <CONTACT_POINTS><CONTACT_POINT><CONTACT_POINT_EMAIL><ContactPointEmailValue>jamie@example.invalid</ContactPointEmailValue></CONTACT_POINT_EMAIL></CONTACT_POINT></CONTACT_POINTS>
+      <CURRENT_INCOME><CURRENT_INCOME_ITEM><CurrentIncomeItemMonthlyAmount>8200</CurrentIncomeItemMonthlyAmount></CURRENT_INCOME_ITEM></CURRENT_INCOME>
+    </BORROWER></INDIVIDUAL></PARTY></PARTIES>
+    <SUBJECT_PROPERTY><PROPERTY id="subject-1"><ADDRESS><StreetAddress>12 Fern Way</StreetAddress><CityName>Albany</CityName><StateCode>NY</StateCode><PostalCode>12207</PostalCode><CountyName>Albany</CountyName></ADDRESS><PropertyType>SingleFamily</PropertyType><StructureBuiltYear>1998</StructureBuiltYear><FinancedUnitsCount>1</FinancedUnitsCount><PropertyEstimatedValue>425000</PropertyEstimatedValue></PROPERTY></SUBJECT_PROPERTY>
+    <REO_PROPERTY id="reo-1"><ADDRESS><StreetAddress>88 Maple Lane</StreetAddress><CityName>Troy</CityName><StateCode>NY</StateCode></ADDRESS><PropertyUsageType>Investment</PropertyUsageType><PropertyEstimatedValue>250000</PropertyEstimatedValue></REO_PROPERTY>
+    <ASSETS><ASSET id="asset-1"><ASSET_TYPE>CheckingAccount</ASSET_TYPE><ASSET_CASH_VALUE_AMOUNT>45000</ASSET_CASH_VALUE_AMOUNT><ASSET_ACCOUNT_INSTITUTION_NAME>Example Credit Union</ASSET_ACCOUNT_INSTITUTION_NAME><BORROWER_REFERENCE xlink:href="#borrower-1"/></ASSET></ASSETS>
+    <LIABILITIES><LIABILITY id="liability-1"><CREDITOR_NAME>Example Mortgage Co</CREDITOR_NAME><LIABILITY_UNPAID_BALANCE_AMOUNT>180000</LIABILITY_UNPAID_BALANCE_AMOUNT><LIABILITY_MONTHLY_PAYMENT_AMOUNT>1450</LIABILITY_MONTHLY_PAYMENT_AMOUNT><PROPERTY_REFERENCE xlink:href="#reo-1"/></LIABILITY></LIABILITIES>
+    <RELATIONSHIPS><RELATIONSHIP><RELATIONSHIP_TYPE>LiabilitySecuredByProperty</RELATIONSHIP_TYPE><FROM_ENTITY xlink:href="#liability-1"/><TO_ENTITY xlink:href="#reo-1"/></RELATIONSHIP></RELATIONSHIPS>
+  </DEAL></DEALS></DEAL_SET></DEAL_SETS>
+</MESSAGE>

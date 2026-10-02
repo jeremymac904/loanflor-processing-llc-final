@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { SidebarNavItem } from '../types'
+import { bindFloActions } from '@/plugins/flo/actions-api'
+import { $selectedStoredSessionId } from '@/store/session'
 
 import { latestChatActions, latestSidebarActions } from './latest-actions'
 import type { ChatActions, SidebarActions } from './types'
@@ -118,5 +120,33 @@ describe('latestActions adapters', () => {
     expect(adapted.onTranscribeAudio).toBeTypeOf('function')
     await expect(adapted.onTranscribeAudio!(new Blob())).resolves.toBe('latest')
     expect(staleTranscribe).not.toHaveBeenCalled()
+  })
+
+  it('imports an attached MISMO file locally before sending only a safe acknowledgement to Flo', async () => {
+    const rest = vi.fn(async (path: string) => {
+      if (path === '/intake/local') return { workspace_id: 'loan_synthetic', display_name: 'Smith', created: true, document_count: 1, unsupported: [] }
+      return { workspace_id: 'loan_synthetic', session_id: 'session-synthetic' }
+    })
+    const dispose = bindFloActions(rest as never)
+    const actions = makeChatActions()
+    actions.onSubmit = vi.fn(async () => true)
+    $selectedStoredSessionId.set('session-synthetic')
+    const adapted = latestChatActions(actions)
+    const attachment = { id: 'mismo', kind: 'file' as const, label: 'Smith_3.4.xml', path: 'C:/Synthetic/Smith_3.4.xml' }
+
+    await expect(adapted.onSubmit('Add this loan to the pipeline.', { attachments: [attachment] })).resolves.toBe(true)
+
+    expect(rest).toHaveBeenNthCalledWith(1, '/intake/local', expect.objectContaining({
+      method: 'POST', body: { path: attachment.path, additional_paths: [] }
+    }))
+    expect(actions.onSubmit).toHaveBeenCalledWith(expect.stringContaining('local loan intake is complete'), {
+      attachments: [], displayText: 'Add this loan to the pipeline.'
+    })
+    expect(rest).toHaveBeenNthCalledWith(2, '/intake/bind-session', {
+      method: 'POST', body: { workspace_id: 'loan_synthetic', session_id: 'session-synthetic' }
+    })
+
+    dispose()
+    $selectedStoredSessionId.set(null)
   })
 })

@@ -1,4 +1,8 @@
 import type { ChatActions, SidebarActions } from './types'
+import { $selectedStoredSessionId } from '@/store/session'
+import { notify, notifyError } from '@/store/notifications'
+import { bindFloSession, runFloLocalIntake, takePendingWorkspaceBinding } from '@/plugins/flo/actions-api'
+import { attachedMismoPaths, intakeAcknowledgement, isMismoAttachment } from '@/plugins/flo/local-intake-intent'
 
 /**
  * Surfaces receive one stable `actions` object whose fields are mutated by the
@@ -48,7 +52,49 @@ export function latestChatActions(actions: ChatActions): ChatActions {
     onRestoreToMessage: latestOptional(() => actions.onRestoreToMessage),
     onRetryResume: (...args) => actions.onRetryResume(...args),
     onSteer: (...args) => actions.onSteer(...args),
-    onSubmit: (...args) => actions.onSubmit(...args),
+    onSubmit: async (text, options) => {
+      const attachments = options?.attachments ?? []
+      const mismoAttachments = attachments.filter(isMismoAttachment)
+      const paths = attachedMismoPaths(text, attachments)
+
+      if (mismoAttachments.length > 0 && /\b(add|start|review|open|load|prep|prepare|import)\b/i.test(text)) {
+        if (mismoAttachments.length !== 1 || paths.length !== 1) {
+          notify({ kind: 'error', title: 'Could not review this loan file', message: 'Attach one MISMO XML from a local file, then ask Flo to add or review it.' })
+          return true
+        }
+
+        try {
+          const supportingPaths = attachments
+            .filter(item => item.path && /\.(pdf|jpe?g|png)$/i.test(item.path))
+            .map(item => item.path!)
+          const result = await runFloLocalIntake(paths[0], supportingPaths)
+          notify({ kind: 'success', title: 'Loan added to Pipeline', message: `Customer File created or updated. ${result.document_count} new document${result.document_count === 1 ? '' : 's'} imported; Malcolm’s local prep is saved.` })
+          const accepted = await actions.onSubmit(intakeAcknowledgement(), {
+            ...options,
+            displayText: text,
+            attachments: []
+          })
+          const sessionId = options?.storedSessionId ?? options?.sessionId ?? $selectedStoredSessionId.get()
+          if (sessionId) await bindFloSession(result.workspace_id, sessionId)
+          return accepted
+        } catch (error) {
+          notifyError(error, 'Local loan intake failed')
+          return true
+        }
+      }
+
+      const pendingWorkspaceId = takePendingWorkspaceBinding()
+      const accepted = await actions.onSubmit(text, options)
+      const sessionId = options?.storedSessionId ?? options?.sessionId ?? $selectedStoredSessionId.get()
+      if (pendingWorkspaceId && sessionId && accepted !== false) {
+        try {
+          await bindFloSession(pendingWorkspaceId, sessionId)
+        } catch (error) {
+          notifyError(error, 'Could not link this chat to the Customer File')
+        }
+      }
+      return accepted
+    },
     onThreadMessagesChange: (...args) => actions.onThreadMessagesChange(...args),
     onToggleSelectedPin: (...args) => actions.onToggleSelectedPin(...args),
     onTranscribeAudio: latestOptional(() => actions.onTranscribeAudio)

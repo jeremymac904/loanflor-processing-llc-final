@@ -304,3 +304,40 @@ async def run_action(action: str, body: dict[str, Any] | None = None) -> dict[st
     except Exception as exc:  # noqa: BLE001 - keep the desktop action boundary visible
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     raise HTTPException(status_code=404, detail=f"unknown Flo action: {action}")
+
+
+@router.post("/intake/local")
+async def local_intake(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Parse a user-selected local MISMO file/folder and update the shared workspace store."""
+    args = dict(body or {})
+    source_path = str(args.get("path") or "").strip()
+    if not source_path:
+        raise HTTPException(status_code=400, detail="Select a local file or folder first.")
+    try:
+        from hermes_plugins.flo_team import local_intake as local_intake_mod
+
+        intake_result = local_intake_mod.intake(
+            tools._root(), source_path,
+            additional_paths=[str(path) for path in args.get("additional_paths") or []],
+            session_id=str(args.get("session_id") or "").strip() or None,
+        )
+        prep = _prep({"workspace_id": intake_result["workspace_id"]})
+        intake_result["malcolm"] = prep
+        intake_result["best_next_move"] = prep.get("best_next_move")
+        intake_result["readiness"] = prep.get("readiness")
+        return intake_result
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 - preserve a concise local action failure
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/intake/bind-session")
+async def bind_intake_session(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    args = dict(body or {})
+    try:
+        from hermes_plugins.flo_team import local_intake as local_intake_mod
+
+        return local_intake_mod.bind_session(tools._root(), str(args.get("session_id") or ""), str(args.get("workspace_id") or ""))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Could not link this chat to the imported Customer File.") from exc

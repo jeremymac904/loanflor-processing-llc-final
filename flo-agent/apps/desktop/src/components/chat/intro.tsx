@@ -7,6 +7,8 @@ import floBadge from '@/plugins/flo/flo-badge.png'
 import { useTeamState } from '@/plugins/flo/state'
 
 import { FLO_BRAND } from '../../../flo/brand'
+import { notify, notifyError } from '@/store/notifications'
+import { requestPendingWorkspaceBinding, runFloLocalIntake } from '@/plugins/flo/actions-api'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
 
@@ -162,6 +164,7 @@ function resolveCopy(personality?: string, seed?: number): IntroCopy {
 
 export function Intro({ personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
+  const [intaking, setIntaking] = useState(false)
   const copy = resolveCopy(personality, mountSeed + (seed ?? 0))
   const flo = FLO_BRAND.productName.toLowerCase() === 'flo'
   const { state } = useTeamState()
@@ -170,11 +173,29 @@ export function Intro({ personality, seed }: IntroProps) {
     [state?.workspaces]
   )
 
-  const reviewFolder = () => {
-    const prompt = 'Flo, review the new client folder.'
-    if (!requestComposerSubmit(prompt, { target: 'main' })) {
-      requestComposerInsert(prompt, { target: 'main' })
-      requestComposerFocus('main')
+  const reviewFolder = async () => {
+    const desktop = window.hermesDesktop
+    if (!desktop?.selectPaths) {
+      notify({ kind: 'error', title: 'Folder picker unavailable', message: 'Flo could not open the Windows folder picker.' })
+      return
+    }
+    setIntaking(true)
+    try {
+      const selected = await desktop.selectPaths({ directories: true, multiple: false, title: 'Choose a Client Folder' })
+      const folder = selected[0]
+      if (!folder) return
+      const result = await runFloLocalIntake(folder)
+      requestPendingWorkspaceBinding(result.workspace_id)
+      const prompt = 'A local client-folder intake has completed. Please acknowledge briefly without repeating or requesting any borrower information.'
+      if (!requestComposerSubmit(prompt, { target: 'main' })) {
+        requestComposerInsert(prompt, { target: 'main' })
+        requestComposerFocus('main')
+      }
+      notify({ kind: 'success', title: 'Client folder reviewed', message: `Customer File created or updated; ${result.document_count} new document${result.document_count === 1 ? '' : 's'} imported and Malcolm’s local prep is saved.` })
+    } catch (error) {
+      notifyError(error, 'Client folder intake failed')
+    } finally {
+      setIntaking(false)
     }
   }
 
@@ -199,9 +220,9 @@ export function Intro({ personality, seed }: IntroProps) {
               <span aria-hidden>↗</span>
               Continue Last File
             </button>
-            <button onClick={reviewFolder} type="button">
-              <span aria-hidden>⌁</span>
-              Review New Client Folder
+            <button disabled={intaking} onClick={() => void reviewFolder()} type="button">
+              <span aria-hidden>{intaking ? '…' : '⌁'}</span>
+              {intaking ? 'Reviewing folder…' : 'Review New Client Folder'}
             </button>
             <button
               onClick={() => requestComposerFocus('main')}
