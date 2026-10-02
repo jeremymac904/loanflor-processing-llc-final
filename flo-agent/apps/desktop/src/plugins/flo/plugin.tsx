@@ -35,7 +35,6 @@ import {
 import { useMemo } from 'react'
 
 import { FLO_ACTIONS } from './actions'
-import { bindFloActions } from './actions-api'
 import { ADVANCED_ROUTE, AdvancedPage } from './advanced'
 import { APPROVALS_ROUTE, ApprovalsPage } from './approvals'
 import { NEXT_MOVE_PROMPT, STATUS_TONE, todayModel } from './ashley'
@@ -238,7 +237,6 @@ const plugin: HermesPlugin = {
   name: 'Flo',
   description: 'Today, Pipeline and Approvals for Ashley; team, sources and providers under Advanced.',
   register(ctx) {
-    ctx.onDispose(bindFloActions(ctx.rest))
     ctx.registerMany([
       { id: 'theme', area: THEMES_AREA, data: floTheme },
       {
