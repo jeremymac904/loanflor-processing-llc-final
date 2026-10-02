@@ -59,6 +59,23 @@ function resolveProbeTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
   return Math.min(n, 120_000)
 }
 
+/**
+ * Build a non-mutating environment for runtime health checks. The packaged
+ * desktop backend runs with lazy installs disabled; probes must do the same
+ * so importing Hermes cannot begin an in-place dependency repair and then
+ * cause Flo to misclassify a healthy managed runtime as broken.
+ */
+function hermesRuntimeProbeEnv(
+  base: NodeJS.ProcessEnv = process.env,
+  overrides: Record<string, string> = {}
+): NodeJS.ProcessEnv {
+  return {
+    ...base,
+    ...overrides,
+    HERMES_DISABLE_LAZY_INSTALLS: '1'
+  }
+}
+
 const PROBE_TIMEOUT_MS = resolveProbeTimeoutMs()
 
 function isTimeoutError(err: unknown): boolean {
@@ -159,7 +176,7 @@ function canImportHermesCli(pythonPath: string, opts: { env?: Record<string, str
 
   try {
     execProbeSync(pythonPath, ['-c', hermesRuntimeImportProbe()], {
-      env: { ...process.env, ...(opts.env || {}) },
+      env: hermesRuntimeProbeEnv(process.env, opts.env),
       stdio: 'ignore',
       timeout: PROBE_TIMEOUT_MS,
       windowsHide: true
@@ -225,6 +242,7 @@ export {
   DEFAULT_PROBE_TIMEOUT_MS,
   execProbeSync,
   hermesRuntimeImportProbe,
+  hermesRuntimeProbeEnv,
   PROBE_TIMEOUT_MS,
   resolveProbeTimeoutMs,
   shouldTrustHermesOverride,

@@ -16,6 +16,7 @@ import {
   canImportHermesCli,
   DEFAULT_PROBE_TIMEOUT_MS,
   hermesRuntimeImportProbe,
+  hermesRuntimeProbeEnv,
   PROBE_TIMEOUT_MS,
   resolveProbeTimeoutMs,
   shouldTrustHermesOverride,
@@ -67,6 +68,17 @@ test('hermes runtime import probe validates CLI, model, and gateway dependencies
     assert.match(probe, new RegExp(`\\b${module.replace('.', '\\.')}\\b`))
   }
   assert.match(probe, /\bimport hermes_cli\.config\b/)
+})
+
+test('Hermes runtime health probe disables mutating lazy dependency installs', () => {
+  const env = hermesRuntimeProbeEnv(
+    { PATH: 'C:\\runtime-bin', HERMES_DISABLE_LAZY_INSTALLS: '0' },
+    { PYTHONPATH: 'C:\\hermes-root' }
+  )
+
+  assert.equal(env.HERMES_DISABLE_LAZY_INSTALLS, '1')
+  assert.equal(env.PYTHONPATH, 'C:\\hermes-root')
+  assert.equal(env.PATH, 'C:\\runtime-bin')
 })
 
 test('explicit Hermes override is authoritative', () => {
