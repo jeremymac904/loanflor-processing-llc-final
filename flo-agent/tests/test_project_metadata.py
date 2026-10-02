@@ -88,6 +88,16 @@ def test_lazy_installable_extras_excluded_from_all():
         )
 
 
+def test_flo_desktop_runtime_includes_anthropic_messages_sdk_for_minimax():
+    """Packaged Flo disables lazy installs, but MiniMax uses Anthropic Messages transport."""
+    optional_dependencies = _load_optional_dependencies()
+    flo_desktop = optional_dependencies["flo-desktop"]
+    from tools.lazy_deps import LAZY_DEPS
+
+    assert "hermes-agent[flo-desktop]" in optional_dependencies["all"]
+    assert _exact_pins(flo_desktop)["anthropic"] == _exact_pins(LAZY_DEPS["provider.anthropic"])["anthropic"]
+
+
 def _exact_pins(specs):
     pins = {}
     for spec in specs:

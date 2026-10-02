@@ -1260,11 +1260,15 @@ class TestProviderEntryApiKeyEnvAlias:
 # ---------------------------------------------------------------------------
 
 def test_minimax_oauth_runtime_returns_anthropic_messages_mode(monkeypatch):
-    """resolve_runtime_provider for minimax-oauth must return api_mode='anthropic_messages'."""
+    """MiniMax-M3 keeps MiniMax identity while using the compatible Messages wire."""
     from hermes_cli.auth import MINIMAX_OAUTH_GLOBAL_INFERENCE
 
     monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "minimax-oauth")
-    monkeypatch.setattr(rp, "_get_model_config", lambda: {"provider": "minimax-oauth"})
+    monkeypatch.setattr(
+        rp,
+        "_get_model_config",
+        lambda: {"provider": "minimax-oauth", "default": "MiniMax-M3"},
+    )
     monkeypatch.setattr(rp, "load_pool", lambda provider: None)
     monkeypatch.setattr(
         rp,
@@ -1293,6 +1297,8 @@ def test_minimax_oauth_runtime_returns_anthropic_messages_mode(monkeypatch):
     assert resolved["provider"] == "minimax-oauth"
     assert resolved["api_mode"] == "anthropic_messages"
     assert resolved["api_key"] == "mock-access-token"
+    assert resolved["base_url"] == MINIMAX_OAUTH_GLOBAL_INFERENCE.rstrip("/")
+    assert resolved["provider"] != "anthropic"
 
 
 def test_minimax_oauth_pool_forces_anthropic_messages_despite_stale_config(monkeypatch):

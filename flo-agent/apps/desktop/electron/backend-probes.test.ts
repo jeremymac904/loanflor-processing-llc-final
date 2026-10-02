@@ -61,6 +61,7 @@ test('hermes runtime import probe validates CLI, model, and gateway dependencies
     'numpy',
     'httpx',
     'pydantic',
+    'anthropic',
     'hermes_cli.main',
     'hermes_cli.web_server'
   ]) {
