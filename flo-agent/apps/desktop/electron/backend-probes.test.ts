@@ -52,13 +52,12 @@ test('canImportHermesCli returns false when binary does not exist', () => {
 test('hermes runtime import probe validates CLI, model, and gateway dependencies', () => {
   const probe = hermesRuntimeImportProbe()
   for (const module of [
-    'yaml',
+    'hermes_yaml',
     'openai',
     'hermes_cli',
     'websockets',
     'fastapi',
     'cryptography',
-    'numpy',
     'httpx',
     'pydantic',
     'anthropic',

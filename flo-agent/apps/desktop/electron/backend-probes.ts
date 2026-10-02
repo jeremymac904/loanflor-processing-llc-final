@@ -128,7 +128,7 @@ function hermesRuntimeImportProbe() {
   // MiniMax uses the Anthropic Messages SDK while lazy installs are disabled
   // in Flo's packaged backend, so its import is a required managed-runtime check.
   return (
-    'import yaml, openai, hermes_cli, websockets, fastapi, cryptography, numpy, httpx, pydantic, anthropic; ' +
+    'import hermes_yaml, openai, hermes_cli, websockets, fastapi, cryptography, httpx, pydantic, anthropic; ' +
     'import hermes_cli.config, hermes_cli.main, hermes_cli.web_server'
   )
 }
