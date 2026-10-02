@@ -32,12 +32,17 @@ dependencies = [
   # introduce ranges back without a written justification.
   #
   # Scope rule: only packages used by EVERY hermes session belong here.
-  # Anything that's provider-specific (`anthropic`, `firecrawl-py`,
+  # Anything that's provider-specific (`firecrawl-py`,
   # `exa-py`, `fal-client`, `edge-tts`, `parallel-web`) belongs in an
   # extra and gets lazy-installed via `tools/lazy_deps.py` when the
   # user picks that backend. Smaller `dependencies` = smaller blast
   # radius for the next supply-chain attack.
   "openai==2.24.0",
+  # MiniMax uses the Anthropic Messages protocol and Hermes' transport SDK
+  # even though MiniMax is a distinct provider/account. This SDK is required
+  # in every selected runtime environment; installing it only in the bootstrap
+  # venv leaves PM-selected generations unable to serve MiniMax turns.
+  "anthropic==0.87.0",
   "certifi==2026.5.20",
   "python-dotenv==1.2.2",
   "fire==0.7.1",

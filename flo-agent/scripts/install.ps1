@@ -3003,61 +3003,6 @@ except Exception:
         }
         Write-Success "Baseline imports verified in venv"
 
-        # MiniMax uses Hermes' Anthropic Messages transport internally. Its
-        # SDK is intentionally a managed-PM extra, not a Flo provider login
-        # dependency. Installing it only into this base venv is insufficient:
-        # Hermes activates the PM-selected dependency environment before a
-        # request, which replaces the base site-packages on sys.path. Provision
-        # the declared extra through Hermes PM so every selected profile/runtime
-        # generation can import the transport without lazy installs.
-        $previousHermesHome = $env:HERMES_HOME
-        $previousPythonPath = $env:PYTHONPATH
-        $previousLazyInstallFlag = $env:HERMES_DISABLE_LAZY_INSTALLS
-        $previousUvProjectEnvironment = $env:UV_PROJECT_ENVIRONMENT
-        try {
-            $env:HERMES_HOME = $HermesHome
-            $env:PYTHONPATH = $InstallDir
-            $env:HERMES_DISABLE_LAZY_INSTALLS = "1"
-            # PM owns a separate generation; do not let the uv sync target
-            # left by the base-venv install redirect its package transaction.
-            Remove-Item Env:UV_PROJECT_ENVIRONMENT -ErrorAction SilentlyContinue
-
-            Invoke-NativeWithRelaxedErrorAction { & $venvPython -m hermes_cli.main pm install --extra anthropic }
-            $pmInstallExitCode = $LASTEXITCODE
-            if ($pmInstallExitCode -ne 0) {
-                throw "Hermes PM failed to provision the declared MiniMax Anthropic transport extra (exit $pmInstallExitCode)."
-            }
-
-            # Verify after applying the same PM activation used by Hermes,
-            # rather than accidentally checking only the base venv again.
-            $pmImportProbe = @'
-from pathlib import Path
-import sys
-from pm.environments import activate_dependencies, selected_venv, site_packages
-from pm.paths import repo_root
-root = repo_root()
-activate_dependencies(root)
-import anthropic
-expected = Path(site_packages(selected_venv(root))).resolve()
-actual = Path(anthropic.__file__).resolve()
-if expected not in [Path(p).resolve() for p in sys.path if p]:
-    raise SystemExit("PM-selected site-packages are not active")
-if not actual.is_relative_to(expected):
-    raise SystemExit("Anthropic SDK did not resolve from the PM-selected environment")
-print("FLO_PM_ANTHROPIC_OK")
-'@
-            $probeOutput = & $venvPython -c $pmImportProbe 2>&1
-            $pmProbeExitCode = $LASTEXITCODE
-            if ($pmProbeExitCode -ne 0 -or ($probeOutput -join "`n") -notmatch "FLO_PM_ANTHROPIC_OK") {
-                throw "Anthropic transport import failed in Hermes' PM-selected dependency environment. $($probeOutput -join ' ')"
-            }
-            Write-Success "MiniMax transport verified in Hermes PM-selected environment"
-        } finally {
-            if ($null -eq $previousHermesHome) { Remove-Item Env:HERMES_HOME -ErrorAction SilentlyContinue } else { $env:HERMES_HOME = $previousHermesHome }
-            if ($null -eq $previousPythonPath) { Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue } else { $env:PYTHONPATH = $previousPythonPath }
-            if ($null -eq $previousLazyInstallFlag) { Remove-Item Env:HERMES_DISABLE_LAZY_INSTALLS -ErrorAction SilentlyContinue } else { $env:HERMES_DISABLE_LAZY_INSTALLS = $previousLazyInstallFlag }
-            if ($null -eq $previousUvProjectEnvironment) { Remove-Item Env:UV_PROJECT_ENVIRONMENT -ErrorAction SilentlyContinue } else { $env:UV_PROJECT_ENVIRONMENT = $previousUvProjectEnvironment }
-        }
     }
 
     # Commit the venv transaction: the dependency install completed and the
