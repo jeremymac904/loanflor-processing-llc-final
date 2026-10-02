@@ -2870,6 +2870,8 @@ function Install-Dependencies {
         #                  needs `make` to build from sdist) and the
         #                  install fails.
         #   --extra all  = just the [all] extra's contents (curated).
+        # Flo disables runtime lazy installs, so MiniMax's Anthropic Messages
+        # transport must be installed as an explicit declared provider extra.
         #
         # UV_PROJECT_ENVIRONMENT pins the sync target to our venv\.
         # Without it, modern uv (>=0.5) ignores VIRTUAL_ENV for `sync`
@@ -2878,7 +2880,7 @@ function Install-Dependencies {
         # in the wrong directory and imports fail with ModuleNotFoundError.
         # (Mirrors the same flag in scripts/install.sh::install_deps.)
         $env:UV_PROJECT_ENVIRONMENT = "$InstallDir\venv"
-        Invoke-NativeWithRelaxedErrorAction { & $UvCmd sync --extra all --locked }
+        Invoke-NativeWithRelaxedErrorAction { & $UvCmd sync --extra all --extra anthropic --locked }
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Main package installed (hash-verified via uv.lock)"
             $script:InstalledTier = "hash-verified (uv.lock)"
@@ -2945,9 +2947,9 @@ except Exception:
     $brokenLabel = if ($brokenExtras) { ($brokenExtras -join ", ") } else { "none" }
 
     $installTiers = @(
-        @{ Name = "all"; Spec = ".[all]" },
-        @{ Name = "all minus known-broken ($brokenLabel)"; Spec = ".[$safeAll]" },
-        @{ Name = "core only (no extras)"; Spec = "." }
+        @{ Name = "all"; Spec = ".[all,anthropic]" },
+        @{ Name = "all minus known-broken ($brokenLabel)"; Spec = ".[$safeAll,anthropic]" },
+        @{ Name = "core + MiniMax transport"; Spec = ".[anthropic]" }
     )
     $installed = $skipPipFallback
     if (-not $skipPipFallback) {
@@ -2987,7 +2989,7 @@ except Exception:
         # regardless of what was written to stderr).
         $prevEAP = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        & $venvPython -c "import dotenv, openai, rich, prompt_toolkit" 2>&1 | Out-Null
+        & $venvPython -c "import dotenv, openai, rich, prompt_toolkit, anthropic" 2>&1 | Out-Null
         $importExitCode = $LASTEXITCODE
         $ErrorActionPreference = $prevEAP
         if ($importExitCode -ne 0) {
@@ -2995,9 +2997,9 @@ except Exception:
             $hint = if (Test-Path $sibling) {
                 "Detected sibling .venv\ at $sibling -- uv synced there instead of venv\. Close Hermes processes, preserve the existing venv, and rerun the installer so the transactional recovery path can move directories safely."
             } else {
-                "Recover with: cd '$InstallDir'; `$env:UV_PROJECT_ENVIRONMENT='$InstallDir\venv'; uv sync --extra all --locked"
+                "Recover with: cd '$InstallDir'; `$env:UV_PROJECT_ENVIRONMENT='$InstallDir\venv'; uv sync --extra all --extra anthropic --locked"
             }
-            throw "Baseline imports failed in $InstallDir\venv (dotenv/openai/rich/prompt_toolkit). The install completed but dependencies are not in the venv. $hint"
+            throw "Baseline imports failed in $InstallDir\venv (dotenv/openai/rich/prompt_toolkit/anthropic). The install completed but dependencies are not in the venv. $hint"
         }
         Write-Success "Baseline imports verified in venv"
     }
