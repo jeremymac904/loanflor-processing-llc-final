@@ -83,6 +83,114 @@ def _property_key(parsed: dict[str, Any]) -> str:
     return _norm(" ".join(str(row.get(k) or "") for k in ("street", "city", "state", "postal_code")))
 
 
+def _borrower_display_name(parsed: dict[str, Any]) -> str | None:
+    for row in parsed.get("borrowers") or []:
+        values = row.get("values") or {}
+        name = values.get("full_name") or " ".join(
+            str(values.get(key) or "").strip() for key in ("first_name", "middle_name", "last_name", "suffix")
+        ).strip()
+        if name:
+            return " ".join(str(name).split())
+    return None
+
+
+def _usable_display_name(value: Any) -> bool:
+    name = " ".join(str(value or "").split())
+    if not name or any(separator in name for separator in ("/", "\\")) or name.lower().endswith((".xml", ".mismo")):
+        return False
+    return name.casefold() not in {"downloads", "download", "desktop", "documents", "new loan", "loan file"}
+
+
+def _persist_parsed_metadata(store: WorkspaceStore, workspace_id: str, parsed: dict[str, Any]) -> dict[str, Any]:
+    loan = parsed.get("loan") or {}
+    borrower_name = _borrower_display_name(parsed)
+    display_name = borrower_name or parsed.get("display_name")
+    program_value = str(loan.get("loan_program") or loan.get("loan_type") or "conventional").lower()
+    program = next((candidate for candidate in ("fha", "va", "usda", "conventional") if candidate in program_value), "conventional")
+    agency = "fannie" if program == "conventional" else None
+    loan_officers = parsed.get("loan_officers") or []
+    loan_officer = (loan_officers[0].get("values") or {}) if loan_officers else {}
+    companies = parsed.get("origination_companies") or []
+    lenders = parsed.get("lenders") or []
+    executives = parsed.get("account_executives") or []
+    company_values = (companies[0].get("values") or {}) if companies else {}
+    lender_values = (lenders[0].get("values") or {}) if lenders else {}
+    executive_values = (executives[0].get("values") or {}) if executives else {}
+    subject = next((item.get("values") for item in parsed.get("properties") or [] if item.get("kind") == "subject"), None)
+    source_ref = None
+    if parsed.get("source_sha256"):
+        source_ref = {
+            "ref": f"mismo://{parsed['source_sha256']}", "kind": "mismo_3_4",
+            "filename": parsed.get("source_file"), "sha256": parsed["source_sha256"],
+            "imported_at": parsed.get("source_imported_at"),
+        }
+
+    def update(doc: dict[str, Any]) -> None:
+        doc["mismo"] = parsed
+        doc["borrowers"] = parsed.get("borrowers") or []
+        if subject is not None:
+            doc["property"] = subject
+        doc["loan_terms"] = loan
+        if loan.get("lender_loan_id"):
+            doc["loan_number"] = loan["lender_loan_id"]
+        if loan_officer:
+            doc["loan_officer"] = loan_officer
+        company_name = company_values.get("company") or company_values.get("full_name")
+        if company_name:
+            doc["origination_company"] = company_name
+        lender_name = lender_values.get("company") or lender_values.get("full_name")
+        if lender_name:
+            doc["lender"] = lender_name
+        executive_name = executive_values.get("full_name")
+        if executive_name:
+            doc["account_executive"] = executive_name
+        if loan.get("closing_date"):
+            doc["closing_date"] = loan["closing_date"]
+        if display_name:
+            doc["display_name"] = display_name
+        elif not _usable_display_name(doc.get("display_name")):
+            doc["display_name"] = str(loan.get("lender_loan_id") or "New Loan")
+        doc["program"] = program
+        doc["agency"] = agency
+        doc["milestone"] = doc.get("milestone") or "Intake"
+        doc["status_summary"] = doc.get("status_summary") or "MISMO 3.4 received locally."
+        if not doc.get("next_action"):
+            doc["next_action"] = "Review the imported application and supporting documents."
+        if source_ref:
+            doc["source_refs"] = _upsert_source(doc.get("source_refs") or [], source_ref)
+        doc["mismo_summary_refreshed_at"] = now_iso()
+
+    store.docs.update(workspace_id, update)
+    return store.get(workspace_id)
+
+
+def refresh_existing_workspace_metadata(team_root: Path, workspace_id: str) -> dict[str, Any]:
+    """Refresh saved summary fields from an already-imported local MISMO XML.
+
+    This is a metadata migration only: it does not import documents, create a
+    workspace, or rerun Malcolm.
+    """
+    store = WorkspaceStore(Path(team_root))
+    workspace = store.get(workspace_id)
+    if workspace.get("mismo_summary_refreshed_at"):
+        return {"workspace_id": workspace_id, "updated": False}
+    source = next((
+        row.get("local_path") for row in documents.DocumentStore(Path(team_root)).list(workspace_id)
+        if str(row.get("original_filename") or "").lower().endswith(".xml") and row.get("local_path")
+    ), None)
+    if not source or not Path(source).is_file():
+        return {"workspace_id": workspace_id, "updated": False, "reason": "source_unavailable"}
+    parsed = parse_file(source)
+    old_mismo = workspace.get("mismo") or {}
+    parsed["source_sha256"] = old_mismo.get("source_sha256") or _hash(Path(source))
+    parsed["source_imported_at"] = old_mismo.get("source_imported_at") or now_iso()
+    parsed["subject_property_key"] = _property_key(parsed)
+    parsed["borrower_key"] = _borrower_key(parsed)
+    refreshed = _persist_parsed_metadata(store, workspace_id, parsed)
+    store._activity(workspace_id, "flo", "workspace.summary_refreshed", {"source": "mismo_3_4"})
+    return {"workspace_id": workspace_id, "updated": True, "display_name": refreshed.get("display_name")}
+
+
 def _match_workspace(store: WorkspaceStore, parsed: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
     loan_id = _norm((parsed.get("loan") or {}).get("lender_loan_id"))
     borrower = _borrower_key(parsed)
@@ -164,6 +272,10 @@ def intake(team_root: Path, source_path: str | Path, *, additional_paths: list[s
     existing, ambiguous = _match_workspace(workspace_store, parsed)
     if ambiguous:
         raise LocalIntakeError("This loan may match more than one Customer File. Choose the correct file in Pipeline before importing.")
+    parsed["source_sha256"] = source_digest
+    parsed["source_imported_at"] = now_iso()
+    parsed["subject_property_key"] = _property_key(parsed)
+    parsed["borrower_key"] = _borrower_key(parsed)
     duplicate_source = next((ws for ws in workspace_store.docs.all() if (ws.get("mismo") or {}).get("source_sha256") == source_digest), None)
     if duplicate_source and (existing is None or duplicate_source["workspace_id"] == existing["workspace_id"]):
         workspace = duplicate_source
@@ -173,7 +285,7 @@ def intake(team_root: Path, source_path: str | Path, *, additional_paths: list[s
         program_value = str(loan.get("loan_program") or loan.get("loan_type") or "conventional").lower()
         program = next((candidate for candidate in ("fha", "va", "usda", "conventional") if candidate in program_value), "conventional")
         agency = "fannie" if program == "conventional" else None
-        display_name = parsed.get("display_name") or source.parent.name or "New Loan"
+        display_name = _borrower_display_name(parsed) or parsed.get("display_name") or loan.get("lender_loan_id") or "New Loan"
         if existing:
             wid = existing["workspace_id"]
             workspace_store.docs.update(wid, lambda d: d.update({"program": program, "agency": agency, "milestone": d.get("milestone") or "Intake"}))
@@ -183,28 +295,10 @@ def intake(team_root: Path, source_path: str | Path, *, additional_paths: list[s
             workspace = workspace_store.create(display_name=display_name, program=program, agency=agency, milestone="Intake", actor=actor)
             created = True
         wid = workspace["workspace_id"]
-        parsed["source_sha256"] = source_digest
-        parsed["source_imported_at"] = now_iso()
-        parsed["subject_property_key"] = _property_key(parsed)
-        parsed["borrower_key"] = _borrower_key(parsed)
-        borrowers = parsed.get("borrowers") or []
-        loan_officer = (parsed.get("loan_officers") or [{}])[0].get("values") or {}
-        source_ref = {"ref": f"mismo://{source_digest}", "kind": "mismo_3_4", "filename": xml_path.name, "sha256": source_digest, "imported_at": parsed["source_imported_at"]}
-
-        def save_fields(doc: dict[str, Any]) -> None:
-            doc["mismo"] = parsed
-            doc["borrowers"] = borrowers
-            doc["property"] = next((item.get("values") for item in parsed.get("properties") or [] if item.get("kind") == "subject"), None)
-            doc["loan_terms"] = parsed.get("loan") or {}
-            doc["loan_number"] = loan.get("lender_loan_id")
-            doc["loan_officer"] = loan_officer
-            doc["source_refs"] = _upsert_source(doc.get("source_refs") or [], source_ref)
-            doc["status_summary"] = "MISMO 3.4 received locally; Malcolm is preparing the file."
-            if not doc.get("next_action"):
-                doc["next_action"] = "Review the imported application and supporting documents."
-        workspace_store.docs.update(wid, save_fields)
-        workspace_store._activity(wid, actor, "client_folder.imported", {"file_count": len(files), "mismo_sha256": source_digest})
+        if not duplicate_source:
+            workspace_store._activity(wid, actor, "client_folder.imported", {"file_count": len(files), "mismo_sha256": source_digest})
     wid = workspace["workspace_id"]
+    _persist_parsed_metadata(workspace_store, wid, parsed)
 
     existing_docs = documents.DocumentStore(team_root).list(wid)
     existing_hashes = {row.get("sha256") for row in existing_docs if row.get("sha256")}

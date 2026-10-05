@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   activeEsignRequest,
   approvalView,
+  borrowerName,
   borrowerRequestWaiting,
+  customerFileOverview,
   documentBoard,
   documentGroups,
   documentsReceived,
@@ -96,6 +98,7 @@ describe('plain-English status', () => {
     expect(plainStatus(mason)).toBe('Done')
     expect(plainStatus({ ...okafor, drafts: [], blockers: [{ text: 'Lender portal locked' }] })).toBe('Blocked')
     expect(plainStatus({ ...okafor, drafts: [] })).toBe('Waiting') // missing item owned by the borrower
+
     const working: TaskRow = {
       task_id: 't',
       from_agent: 'flo',
@@ -106,6 +109,7 @@ describe('plain-English status', () => {
       max_depth: 1,
       workspace_id: 'loan_okafor'
     }
+
     expect(plainStatus({ ...okafor, drafts: [], readiness: null }, [], [working])).toBe('Working')
     expect(plainStatus(mason, [approval])).toBe('Needs Ashley')
   })
@@ -138,6 +142,43 @@ describe('file summary', () => {
     expect(JSON.stringify(s).toLowerCase()).not.toContain('approved')
     expect(fileSummary(bell).risk).toBe('Title is overdue')
     expect(fileSummary(bell).orders).toBe('Title: overdue')
+  })
+})
+
+describe('Customer File identity and loan summary', () => {
+  const imported: FileRecord = {
+    workspace_id: 'loan_synthetic',
+    display_name: 'Downloads',
+    loan_number: 'SYNTHETIC-1042',
+    milestone: 'Intake',
+    program: 'conventional',
+    loan_terms: { lender_loan_id: 'SYNTHETIC-1042', loan_purpose: 'CashOutRefinance', base_loan_amount: 185500 },
+    borrowers: [{ role: 'borrower', values: { first_name: 'Avery', last_name: 'River', full_name: 'Avery River' } }],
+    property: { street: '12 Fern Way', city: 'Springfield', state: 'FL', postal_code: '32000' },
+    loan_officer: { name: 'Jordan Lee' },
+    origination_company: 'Harbor Lending'
+  }
+
+  it('prefers MISMO borrower identity over folder metadata and shows only persisted facts', () => {
+    expect(borrowerName(imported)).toBe('Avery River')
+    expect(fileSummary(imported).name).toBe('Avery River')
+    expect(customerFileOverview(imported)).toMatchObject({
+      borrower: 'Avery River',
+      property: '12 Fern Way · Springfield, FL, 32000',
+      loanOfficer: 'Jordan Lee',
+      lender: 'Harbor Lending',
+      accountExecutive: 'Not Set',
+      closingDate: 'Not Set',
+      status: 'Intake',
+      loanNumber: 'SYNTHETIC-1042',
+      program: 'Conventional',
+      purpose: 'Cash Out Refinance',
+      amount: '$185,500'
+    })
+  })
+
+  it('never presents a source folder as identity when borrower facts are absent', () => {
+    expect(fileSummary({ ...imported, borrowers: [], mismo: undefined }).name).toBe('Loan SYNTHETIC-1042')
   })
 })
 
@@ -213,6 +254,7 @@ describe('website submissions', () => {
       max_depth: 1,
       workspace_id: 'loan_johnson'
     }
+
     const s = fileSummary(johnson, [], [working])
     expect(s.status).toBe('Working')
     expect(s.readiness).toBe('New submission')
@@ -231,6 +273,7 @@ describe('website submissions', () => {
         line: 'Malcolm is reviewing it.'
       }
     ])
+
     // After Malcolm's review: plain counts and labels, and the one obvious move.
     const reviewed = fileSummary({
       ...johnson,
@@ -244,6 +287,7 @@ describe('website submissions', () => {
         ]
       }
     })
+
     expect(reviewed.readiness).toBe('Needs 3 items')
     expect(reviewed.income).toBe('Reviewed')
     expect(reviewed.assets).toBe('Needs attention')
@@ -318,6 +362,7 @@ describe('website submissions', () => {
     expect(groups[0].documents[0].attention).toBe(false)
     expect(groups[2].attention).toBe(1)
     expect(missingDocuments(johnson)).toEqual(['Most recent paystub(s)'])
+
     // The board: missing items sit inside their group; insurance / title read "Waiting" until something arrives.
     const board = documentBoard({
       ...johnson,
@@ -330,6 +375,7 @@ describe('website submissions', () => {
         missing_count: 3
       }
     })
+
     expect(board.map(g => [g.label, g.documents.length, g.missing, g.waiting])).toEqual([
       ['Application', 1, [], false],
       ['Income', 1, ['Most recent paystub'], false],
@@ -344,9 +390,11 @@ describe('website submissions', () => {
         readiness: { missing: [{ item: 'Updated paystub', owner: 'borrower' }], missing_count: 1 }
       })
     ).toEqual(['Updated paystub'])
+
     const visible = JSON.stringify(
       groups.map(g => ({ ...g, documents: g.documents.map(({ path: _path, ...rest }) => rest) }))
     )
+
     expect(visible).not.toContain('doc://')
     expect(visible).not.toContain('private')
     expect(
@@ -381,6 +429,7 @@ describe('website submissions', () => {
       body: 'Hi John',
       needed: 'Updated paystub\nBank statement page 4'
     }
+
     expect(missingDocumentDraft({ ...okafor, drafts: [draft] })?.draft_id).toBe('draft_request')
     expect(borrowerRequestWaiting({ ...okafor, drafts: [{ ...draft, status: 'sent' }] })).toBe(true)
     expect(requestedMissingItems({ ...okafor, drafts: [{ ...draft, status: 'sent' }] })).toEqual([
@@ -444,6 +493,7 @@ describe('electronic signatures (Documenso)', () => {
     const loe = documentGroups(withLoe)
       .flatMap(g => g.documents)
       .find(d => d.id === 'd9')!
+
     const prompt = sendForSignaturePrompt(
       withLoe,
       loe,
@@ -451,6 +501,7 @@ describe('electronic signatures (Documenso)', () => {
       [{ name: 'Ariana Justinvil-Synthetic', email: 'ariana@synthetic.test', role: 'SIGNER' }],
       'Please sign this LOE.'
     )
+
     expect(prompt).toContain('flo_esign_send')
     expect(prompt).toContain('ariana@synthetic.test')
     expect(prompt).toContain('Please sign this LOE.')
@@ -484,6 +535,7 @@ describe('electronic signatures (Documenso)', () => {
       ...withLoe,
       esign_requests: [{ request_id: 'esign_1', document_id: 'd9', status: 'cancelled' }]
     }
+
     expect(activeEsignRequest(ws, 'd9')).toBeNull()
   })
 

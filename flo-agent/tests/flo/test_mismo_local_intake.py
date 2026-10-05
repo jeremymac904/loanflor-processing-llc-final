@@ -49,6 +49,29 @@ def test_missing_mismo_field_stays_missing(tmp_path):
     assert "interest_rate" not in record["loan"]
 
 
+def test_mismo_party_layout_maps_borrower_officer_company_and_subject_address(tmp_path):
+    xml = tmp_path / "party-layout.xml"
+    xml.write_text('''<MESSAGE xmlns:xlink="http://www.w3.org/1999/xlink"><ABOUT_VERSION><DataVersionIdentifier>3.4</DataVersionIdentifier></ABOUT_VERSION>
+      <DEALS><DEAL><LOANS><LOAN id="loan-1"><LOANIDENTIFIER>LOCAL-TEST-1</LOANIDENTIFIER><LOANPURPOSETYPE>Purchase</LOANPURPOSETYPE><CLOSINGDATE>2026-10-28</CLOSINGDATE></LOAN></LOANS>
+      <PARTIES>
+        <PARTY><PARTYROLETYPE>Borrower</PARTYROLETYPE><INDIVIDUAL><NAME><FIRSTNAME>Avery</FIRSTNAME><LASTNAME>River</LASTNAME></NAME></INDIVIDUAL><ROLES><ROLE id="role-borrower"/></ROLES></PARTY>
+        <PARTY><PARTYROLETYPE>LoanOriginator</PARTYROLETYPE><INDIVIDUAL><NAME><FIRSTNAME>Jordan</FIRSTNAME><LASTNAME>Lee</LASTNAME></NAME></INDIVIDUAL></PARTY>
+        <PARTY><PARTYROLETYPE>LoanOriginationCompany</PARTYROLETYPE><LEGALENTITY><NAME><FULLNAME>Harbor Lending</FULLNAME></NAME></LEGALENTITY></PARTY>
+      </PARTIES><COLLATERALS><COLLATERAL><SUBJECTPROPERTY><ADDRESS><ADDRESSLINETEXT>12 Fern Way</ADDRESSLINETEXT><CITYNAME>Springfield</CITYNAME><STATECODE>FL</STATECODE><POSTALCODE>32000</POSTALCODE></ADDRESS></SUBJECTPROPERTY></COLLATERAL></COLLATERALS>
+      <ASSETS><ASSET id="asset-1"><ASSETCASHVALUEAMOUNT>10000</ASSETCASHVALUEAMOUNT></ASSET></ASSETS>
+      <RELATIONSHIPS><RELATIONSHIP xlink:from="#asset-1" xlink:to="#role-borrower"><RELATIONSHIPDETAILTYPE>ASSET_IsAssociatedWith_ROLE</RELATIONSHIPDETAILTYPE></RELATIONSHIP></RELATIONSHIPS>
+      </DEAL></DEALS></MESSAGE>''')
+    record = parse_file(xml)
+    assert record["display_name"] == "Avery River"
+    assert record["borrowers"][0]["borrower_id"] == "role-borrower"
+    assert record["borrowers"][0]["values"]["full_name"] == "Avery River"
+    assert record["loan_officers"][0]["values"]["full_name"] == "Jordan Lee"
+    assert record["origination_companies"][0]["values"]["full_name"] == "Harbor Lending"
+    assert record["properties"][0]["values"]["street"] == "12 Fern Way"
+    assert record["loan"]["closing_date"] == "2026-10-28"
+    assert record["assets"][0]["linked_borrower_ids"] == ["role-borrower"]
+
+
 def test_ambiguous_or_unresolved_liability_relationship_is_flagged(tmp_path):
     xml = tmp_path / "ambiguous.xml"
     xml.write_text('''<MESSAGE><ABOUT_VERSION><DataVersionIdentifier>3.4</DataVersionIdentifier></ABOUT_VERSION>
@@ -89,6 +112,8 @@ def test_local_intake_creates_pipeline_workspace_preserves_xml_and_runs_idempote
     ws = WorkspaceStore(team_root).get(first["workspace_id"])
     assert ws["milestone"] == "Intake"
     assert ws["loan_number"] == "SMITH-TEST-1042"
+    assert ws["display_name"] == "Jamie Smith"
+    assert ws["borrowers"][0]["values"]["full_name"] == "Jamie Smith"
     assert ws["mismo"]["source_sha256"] == first["source_sha256"]
     assert len(documents.DocumentStore(team_root).list(first["workspace_id"])) == 3
     xml_record = next(row for row in documents.DocumentStore(team_root).list(first["workspace_id"]) if row["original_filename"].endswith(".xml"))
@@ -102,6 +127,29 @@ def test_local_intake_creates_pipeline_workspace_preserves_xml_and_runs_idempote
     assert second["duplicate_source"] is True
     assert len(list(WorkspaceStore(team_root).docs.all())) == 1
     assert len(documents.DocumentStore(team_root).list(first["workspace_id"])) == 3
+
+
+def test_metadata_refresh_uses_existing_xml_without_reimporting_documents(tmp_path):
+    from flo_team.local_intake import refresh_existing_workspace_metadata
+
+    source = tmp_path / "Downloads"
+    source.mkdir()
+    xml = source / "Smith_3.4.xml"
+    shutil.copyfile(FIXTURE, xml)
+    team_root = tmp_path / "flo" / "team"
+    result = intake(team_root, xml)
+    workspace_store = WorkspaceStore(team_root)
+    wid = result["workspace_id"]
+    workspace_store.docs.update(wid, lambda doc: doc.update({"display_name": "Downloads", "mismo_summary_refreshed_at": None}))
+    before = len(documents.DocumentStore(team_root).list(wid))
+
+    refreshed = refresh_existing_workspace_metadata(team_root, wid)
+
+    saved = workspace_store.get(wid)
+    assert refreshed["updated"] is True
+    assert saved["display_name"] == "Jamie Smith"
+    assert saved["loan_number"] == "SMITH-TEST-1042"
+    assert len(documents.DocumentStore(team_root).list(wid)) == before
 
 
 def test_local_intake_updates_a_workspace_by_lender_loan_id(tmp_path):

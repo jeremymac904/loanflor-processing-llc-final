@@ -28,6 +28,36 @@ export interface TeamMember {
 export interface WorkspaceRow {
   workspace_id: string
   display_name?: string
+  loan_number?: string | null
+  loan_officer?: Record<string, unknown> | null
+  lender?: string | null
+  origination_company?: string | null
+  account_executive?: string | null
+  closing_date?: string | null
+  mismo_summary_refreshed_at?: string | null
+  property?: Record<string, unknown> | null
+  loan_terms?: Record<string, unknown> | null
+  borrowers?: Array<{
+    role?: string
+    borrower_id?: string | null
+    full_name?: string
+    values?: Record<string, unknown>
+  }>
+  mismo?: {
+    display_name?: string | null
+    loan?: Record<string, unknown>
+    borrowers?: Array<{
+      role?: string
+      borrower_id?: string | null
+      full_name?: string
+      values?: Record<string, unknown>
+    }>
+    properties?: Array<{ kind?: string; values?: Record<string, unknown> }>
+    loan_officers?: Array<{ values?: Record<string, unknown> }>
+    origination_companies?: Array<{ values?: Record<string, unknown> }>
+    lenders?: Array<{ values?: Record<string, unknown> }>
+    account_executives?: Array<{ values?: Record<string, unknown> }>
+  }
   program?: null | string
   agency?: null | string
   milestone?: string

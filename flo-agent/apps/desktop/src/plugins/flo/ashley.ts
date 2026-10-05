@@ -246,7 +246,179 @@ const OPEN_TASK_STATES = new Set(['proposed', 'sent', 'received', 'in_progress']
 const OTHERS = new Set(['borrower', 'lo', 'lender', 'realtor', 'title', 'vendor', 'ae', 'uw', 'underwriter'])
 
 export function fileName(ws: WorkspaceRow): string {
-  return ws.display_name ?? ws.workspace_id
+  return (
+    borrowerName(ws) ??
+    (usableFileLabel(ws.display_name)
+      ? ws.display_name!
+      : loanNumber(ws)
+        ? `Loan ${loanNumber(ws)}`
+        : 'New Customer File')
+  )
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+function textValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : typeof value === 'number' ? String(value) : null
+}
+
+function usableFileLabel(value: unknown): value is string {
+  const label = textValue(value)
+
+  return Boolean(
+    label &&
+    !/[\\/]/.test(label) &&
+    !/\.(?:xml|mismo)$/i.test(label) &&
+    !/^(?:downloads?|desktop|documents|new loan|loan file)$/i.test(label)
+  )
+}
+
+function borrowerRows(ws: WorkspaceRow) {
+  return ws.borrowers?.length ? ws.borrowers : (ws.mismo?.borrowers ?? [])
+}
+
+export function borrowerName(ws: WorkspaceRow): string | null {
+  for (const row of borrowerRows(ws)) {
+    const values = asRecord(row.values)
+    const full = textValue(values.full_name) ?? textValue(row.full_name)
+
+    if (full) {
+      return full
+    }
+    const parts = ['first_name', 'middle_name', 'last_name', 'suffix']
+      .map(key => textValue(values[key]))
+      .filter(Boolean)
+
+    if (parts.length) {
+      return parts.join(' ')
+    }
+  }
+
+  return null
+}
+
+function workspaceProperty(ws: WorkspaceRow): Record<string, unknown> {
+  const current = asRecord(ws.property)
+
+  if (Object.keys(current).length) {
+    return current
+  }
+  const subject = ws.mismo?.properties?.find(row => row.kind === 'subject')
+
+  return asRecord(subject?.values)
+}
+
+export function propertyAddress(ws: WorkspaceRow): string | null {
+  const property = workspaceProperty(ws)
+
+  const line = ['street', 'address_line', 'street_address', 'address_line_text']
+    .map(key => textValue(property[key]))
+    .find(Boolean)
+
+  const locality = [textValue(property.city), textValue(property.state), textValue(property.postal_code)].filter(
+    Boolean
+  )
+  const address = [line, locality.join(', ')].filter(Boolean).join(' · ')
+
+  return address || null
+}
+
+function loanNumber(ws: WorkspaceRow): string | null {
+  return (
+    textValue(ws.loan_number) ?? textValue(ws.loan_terms?.lender_loan_id) ?? textValue(ws.mismo?.loan?.lender_loan_id)
+  )
+}
+
+function personName(value: unknown): string | null {
+  const record = asRecord(value)
+  const direct = textValue(record.name) ?? textValue(record.full_name)
+
+  if (direct) {
+    return direct
+  }
+  const values = ['first_name', 'middle_name', 'last_name', 'suffix'].map(key => textValue(record[key])).filter(Boolean)
+
+  return values.length ? values.join(' ') : null
+}
+
+export interface CustomerFileOverview {
+  borrower: string
+  property: string
+  loanOfficer: string
+  lender: string
+  accountExecutive: string
+  closingDate: string
+  status: string
+  loanNumber: string
+  program: string
+  purpose: string
+  amount: string
+}
+
+export function customerFileOverview(ws: FileRecord): CustomerFileOverview {
+  const loan = { ...asRecord(ws.mismo?.loan), ...asRecord(ws.loan_terms) }
+  const officers = ws.mismo?.loan_officers ?? []
+  const officer = asRecord(ws.loan_officer)
+  const parsedOfficer = asRecord(officers[0]?.values)
+  const companies = ws.mismo?.origination_companies ?? []
+  const parsedCompany = asRecord(companies[0]?.values)
+  const lenders = ws.mismo?.lenders ?? []
+  const parsedLender = asRecord(lenders[0]?.values)
+  const executives = ws.mismo?.account_executives ?? []
+  const date =
+    textValue(ws.closing_date) ?? textValue(ws.submission?.expected_closing_date) ?? textValue(loan.closing_date)
+  const amount = textValue(loan.total_loan_amount) ?? textValue(loan.base_loan_amount)
+  const purpose = textValue(loan.loan_purpose) ?? textValue(loan.refinance_type)
+  const program = textValue(ws.program) ?? textValue(loan.loan_program) ?? textValue(loan.loan_type)
+
+  return {
+    borrower: borrowerName(ws) ?? (usableFileLabel(ws.display_name) ? ws.display_name! : 'Not Set'),
+    property: propertyAddress(ws) ?? 'Not Set',
+    loanOfficer:
+      personName(officer) ?? personName(parsedOfficer) ?? textValue(ws.submission?.loan_officer?.name) ?? 'Not Set',
+    lender:
+      textValue(ws.lender) ??
+      personName(parsedLender) ??
+      textValue(parsedCompany.company) ??
+      personName(parsedCompany) ??
+      textValue(officer.company) ??
+      textValue(ws.origination_company) ??
+      'Not Set',
+    accountExecutive: textValue(ws.account_executive) ?? personName(executives[0]?.values) ?? 'Not Set',
+    closingDate: date ? formatClosingDate(date) : 'Not Set',
+    status: textValue(ws.milestone) ?? 'Intake',
+    loanNumber: loanNumber(ws) ?? 'Not Set',
+    program: program ? friendlyValue(program) : 'Not Set',
+    purpose: purpose ? friendlyValue(purpose) : 'Not Set',
+    amount: amount ? formatLoanAmount(amount) : 'Not Set'
+  }
+}
+
+function friendlyValue(value: string): string {
+  return value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function formatClosingDate(value: string): string {
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`)
+
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date)
+}
+
+function formatLoanAmount(value: string): string {
+  const amount = Number(value)
+
+  return Number.isFinite(amount)
+    ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
+    : value
 }
 
 function blockerText(b: { text?: string } | string): string {
@@ -326,6 +498,7 @@ export function conditionItem(c: FileCondition): string {
   if (item) {
     return item
   }
+
   const text = (c.text ?? '').trim()
 
   return text.length > 80 ? text.slice(0, 77).trimEnd() + '…' : text
@@ -339,6 +512,7 @@ export function conditionPlainEnglish(c: FileCondition): string {
   if (pe) {
     return pe
   }
+
   const text = (c.text ?? '').trim()
 
   if (!text) {
@@ -439,6 +613,7 @@ export function conditionsByOwner(ws: FileRecord): Array<{ owner: string; items:
     if (!grouped.has(o)) {
       grouped.set(o, [])
     }
+
     grouped.get(o)!.push(c)
   }
 

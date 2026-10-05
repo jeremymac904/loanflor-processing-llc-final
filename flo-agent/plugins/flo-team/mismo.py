@@ -115,6 +115,7 @@ LOAN_FIELDS = {
     "loan_type": ("LOANFEATURETYPE", "LOANTYPE", "GOVERNMENTLOANPROGRAMTYPE"),
     "loan_program": ("LOANPROGRAMTYPE", "LOANPRODUCTTYPE"),
     "application_date": ("APPLICATIONRECEIVEDDATE", "APPLICATIONDATE"),
+    "closing_date": ("CLOSINGDATE", "SETTLEMENTDATE", "ESTIMATEDCLOSINGDATE"),
     "cash_to_borrower": ("CASHOUTAMOUNT", "CASHFROMBORROWERAMOUNT"),
     "cash_from_borrower": ("CASHTOBORROWERAMOUNT", "CASHFROMBORROWER"),
     "total_payoffs": ("TOTALPAYOFFAMOUNT", "PAYOFFAMOUNT"),
@@ -131,7 +132,7 @@ BORROWER_FIELDS = {
     "monthly_income": ("CURRENTINCOMEITEMMONTHLYAMOUNT", "BASEMONTHLYINCOMEAMOUNT", "TOTALMONTHLYINCOMEAMOUNT"),
 }
 PROPERTY_FIELDS = {
-    "street": ("STREETADDRESS", "ADDRESSLINE"), "city": ("CITYNAME",), "state": ("STATECODE",),
+    "street": ("STREETADDRESS", "ADDRESSLINETEXT", "ADDRESSLINE"), "city": ("CITYNAME",), "state": ("STATECODE",),
     "postal_code": ("POSTALCODE",), "county": ("COUNTYNAME",), "property_type": ("PROPERTYTYPE", "PROPERTYDESCRIPTORTYPE"),
     "units": ("FINANCEDUNITSCOUNT", "UNITSTOTALCOUNT"), "year_built": ("STRUCTUREBUILTYEAR", "YEARBUILT"),
     "occupancy": ("PROPERTYUSAGETYPE",), "ownership_type": ("ESTATETYPE",), "estimated_value": ("PROPERTYESTIMATEDVALUE",),
@@ -160,6 +161,61 @@ def parse_file(path: str | Path) -> dict[str, Any]:
     loan = _record(loan_node, LOAN_FIELDS, parents, numeric={"base_loan_amount", "total_loan_amount", "purchase_price", "estimated_property_value", "interest_rate", "term_months", "cash_to_borrower", "cash_from_borrower", "total_payoffs", "lender_credits"})
 
     borrowers = []
+    loan_officers = []
+    origination_companies = []
+    lenders = []
+    account_executives = []
+
+    # MISMO 3.4 commonly puts the borrower's identity under DEAL/PARTIES/PARTY
+    # and connects that person to ROLE entities. The older flat BORROWER
+    # extraction below is retained for exports that serialize identity there.
+    # ROLE ids matter: assets and liabilities often reference ROLE rather than
+    # a BORROWER node, so preserve that explicit entity id for relationship
+    # resolution instead of associating records by list order.
+    for party in _elements(root, "PARTY"):
+        party_role = _value(party, "PARTYROLETYPE") or ""
+        role_key = re.sub(r"[^a-z]", "", party_role.casefold())
+        values = _record(
+            party,
+            {
+                "first_name": ("FIRSTNAME",), "middle_name": ("MIDDLENAME",), "last_name": ("LASTNAME",),
+                "suffix": ("NAMESUFFIX",), "full_name": ("FULLNAME",), "street": ("STREETADDRESS", "ADDRESSLINETEXT", "ADDRESSLINE"),
+                "city": ("CITYNAME",), "state": ("STATECODE",), "postal_code": ("POSTALCODE",),
+                "email": ("CONTACTPOINTEMAILVALUE",), "phone": ("CONTACTPOINTTELEPHONEVALUE",),
+                "marital_status": ("MARITALSTATUSTYPE",), "citizenship": ("CITIZENSHIPRESIDENCYTYPE", "RESIDENCYTYPE"),
+                "dependents": ("DEPENDENTCOUNT", "DEPENDENTSCOUNT"), "employer": ("EMPLOYERNAME",),
+                "employment_status": ("EMPLOYMENTSTATUSTYPE",),
+                "monthly_income": ("CURRENTINCOMEITEMMONTHLYAMOUNT", "BASEMONTHLYINCOMEAMOUNT", "TOTALMONTHLYINCOMEAMOUNT"),
+                "company": ("LEGALENTITYNAME", "COMPANYNAME"),
+            },
+            parents,
+            numeric={"dependents", "monthly_income"},
+        )
+        vals = values["values"]
+        if not vals.get("full_name"):
+            name = " ".join(str(vals.get(key)) for key in ("first_name", "middle_name", "last_name", "suffix") if vals.get(key))
+            if name:
+                vals["full_name"] = name
+        party_roles = _elements(party, "ROLE")
+        role_id = next((_node_id(node) for node in party_roles if _node_id(node)), None)
+        if role_key == "borrower" and (vals.get("full_name") or any(k in vals for k in ("first_name", "last_name"))):
+            borrowers.append({
+                **values, "borrower_id": role_id or _node_id(party), "references": _references(party), "role": "borrower"
+            })
+        elif role_key in {"loanoriginator", "loanofficer"}:
+            if vals.get("full_name"):
+                loan_officers.append({**values, "role": party_role})
+        elif role_key in {"loanoriginationcompany", "loancompany"}:
+            if vals.get("full_name") or vals.get("company"):
+                origination_companies.append({**values, "role": party_role})
+        elif role_key in {"lender", "investor"}:
+            if vals.get("full_name") or vals.get("company"):
+                lenders.append({**values, "role": party_role})
+        elif role_key in {"accountexecutive", "ae"}:
+            if vals.get("full_name"):
+                account_executives.append({**values, "role": party_role})
+
+    flat_borrowers = []
     for index, node in enumerate(_elements(root, "BORROWER")):
         # Ignore references that contain no borrower facts.
         item = _record(node, BORROWER_FIELDS, parents, numeric={"dependents", "monthly_income"})
@@ -172,7 +228,9 @@ def parse_file(path: str | Path) -> dict[str, Any]:
         name = " ".join(str(vals.get(k)) for k in ("first_name", "middle_name", "last_name", "suffix") if vals.get(k))
         if name:
             vals["full_name"] = name
-        borrowers.append(item)
+        flat_borrowers.append(item)
+    if not borrowers:
+        borrowers = flat_borrowers
 
     properties = []
     for node in _elements(root, "SUBJECT_PROPERTY", "REO_PROPERTY", "PROPERTY"):
@@ -214,6 +272,8 @@ def parse_file(path: str | Path) -> dict[str, Any]:
         item = _record(node, {"name": ("FULLNAME", "NAME"), "company": ("LEGALENTITYNAME", "COMPANYNAME"), "nmls_id": ("INDIVIDUALNMLSID", "NMLSID"), "company_nmls_id": ("LEGALENTITYNMLSID", "COMPANYNMLSID"), "email": ("CONTACTPOINTEMAILVALUE",), "phone": ("CONTACTPOINTTELEPHONEVALUE",)}, parents)
         if item["values"]:
             officers.append(item)
+    if not loan_officers:
+        loan_officers = officers
 
     relation_nodes = _elements(root, "RELATIONSHIP")
     relationships = []
@@ -276,7 +336,9 @@ def parse_file(path: str | Path) -> dict[str, Any]:
         "format": "MISMO 3.4", "source_file": source.name,
         "loan": loan["values"], "loan_provenance": loan["provenance"],
         "borrowers": borrowers, "properties": properties, "assets": assets, "liabilities": liabilities,
-        "loan_officers": officers, "relationships": relationships,
-        "display_name": (borrower_name.split()[-1] if borrower_name else None),
+        "loan_officers": loan_officers, "origination_companies": origination_companies,
+        "lenders": lenders, "account_executives": account_executives,
+        "relationships": relationships,
+        "display_name": borrower_name,
         "needs_review": disagreements,
     }

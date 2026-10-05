@@ -12,6 +12,8 @@ import json
 import importlib.util
 import sys
 import types
+import re
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -327,6 +329,30 @@ def _upload_documents(args: dict[str, Any]) -> dict[str, Any]:
     return {"action": "upload-documents", "message": summary, "documents": results, "prep": prep}
 
 
+def _file_details(args: dict[str, Any]) -> dict[str, Any]:
+    wid = str(args.get("workspace_id") or "").strip()
+    _workspace(wid)
+    account_executive = " ".join(str(args.get("account_executive") or "").split())[:120]
+    closing_date = str(args.get("closing_date") or "").strip()
+    if closing_date:
+        try:
+            date.fromisoformat(closing_date)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Closing date must be a valid date.") from exc
+    if re.search(r"\b\d{3}-?\d{2}-?\d{4}\b|\b\d{8,}\b", account_executive):
+        raise HTTPException(status_code=400, detail="Enter an Account Executive name, not an account or identity number.")
+
+    def update(doc: dict[str, Any]) -> None:
+        doc["account_executive"] = account_executive or None
+        doc["closing_date"] = closing_date or None
+
+    WorkspaceStore(tools._root()).docs.update(wid, update)
+    WorkspaceStore(tools._root())._activity(wid, "flo", "workspace.summary_details_updated", {
+        "account_executive_set": bool(account_executive), "closing_date_set": bool(closing_date)
+    })
+    return {"action": "file-details", "message": "Customer File details saved.", "workspace_id": wid}
+
+
 @router.post("/actions/{action}")
 async def run_action(action: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     args = dict(body or {})
@@ -343,6 +369,12 @@ async def run_action(action: str, body: dict[str, Any] | None = None) -> dict[st
             return _esign_prepare(args)
         if action == "upload-documents":
             return _upload_documents(args)
+        if action == "file-details":
+            return _file_details(args)
+        if action == "refresh-mismo":
+            from hermes_plugins.flo_team import local_intake as local_intake_mod
+
+            return {"action": "refresh-mismo", **local_intake_mod.refresh_existing_workspace_metadata(tools._root(), str(args.get("workspace_id") or ""))}
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001 - keep the desktop action boundary visible

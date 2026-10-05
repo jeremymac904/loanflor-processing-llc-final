@@ -13,13 +13,14 @@
  * pattern.
  */
 
-import { Button, cn, host, Loader, useValue } from '@hermes/plugin-sdk'
+import { Button, host, Loader, useValue } from '@hermes/plugin-sdk'
 import { type DragEvent as ReactDragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type FloActionResult, runFloAction } from './actions-api'
 import {
   activeEsignRequest,
   askFloPrompt,
+  borrowerName,
   borrowerRequestPrompt,
   borrowerRequestWaiting,
   conditionItem,
@@ -29,6 +30,7 @@ import {
   conditionStatusTone,
   confirmCtcPrompt,
   ctcReadiness,
+  customerFileOverview,
   dismissCtcPrompt,
   documentBoard,
   documentsReceived,
@@ -41,6 +43,7 @@ import {
   esignCancelPrompt,
   esignReminderPrompt,
   type EsignRequest,
+  fileName,
   type FileRecord,
   fileSummary,
   groupedOwnerCount,
@@ -70,6 +73,7 @@ import { type TeamState, useTeamState } from './state'
 import { Fact, Pill } from './ui'
 
 export const PIPELINE_ROUTE = '/pipeline'
+const workspaceSummaryRefreshInFlight = new Set<string>()
 
 /** `?file=<id>` from the hash route, kept in sync with navigation. */
 function useFileParam(): [null | string, (id: null | string) => void] {
@@ -999,8 +1003,40 @@ function FilePanel({
 }) {
   const { ask, background, busy } = useAsk(state)
   const summary = fileSummary(ws, state.approvals, state.tasks)
+  const overview = customerFileOverview(ws)
   const [actionBusy, setActionBusy] = useState<null | string>(null)
   const [actionResult, setActionResult] = useState<FloActionResult | null>(null)
+  const [detailsEditing, setDetailsEditing] = useState(false)
+  const [accountExecutive, setAccountExecutive] = useState(ws.account_executive ?? '')
+  const [closingDate, setClosingDate] = useState(ws.closing_date ?? '')
+  const hasMismoRecord = Boolean(ws.mismo)
+  const hasBorrowerIdentity = Boolean(borrowerName(ws))
+
+  useEffect(() => {
+    if (
+      !hasMismoRecord ||
+      ws.mismo_summary_refreshed_at ||
+      hasBorrowerIdentity ||
+      workspaceSummaryRefreshInFlight.has(ws.workspace_id)
+    ) {
+      return
+    }
+
+    workspaceSummaryRefreshInFlight.add(ws.workspace_id)
+    void runFloAction('refresh-mismo', { workspace_id: ws.workspace_id })
+      .then(result => {
+        if (result.updated) {
+          reload()
+        }
+      })
+      .catch(error => {
+        setActionResult({
+          action: 'refresh-mismo',
+          message: error instanceof Error ? error.message : 'Flo could not refresh the saved loan summary.'
+        })
+      })
+      .finally(() => workspaceSummaryRefreshInFlight.delete(ws.workspace_id))
+  }, [hasBorrowerIdentity, hasMismoRecord, reload, ws.mismo_summary_refreshed_at, ws.workspace_id])
 
   const hints = teamHints(
     state.activity.filter(a => a.workspace_id === ws.workspace_id),
@@ -1017,7 +1053,7 @@ function FilePanel({
   const isCtcConfirmed = (ws: FileRecord) => ws.milestone === 'Clear to Close' && Boolean(ws.ctc_confirmed_at)
 
   const ctcCelebrate = (ws: FileRecord) => {
-    const name = ws.display_name ?? ws.workspace_id ?? 'this file'
+    const name = fileName(ws)
 
     return `${name} is CTC. Boom. 💚`
   }
@@ -1190,7 +1226,7 @@ function FilePanel({
 
   return (
     <div
-      className="flo-surface relative flex flex-col gap-4 border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-4"
+      className="flo-surface relative flex flex-col gap-4 border border-(--ui-stroke-tertiary) bg-(--ui-bg-editor) p-5"
       data-file-workspace={ws.workspace_id}
       data-testid="file-panel"
       {...dropHandlers}
@@ -1204,43 +1240,103 @@ function FilePanel({
           Drop documents to attach to {summary.name}
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="flo-display m-0 text-xl">{summary.name}</h2>
-        {summary.readiness === 'New submission' ? <Pill tone="warn">NEW LOAN</Pill> : null}
-        <Pill tone={STATUS_TONE[summary.status]}>{summary.status}</Pill>
-        <Pill>{summary.milestone}</Pill>
-        <button className="ml-auto text-xs text-(--ui-text-tertiary) hover:underline" onClick={onClose} type="button">
-          Back to pipeline
-        </button>
-      </div>
+      <section aria-label="Loan summary" className="flex flex-col gap-4" data-testid="customer-file-summary">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="flo-display m-0 text-2xl">{overview.borrower}</h2>
+            <p className="m-0 mt-1 text-sm text-(--ui-text-secondary)">{overview.property}</p>
+          </div>
+          <button className="ml-auto text-xs text-(--ui-text-tertiary) hover:underline" onClick={onClose} type="button">
+            Back to pipeline
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone={STATUS_TONE[summary.status]}>{overview.status}</Pill>
+          <span className="text-sm font-semibold text-(--ui-text-primary)">Loan #{overview.loanNumber}</span>
+          {summary.readiness === 'New submission' ? <Pill tone="warn">NEW LOAN</Pill> : null}
+        </div>
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3" data-testid="loan-identity-facts">
+          <Fact label="Loan Officer" value={overview.loanOfficer} />
+          <Fact label="Lender / Company" value={overview.lender} />
+          <Fact label="AE" value={overview.accountExecutive} />
+          <Fact label="Closing Date" value={overview.closingDate} />
+          <Fact label="Program" value={overview.program} />
+          <Fact label="Purpose" value={overview.purpose} />
+          <Fact label="Loan Amount" value={overview.amount} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => setDetailsEditing(value => !value)} size="xs" variant="secondary">
+            {detailsEditing ? 'Cancel edit' : 'Edit AE / closing date'}
+          </Button>
+          {detailsEditing ? (
+            <div
+              className="grid w-full grid-cols-1 gap-3 rounded-md border border-(--ui-stroke-tertiary) bg-(--ui-bg-card) p-3 sm:grid-cols-3"
+              data-testid="file-detail-editor"
+            >
+              <label className="flex flex-col gap-1 text-xs text-(--ui-text-secondary)">
+                AE
+                <input
+                  aria-label="Account Executive"
+                  className="rounded border border-(--ui-stroke-tertiary) bg-(--ui-bg-input) px-2 py-1.5 text-sm text-(--ui-text-primary)"
+                  onChange={event => setAccountExecutive(event.target.value)}
+                  value={accountExecutive}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-(--ui-text-secondary)">
+                Closing Date
+                <input
+                  aria-label="Closing Date"
+                  className="rounded border border-(--ui-stroke-tertiary) bg-(--ui-bg-input) px-2 py-1.5 text-sm text-(--ui-text-primary)"
+                  onChange={event => setClosingDate(event.target.value)}
+                  type="date"
+                  value={closingDate.slice(0, 10)}
+                />
+              </label>
+              <div className="flex items-end">
+                <Button
+                  disabled={isBusy}
+                  onClick={() =>
+                    void runDeterministic('file-details', 'file-details', {
+                      account_executive: accountExecutive,
+                      closing_date: closingDate
+                    }).then(() => setDetailsEditing(false))
+                  }
+                  size="xs"
+                >
+                  Save details
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
-      {ws.submission ? (
-        <p className="m-0 text-xs text-(--ui-text-secondary)">
-          Submitted by {ws.submission.loan_officer?.name ?? 'the loan officer'}
-          {ws.submission.loan_officer?.company ? ` (${ws.submission.loan_officer.company})` : ''} from the website
-          {ws.submission.expected_closing_date ? ` · expected close ${ws.submission.expected_closing_date}` : ''}
-        </p>
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Fact label="Readiness" value={summary.readiness} />
-        <Fact
-          label="AUS"
-          value={
-            <span className="flex items-center gap-1">
-              {summary.aus}
-              {summary.aus !== 'Not checked yet' ? (
-                <WhyButton busy={isBusy} label="What does this mean?" onClick={() => why(summary.aus, 'aus')} />
-              ) : null}
-            </span>
-          }
-        />
-        <Fact label="Income" tone={summary.income === 'Needs work' ? 'warn' : undefined} value={summary.income} />
-        <Fact label="Assets" tone={summary.assets === 'Needs work' ? 'warn' : undefined} value={summary.assets} />
-        <Fact label="Orders" value={summary.orders} />
-        <Fact label="Conditions" value={summary.conditions} />
-        <Fact label="CTC" value={ctcAll.summary} />
-      </div>
+      <section
+        aria-label="Processing snapshot"
+        className="flex flex-col gap-3 border-t border-(--ui-stroke-tertiary) pt-3"
+        data-testid="processing-snapshot"
+      >
+        <h3 className="m-0 text-sm font-semibold">Processing Snapshot</h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Fact label="Readiness" value={summary.readiness} />
+          <Fact
+            label="AUS"
+            value={
+              <span className="flex items-center gap-1">
+                {summary.aus}
+                {summary.aus !== 'Not checked yet' ? (
+                  <WhyButton busy={isBusy} label="What does this mean?" onClick={() => why(summary.aus, 'aus')} />
+                ) : null}
+              </span>
+            }
+          />
+          <Fact label="Income" tone={summary.income === 'Needs work' ? 'warn' : undefined} value={summary.income} />
+          <Fact label="Assets" tone={summary.assets === 'Needs work' ? 'warn' : undefined} value={summary.assets} />
+          <Fact label="Orders" value={summary.orders} />
+          <Fact label="Conditions" value={summary.conditions} />
+          <Fact label="CTC" value={ctcAll.summary} />
+        </div>
+      </section>
 
       {isCtcConfirmed(ws) ? (
         <div
@@ -1555,14 +1651,20 @@ export function PipelinePage() {
   const [selected, setSelected] = useFileParam()
 
   const rows = useMemo(
-    () => (state ? state.workspaces.map(w => fileSummary(w as FileRecord, state.approvals, state.tasks)) : []),
+    () =>
+      state
+        ? state.workspaces.map(w => ({
+            summary: fileSummary(w as FileRecord, state.approvals, state.tasks),
+            overview: customerFileOverview(w as FileRecord)
+          }))
+        : [],
     [state]
   )
 
   const ws = state?.workspaces.find(w => w.workspace_id === selected) as FileRecord | undefined
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 py-8">
       <header className="flex items-center gap-3">
         <h1 className="flo-display m-0 text-2xl">Pipeline</h1>
         <span className="text-xs text-(--ui-text-tertiary)">
@@ -1570,7 +1672,9 @@ export function PipelinePage() {
         </span>
       </header>
       {!state ? <Loader /> : null}
-      {state && ws ? <FilePanel onClose={() => setSelected(null)} reload={reload} state={state} ws={ws} /> : null}
+      {state && ws ? (
+        <FilePanel key={ws.workspace_id} onClose={() => setSelected(null)} reload={reload} state={state} ws={ws} />
+      ) : null}
       {state && !ws ? (
         rows.length === 0 ? (
           <p className="m-0 text-sm text-(--ui-text-secondary)">
@@ -1578,34 +1682,36 @@ export function PipelinePage() {
           </p>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {rows.map(r => (
+            {rows.map(({ summary: r, overview }) => (
               <li key={r.workspaceId}>
                 <button
-                  className="flo-surface flex w-full flex-col gap-1 border border-(--ui-stroke-tertiary) bg-(--ui-bg-secondary) p-3 text-left transition-colors hover:bg-(--chrome-action-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-accent)"
+                  className="flo-surface flex w-full flex-col gap-2 border border-(--ui-stroke-tertiary) bg-(--ui-bg-editor) p-4 text-left transition-colors hover:bg-(--ui-bg-elevated) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-accent)"
                   onClick={() => setSelected(r.workspaceId)}
                   type="button"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{r.name}</span>
+                  <div className="flex flex-wrap items-start gap-3">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-semibold text-(--ui-text-primary)">
+                        {overview.borrower}
+                      </span>
+                      <span className="mt-0.5 block text-sm text-(--ui-text-secondary)">{overview.property}</span>
+                    </span>
                     {r.readiness === 'New submission' ? <Pill tone="warn">NEW LOAN</Pill> : null}
-                    <Pill tone={STATUS_TONE[r.status]}>{r.status}</Pill>
-                    <span className="text-xs text-(--ui-text-secondary)">{r.milestone}</span>
-                    <span className="text-xs text-(--ui-text-secondary)">· {r.readiness}</span>
-                    {r.documents > 0 ? (
-                      <span className="text-xs text-(--ui-text-secondary)">
-                        · {r.documents} {r.documents === 1 ? 'document' : 'documents'}
-                      </span>
-                    ) : null}
-                    {r.missing.length > 0 ? (
-                      <span className="text-xs text-(--ui-text-secondary)">
-                        · Missing: {r.missing.length} {r.missing.length === 1 ? 'item' : 'items'}
-                      </span>
-                    ) : null}
+                    <Pill tone={STATUS_TONE[r.status]}>{overview.status}</Pill>
                   </div>
-                  <span className="text-xs text-(--ui-text-secondary)">Next: {r.nextMove}</span>
-                  <span className={cn('text-xs', r.risk ? 'text-destructive' : 'text-(--ui-text-tertiary)')}>
-                    Risk: {r.risk ?? 'None'}
-                  </span>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-(--ui-text-secondary) sm:grid-cols-4">
+                    <span>Loan Officer · {overview.loanOfficer}</span>
+                    <span>Lender · {overview.lender}</span>
+                    <span>Closing · {overview.closingDate}</span>
+                    <span>Loan #{overview.loanNumber}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-(--ui-stroke-tertiary) pt-2 text-xs">
+                    <span className="font-medium text-(--ui-text-primary)">Next: {r.nextMove}</span>
+                    <span className="text-(--ui-text-tertiary)">
+                      {overview.program} · {overview.amount}
+                    </span>
+                    <span className="ml-auto text-(--ui-text-tertiary)">Readiness: {r.readiness}</span>
+                  </div>
                 </button>
               </li>
             ))}

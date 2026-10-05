@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
+import asyncio
 import sys
 from pathlib import Path
 
+import pytest
 
 def test_flo_api_import_bootstraps_lifecycle_namespace(monkeypatch):
     plugin_root = Path(__file__).resolve().parents[2] / "plugins" / "flo-team"
@@ -26,4 +28,36 @@ def test_flo_api_import_bootstraps_lifecycle_namespace(monkeypatch):
 
     assert any(route.path == "/intake/local" and "POST" in route.methods for route in module.router.routes)
     assert any(route.path == "/intake/bind-session" and "POST" in route.methods for route in module.router.routes)
+    assert any(route.path == "/actions/{action}" and "POST" in route.methods for route in module.router.routes)
     assert "hermes_plugins.flo_team" in sys.modules
+
+
+def test_file_detail_action_updates_only_owner_editable_summary_fields(monkeypatch, tmp_path):
+    plugin_root = Path(__file__).resolve().parents[2] / "plugins" / "flo-team"
+    api_file = plugin_root / "dashboard" / "plugin_api.py"
+    module_name = "hermes_dashboard_plugin_flo_summary_test"
+    spec = importlib.util.spec_from_file_location(module_name, api_file)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, module)
+    spec.loader.exec_module(module)
+    team_root = tmp_path / "team"
+    workspace = module.WorkspaceStore(team_root).create(display_name="River")
+    monkeypatch.setattr(module.tools, "_root", lambda: team_root)
+
+    result = asyncio.run(module.run_action("file-details", {
+        "workspace_id": workspace["workspace_id"],
+        "account_executive": "Jordan Lee",
+        "closing_date": "2026-10-28",
+    }))
+
+    saved = module.WorkspaceStore(team_root).get(workspace["workspace_id"])
+    assert result["action"] == "file-details"
+    assert saved["account_executive"] == "Jordan Lee"
+    assert saved["closing_date"] == "2026-10-28"
+    assert saved["milestone"] == "Intake"
+    with pytest.raises(Exception) as invalid_date:
+        asyncio.run(module.run_action("file-details", {
+            "workspace_id": workspace["workspace_id"], "closing_date": "not-a-date"
+        }))
+    assert invalid_date.value.status_code == 400

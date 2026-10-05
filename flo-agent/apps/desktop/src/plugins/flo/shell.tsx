@@ -10,6 +10,7 @@ import { routeSessionId, sessionRoute } from '@/app/routes'
 import { PIPELINE_ROUTE } from './pipeline'
 import { APPROVALS_ROUTE } from './approvals'
 import floBadge from './flo-badge.png'
+import { customerFileOverview, fileName, type FileRecord } from './ashley'
 import { useTeamState } from './state'
 
 const TODAY_ROUTE = '/flo'
@@ -32,7 +33,10 @@ function dateLabel(timestamp: number): string {
 function LeafIcon({ className = '' }: { className?: string }) {
   return (
     <svg aria-hidden className={className} viewBox="0 0 24 24">
-      <path d="M19.7 3.4C12.6 3.8 7.3 6.5 5.1 11.2c-1.4 3-.8 6.4 1.2 8.2 2.3-5.9 6-9.2 11-11.3-4.1 2.9-7 6.4-8.7 10.6 2.6.5 5.4-.5 7.1-2.7 2.7-3.4 3.6-7.8 4-12.6Z" fill="currentColor" />
+      <path
+        d="M19.7 3.4C12.6 3.8 7.3 6.5 5.1 11.2c-1.4 3-.8 6.4 1.2 8.2 2.3-5.9 6-9.2 11-11.3-4.1 2.9-7 6.4-8.7 10.6 2.6.5 5.4-.5 7.1-2.7 2.7-3.4 3.6-7.8 4-12.6Z"
+        fill="currentColor"
+      />
     </svg>
   )
 }
@@ -80,7 +84,8 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
     return [...rows].sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))[0] ?? null
   }, [location.search, state?.workspaces])
 
-  const currentFileRecord = currentFile as (typeof currentFile & { loan_number?: string | null }) | null
+  const currentFileRecord = currentFile as FileRecord | null
+  const currentFileOverview = currentFileRecord ? customerFileOverview(currentFileRecord) : null
 
   return (
     <div className="flo-ashley-shell" data-flo-shell="">
@@ -98,7 +103,10 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
 
           <nav className="flo-primary-nav">
             {NAV.map(item => {
-              const active = item.path === '/' ? location.pathname === '/' || routeSessionId(location.pathname) !== null : location.pathname === item.path
+              const active =
+                item.path === '/'
+                  ? location.pathname === '/' || routeSessionId(location.pathname) !== null
+                  : location.pathname === item.path
               return (
                 <button
                   aria-current={active ? 'page' : undefined}
@@ -112,20 +120,32 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
                 </button>
               )
             })}
-            <button onClick={() => document.getElementById('flo-recent-sessions')?.scrollIntoView({ behavior: 'smooth' })} type="button">
+            <button
+              onClick={() => document.getElementById('flo-recent-sessions')?.scrollIntoView({ behavior: 'smooth' })}
+              type="button"
+            >
               <span aria-hidden>◷</span>
               Sessions
             </button>
           </nav>
 
           <section className="flo-current-file" aria-labelledby="flo-current-file-label">
-            <div className="flo-sidebar-label" id="flo-current-file-label">Current File</div>
+            <div className="flo-sidebar-label" id="flo-current-file-label">
+              Current File
+            </div>
             {currentFile ? (
-              <button onClick={() => navigate(`${PIPELINE_ROUTE}?file=${encodeURIComponent(currentFile.workspace_id)}`)} type="button">
+              <button
+                onClick={() => navigate(`${PIPELINE_ROUTE}?file=${encodeURIComponent(currentFile.workspace_id)}`)}
+                type="button"
+              >
                 <LeafIcon className="flo-current-file-leaf" />
                 <span>
-                  <strong>{currentFile.display_name ?? currentFile.workspace_id}</strong>
-                  <small>{currentFileRecord?.loan_number ? `Loan #${currentFileRecord.loan_number}` : currentFile.program ?? currentFile.milestone ?? 'Customer File'}</small>
+                  <strong>{fileName(currentFile)}</strong>
+                  <small>
+                    {currentFileOverview?.loanNumber && currentFileOverview.loanNumber !== 'Not Set'
+                      ? `Loan #${currentFileOverview.loanNumber}`
+                      : `${currentFileOverview?.purpose ?? 'Customer File'} · ${currentFileOverview?.program ?? currentFile.program ?? ''}`}
+                  </small>
                 </span>
                 <b aria-hidden>›</b>
               </button>
@@ -135,14 +155,20 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
           </section>
 
           <section className="flo-recent-sessions" id="flo-recent-sessions" aria-labelledby="flo-recent-label">
-            <div className="flo-sidebar-label" id="flo-recent-label">Recent Sessions</div>
+            <div className="flo-sidebar-label" id="flo-recent-label">
+              Recent Sessions
+            </div>
             <div className="flo-session-list">
-              {recentSessions.length ? recentSessions.map(session => (
-                <button key={session.id} onClick={() => navigate(sessionRoute(session.id))} type="button">
-                  <span>{sessionTitle(session)}</span>
-                  <time>{dateLabel(Math.max(session.last_active, session.started_at))}</time>
-                </button>
-              )) : <p>Your recent Flo chats will appear here.</p>}
+              {recentSessions.length ? (
+                recentSessions.map(session => (
+                  <button key={session.id} onClick={() => navigate(sessionRoute(session.id))} type="button">
+                    <span>{sessionTitle(session)}</span>
+                    <time>{dateLabel(Math.max(session.last_active, session.started_at))}</time>
+                  </button>
+                ))
+              ) : (
+                <p>Your recent Flo chats will appear here.</p>
+              )}
             </div>
           </section>
 
@@ -151,7 +177,9 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
           </button>
         </aside>
 
-        <main className={`flo-main-canvas${isSettingsRoute ? ' flo-main-canvas-settings' : ' flo-main-canvas-background'}`}>
+        <main
+          className={`flo-main-canvas${isSettingsRoute ? ' flo-main-canvas-settings' : ' flo-main-canvas-background'}`}
+        >
           <div className="flo-chat-canvas">{children}</div>
         </main>
       </div>
