@@ -63,6 +63,7 @@ def _ensure_flo_team_package() -> None:
 
 _ensure_flo_team_package()
 from hermes_plugins.flo_team import tools
+from hermes_plugins.flo_team import contacts as contacts_mod
 from hermes_plugins.flo_team.workspace import WorkspaceStore
 
 router = APIRouter()
@@ -353,6 +354,35 @@ def _file_details(args: dict[str, Any]) -> dict[str, Any]:
     return {"action": "file-details", "message": "Customer File details saved.", "workspace_id": wid}
 
 
+def _contacts_get(args: dict[str, Any]) -> dict[str, Any]:
+    wid = str(args.get("workspace_id") or "").strip()
+    _workspace(wid)
+    rows, migrated = contacts_mod.load_workspace_contacts(WorkspaceStore(tools._root()), wid)
+    return {"action": "contacts-get", "workspace_id": wid, "contacts": rows, "seeded": migrated}
+
+
+def _contacts_save(args: dict[str, Any]) -> dict[str, Any]:
+    wid = str(args.get("workspace_id") or "").strip()
+    _workspace(wid)
+    store = WorkspaceStore(tools._root())
+    try:
+        rows = contacts_mod.save_workspace_contacts(store, wid, args.get("contacts"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"action": "contacts-save", "workspace_id": wid, "contacts": rows, "message": "Contacts saved."}
+
+
+def _contacts_resolve(args: dict[str, Any]) -> dict[str, Any]:
+    wid = str(args.get("workspace_id") or "").strip()
+    _workspace(wid)
+    role = str(args.get("role") or "").strip()
+    if not role:
+        raise HTTPException(status_code=400, detail="Choose a contact role to resolve.")
+    rows, _ = contacts_mod.load_workspace_contacts(WorkspaceStore(tools._root()), wid)
+    return {"action": "contacts-resolve", "workspace_id": wid,
+            **contacts_mod.resolve(rows, role, str(args.get("contact_id") or "") or None)}
+
+
 @router.post("/actions/{action}")
 async def run_action(action: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     args = dict(body or {})
@@ -371,6 +401,12 @@ async def run_action(action: str, body: dict[str, Any] | None = None) -> dict[st
             return _upload_documents(args)
         if action == "file-details":
             return _file_details(args)
+        if action == "contacts-get":
+            return _contacts_get(args)
+        if action == "contacts-save":
+            return _contacts_save(args)
+        if action == "contacts-resolve":
+            return _contacts_resolve(args)
         if action == "refresh-mismo":
             from hermes_plugins.flo_team import local_intake as local_intake_mod
 
@@ -417,3 +453,21 @@ async def bind_intake_session(body: dict[str, Any] | None = None) -> dict[str, A
         return local_intake_mod.bind_session(tools._root(), str(args.get("session_id") or ""), str(args.get("workspace_id") or ""))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail="Could not link this chat to the imported Customer File.") from exc
+
+
+@router.post("/context/turn")
+async def customer_file_turn_context(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Resolve this turn's active Customer File and load its latest local state."""
+    args = dict(body or {})
+    try:
+        from hermes_plugins.flo_team.workspace_context import resolve_turn_context
+
+        return resolve_turn_context(
+            tools._root(),
+            session_id=str(args.get("session_id") or "").strip() or None,
+            active_workspace_id=str(args.get("active_workspace_id") or "").strip() or None,
+            force_workspace_id=str(args.get("force_workspace_id") or "").strip() or None,
+            query=str(args.get("query") or "")[:4000],
+        )
+    except Exception as exc:  # noqa: BLE001 - keep the desktop context boundary explicit
+        raise HTTPException(status_code=400, detail=f"Could not load the current Customer File context: {type(exc).__name__}") from exc

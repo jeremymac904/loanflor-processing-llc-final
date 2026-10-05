@@ -1,7 +1,9 @@
 import { Button } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { runFloAction } from './actions-api'
 import type { FileRecord } from './ashley'
+import type { CustomerFileContact } from './data'
 
 type Contact = {
   contactId: string
@@ -21,38 +23,14 @@ type Message = {
   approvedBy?: string
   media?: Array<{ sid: string }>
 }
-const ROLES = [
-  'Borrower',
-  'Co-Borrower',
-  'Loan Officer',
-  'Processor',
-  'Title Contact',
-  'Insurance Contact',
-  'Other',
-  'Ashley'
-]
 const field = 'w-full rounded-md border border-(--ui-stroke-tertiary) bg-(--ui-bg-quaternary) px-3 py-2 text-sm'
 
-function initialContacts(ws: FileRecord) {
-  const rows: Array<{ displayName: string; role: string; mobile: string }> = []
-
-  for (const borrower of ws.submission?.borrowers ?? []) {
-    if (borrower.phone) {
-      rows.push({
-        displayName: borrower.name ?? 'Borrower',
-        role: borrower.role === 'co_borrower' ? 'Co-Borrower' : 'Borrower',
-        mobile: borrower.phone
-      })
-    }
-  }
-
-  const lo = ws.submission?.loan_officer
-
-  if (lo?.phone) {
-    rows.push({ displayName: lo.name ?? 'Loan Officer', role: 'Loan Officer', mobile: lo.phone })
-  }
-
-  return rows
+const ROLE_LABELS: Record<string, string> = {
+  borrower: 'Borrower', co_borrower: 'Co-Borrower', loan_officer: 'Loan Officer',
+  lender: 'Lender', lender_ae: 'Lender Account Executive / AE', buyers_agent: "Buyer's Agent / Realtor",
+  listing_agent: 'Listing Agent / Realtor', title_closing_agent: 'Title / Closing Agent',
+  insurance_agent: 'HOI / Insurance Agent', employer_voe: 'Employer / VOE Contact',
+  appraiser_amc: 'Appraiser / AMC', other: 'Other'
 }
 
 export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title: string, prompt: string) => void }) {
@@ -61,8 +39,6 @@ export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title:
   const [messages, setMessages] = useState<Message[]>([])
   const [recipientId, setRecipientId] = useState('')
   const [body, setBody] = useState('')
-  const [draftContact, setDraftContact] = useState({ displayName: '', role: 'Borrower', mobile: '' })
-  const [showAdd, setShowAdd] = useState(false)
   const [preview, setPreview] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,25 +50,37 @@ export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title:
       return
     }
 
-    const [saved, history] = (await Promise.all([
-      bridge.smsGetContacts(ws.workspace_id).catch(() => []),
-      bridge.smsGetMessages(ws.workspace_id).catch(() => [])
-    ])) as [Contact[], Message[]]
+    const [history, workspaceContacts] = (await Promise.all([
+      bridge.smsGetMessages(ws.workspace_id).catch(() => []),
+      runFloAction<{ action: string; message: string; contacts: CustomerFileContact[] }>('contacts-get', { workspace_id: ws.workspace_id })
+        .then(result => ({ ...result, available: true }))
+        .catch(() => ({ contacts: ws.contacts ?? [], available: true }))
+    ])) as [Message[], { contacts: CustomerFileContact[]; available: boolean }]
 
-    let rows = Array.isArray(saved) ? saved : []
+    // The workspace roster is authoritative. Twilio's local file stores only
+    // message history and SMS-consent state; this projection carries stable
+    // Customer File IDs into that existing delivery/consent implementation.
+    const roster = Array.isArray(workspaceContacts.contacts) ? workspaceContacts.contacts : []
 
-    if (!rows.length) {
-      const seeded = initialContacts(ws)
+    const projected = roster.flatMap(contact => {
+      const mobile = String(contact.mobile || contact.phone || '').trim()
 
-      if (seeded.length) {
-        const result = await bridge
-          .smsSaveContacts({ workspaceId: ws.workspace_id, contacts: seeded })
-          .catch(() => null)
+      if (!mobile) {return []}
+      const label = ROLE_LABELS[contact.role] ?? 'Other'
 
-        if (result?.ok) {
-          rows = result.contacts
-        }
-      }
+      return [{
+        contactId: contact.contact_id,
+        displayName: contact.name || contact.custom_role || label,
+        role: label,
+        mobile,
+      }]
+    })
+
+    let rows: Contact[] = []
+
+    if (workspaceContacts.available) {
+      const result = await bridge.smsSaveContacts({ workspaceId: ws.workspace_id, contacts: projected }).catch(() => null)
+      rows = result?.ok ? result.contacts : []
     }
 
     setContacts(rows)
@@ -102,7 +90,7 @@ export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title:
         ? current
         : (rows.find(row => row.smsConsent !== 'opted_out')?.contactId ?? '')
     )
-  }, [bridge, ws])
+  }, [bridge, ws.contacts, ws.workspace_id])
 
   useEffect(() => {
     void refresh()
@@ -118,39 +106,11 @@ export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title:
   const recipient = useMemo(() => contacts.find(row => row.contactId === recipientId) ?? null, [contacts, recipientId])
   const conversation = useMemo(() => messages.filter(row => row.contactId === recipientId), [messages, recipientId])
 
-  const saveContacts = async (rows: Array<Partial<Contact>>) => {
-    const result = await bridge.smsSaveContacts({ workspaceId: ws.workspace_id, contacts: rows })
-
-    if (!result?.ok) {
-      throw new Error(result?.error ?? 'Contacts could not be saved.')
-    }
-    setContacts(result.contacts)
-
-    return result.contacts as Contact[]
-  }
-
-  const addContact = async () => {
-    setBusy(true)
-    setError(null)
-    setNotice(null)
-
-    try {
-      const rows = await saveContacts([...contacts, draftContact])
-      setRecipientId(rows.at(-1)?.contactId ?? '')
-      setDraftContact({ displayName: '', role: 'Borrower', mobile: '' })
-      setShowAdd(false)
-      setNotice('Contact saved. Confirm the person may be contacted by SMS before sending.')
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Contact could not be saved.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const send = async () => {
     if (!recipient) {
       return
     }
+
     setBusy(true)
     setError(null)
     setNotice(null)
@@ -184,6 +144,7 @@ export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title:
         Text Messages{conversation.length ? ` · ${conversation.length}` : ''}
       </summary>
       <div className="mt-3 flex flex-col gap-3">
+        {!contacts.length ? <p className="m-0 text-xs text-(--ui-text-secondary)">No Customer File contacts with a phone number are set. Add or update them in the Contacts section above.</p> : null}
         {error ? (
           <p className="m-0 rounded border border-destructive p-2 text-sm text-destructive" role="alert">
             {error}
@@ -214,9 +175,6 @@ export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title:
               ))}
             </select>
           </label>
-          <Button onClick={() => setShowAdd(value => !value)} size="xs" variant="secondary">
-            {showAdd ? 'Cancel' : 'Add contact'}
-          </Button>
           <Button
             disabled={busy}
             onClick={async () => {
@@ -231,51 +189,6 @@ export function SmsPanel({ ws, ask }: { ws: FileRecord; ask: (id: string, title:
             Sync messages
           </Button>
         </div>
-        {showAdd ? (
-          <div className="grid gap-2 rounded border border-(--ui-stroke-tertiary) p-3 sm:grid-cols-3">
-            <label className="flex flex-col gap-1 text-xs">
-              <span>Name</span>
-              <input
-                className={field}
-                onChange={event => setDraftContact(value => ({ ...value, displayName: event.target.value }))}
-                value={draftContact.displayName}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span>Role</span>
-              <select
-                className={field}
-                onChange={event => setDraftContact(value => ({ ...value, role: event.target.value }))}
-                value={draftContact.role}
-              >
-                {ROLES.map(role => (
-                  <option key={role}>{role}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span>Mobile number</span>
-              <input
-                className={field}
-                onChange={event => setDraftContact(value => ({ ...value, mobile: event.target.value }))}
-                placeholder="+1 904 555 0100"
-                value={draftContact.mobile}
-              />
-            </label>
-            <p className="m-0 text-xs text-(--ui-text-secondary) sm:col-span-3">
-              Use the complete mobile number. Flo does not guess from partial numbers.
-            </p>
-            <div className="sm:col-span-3">
-              <Button
-                disabled={busy || !draftContact.displayName.trim() || !draftContact.mobile.trim()}
-                onClick={() => void addContact()}
-                size="xs"
-              >
-                Save contact
-              </Button>
-            </div>
-          </div>
-        ) : null}
         {contacts.map(row => (
           <div className="flex flex-wrap items-center gap-2 text-xs" key={row.contactId}>
             <span>

@@ -180,6 +180,24 @@ describe('Customer File identity and loan summary', () => {
   it('never presents a source folder as identity when borrower facts are absent', () => {
     expect(fileSummary({ ...imported, borrowers: [], mismo: undefined }).name).toBe('Loan SYNTHETIC-1042')
   })
+
+  it('uses the persisted Customer File contacts for the visible loan summary', () => {
+    expect(customerFileOverview({
+      ...imported,
+      contacts: [
+        { contact_id: 'b', role: 'borrower', name: 'Avery River' },
+        { contact_id: 'lo', role: 'loan_officer', name: 'Jordan Lee' },
+        { contact_id: 'lender', role: 'lender', company: 'Harbor Lending' },
+        { contact_id: 'ae', role: 'lender_ae', name: 'Casey Owner' }
+      ]
+    })).toMatchObject({
+      borrower: 'Avery River',
+      loanOfficer: 'Jordan Lee',
+      lender: 'Harbor Lending',
+      accountExecutive: 'Casey Owner',
+      status: 'Intake'
+    })
+  })
 })
 
 describe('today', () => {
@@ -482,11 +500,17 @@ describe('electronic signatures (Documenso)', () => {
     expect(eligibleEsignTemplate(paystub)).toBeNull() // wrong category: "This document needs signing setup." in the UI
   })
 
-  it('prefills recipients from the loan but never invents an email', () => {
-    expect(prefillSignRecipients(withLoe)).toEqual([
+  it('prefills signers only from Customer File contacts, never stale submission/chat data', () => {
+    expect(prefillSignRecipients({
+      ...withLoe,
+      contacts: [
+        { contact_id: 'b1', role: 'borrower', name: 'Ariana Justinvil-Synthetic', email: 'ariana@synthetic.test' },
+        { contact_id: 'lo1', role: 'loan_officer', name: 'Jordan Lee', email: 'jordan@example.test' },
+      ],
+    })).toEqual([
       { name: 'Ariana Justinvil-Synthetic', email: 'ariana@synthetic.test', role: 'SIGNER' }
     ])
-    expect(prefillSignRecipients({ ...withLoe, submission: null })).toEqual([])
+    expect(prefillSignRecipients(withLoe)).toEqual([])
   })
 
   it('builds the send prompt with the exact document, recipients and message, routed through flo_esign_send', () => {

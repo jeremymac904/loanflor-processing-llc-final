@@ -17,6 +17,16 @@ export type FloLocalIntakeResult = FloActionResult & {
 
 type Rest = <T>(path: string, opts?: PluginRestOptions) => Promise<T>
 
+export interface FloTurnContext {
+  status: 'resolved' | 'not_found' | 'ambiguous' | 'unavailable'
+  workspace_id?: string
+  display_name?: string
+  bound?: boolean
+  context?: string
+  message?: string
+  candidates?: Array<{ workspace_id: string; display_name: string; loan_number?: string | null; property?: Record<string, unknown> }>
+}
+
 let rest: Rest | null = null
 
 export function bindFloActions(next: Rest): () => void {
@@ -53,6 +63,15 @@ export function runFloLocalIntake(path: string, additionalPaths: string[] = [], 
 }
 
 let pendingWorkspaceBinding: string | null = null
+let activeCustomerFileId: string | null = null
+
+export function setActiveCustomerFile(workspaceId: string | null): void {
+  activeCustomerFileId = workspaceId
+}
+
+export function getActiveCustomerFile(): string | null {
+  return activeCustomerFileId
+}
 
 export function requestPendingWorkspaceBinding(workspaceId: string): void {
   pendingWorkspaceBinding = workspaceId
@@ -61,7 +80,34 @@ export function requestPendingWorkspaceBinding(workspaceId: string): void {
 export function takePendingWorkspaceBinding(): string | null {
   const value = pendingWorkspaceBinding
   pendingWorkspaceBinding = null
+
   return value
+}
+
+export function peekPendingWorkspaceBinding(): string | null {
+  return pendingWorkspaceBinding
+}
+
+export function resolveFloTurnContext(
+  sessionId: string | null,
+  query: string,
+  options: { forceWorkspaceId?: string | null } = {}
+): Promise<FloTurnContext> {
+  if (!rest) {
+    return Promise.reject(new Error('Flo Customer File context is not ready'))
+  }
+
+  const pendingId = options.forceWorkspaceId ?? null
+
+  return rest<FloTurnContext>('/context/turn', {
+    method: 'POST',
+    body: {
+      session_id: sessionId,
+      active_workspace_id: pendingId ?? activeCustomerFileId,
+      force_workspace_id: pendingId,
+      query
+    }
+  })
 }
 
 export function bindFloSession(workspaceId: string, sessionId: string): Promise<unknown> {

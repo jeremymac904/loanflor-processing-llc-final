@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from . import documents
+from . import contacts as contacts_mod
 from .mismo import parse_file
 from .store import now_iso
 from .workspace import WorkspaceStore
@@ -127,6 +128,9 @@ def _persist_parsed_metadata(store: WorkspaceStore, workspace_id: str, parsed: d
 
     def update(doc: dict[str, Any]) -> None:
         doc["mismo"] = parsed
+        doc["contacts"] = contacts_mod.merge_imported(
+            doc.get("contacts") or [], contacts_mod.from_mismo(parsed)
+        )
         doc["borrowers"] = parsed.get("borrowers") or []
         if subject is not None:
             doc["property"] = subject

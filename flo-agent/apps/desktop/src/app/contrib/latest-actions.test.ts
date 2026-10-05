@@ -1,11 +1,17 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { bindFloActions, setActiveCustomerFile } from '@/plugins/flo/actions-api'
+import { $selectedStoredSessionId } from '@/store/session'
 
 import type { SidebarNavItem } from '../types'
-import { bindFloActions } from '@/plugins/flo/actions-api'
-import { $selectedStoredSessionId } from '@/store/session'
 
 import { latestChatActions, latestSidebarActions } from './latest-actions'
 import type { ChatActions, SidebarActions } from './types'
+
+afterEach(() => {
+  setActiveCustomerFile(null)
+  $selectedStoredSessionId.set(null)
+})
 
 function makeChatActions(): ChatActions {
   return {
@@ -124,9 +130,11 @@ describe('latestActions adapters', () => {
 
   it('imports an attached MISMO file locally before sending only a safe acknowledgement to Flo', async () => {
     const rest = vi.fn(async (path: string) => {
-      if (path === '/intake/local') return { workspace_id: 'loan_synthetic', display_name: 'Smith', created: true, document_count: 1, unsupported: [] }
+      if (path === '/intake/local') {return { workspace_id: 'loan_synthetic', display_name: 'Smith', created: true, document_count: 1, unsupported: [] }}
+
       return { workspace_id: 'loan_synthetic', session_id: 'session-synthetic' }
     })
+
     const dispose = bindFloActions(rest as never)
     const actions = makeChatActions()
     actions.onSubmit = vi.fn(async () => true)
@@ -148,5 +156,68 @@ describe('latestActions adapters', () => {
 
     dispose()
     $selectedStoredSessionId.set(null)
+  })
+
+  it('injects freshly resolved active Customer File context before a normal Flo provider turn', async () => {
+    const rest = vi.fn(async (path: string) => {
+      if (path === '/context/turn') {
+        return {
+          status: 'resolved', workspace_id: 'loan-jason-synthetic', display_name: 'Jason Lathrop', bound: true,
+          context: 'CURRENT CUSTOMER FILE DATA: {"contacts":[{"role":"borrower","phone":"555-0101"}],"mismo":{"loan":{"total_loan_amount":185500}},"stored_documents":[{"original_filename":"Jason_3.4.xml"}]}'
+        }
+      }
+
+      return {}
+    })
+
+    const dispose = bindFloActions(rest as never)
+    const actions = makeChatActions()
+    const submit = vi.fn(async (..._args: Parameters<ChatActions['onSubmit']>) => true)
+    actions.onSubmit = submit
+    $selectedStoredSessionId.set('session-jason')
+    setActiveCustomerFile('loan-jason-synthetic')
+
+    const adapted = latestChatActions(actions)
+    await expect(adapted.onSubmit("What's Jason's phone number?", { storedSessionId: 'session-jason' })).resolves.toBe(true)
+
+    expect(rest).toHaveBeenCalledWith('/context/turn', expect.objectContaining({
+      method: 'POST', body: expect.objectContaining({
+        session_id: 'session-jason', active_workspace_id: 'loan-jason-synthetic',
+        query: "What's Jason's phone number?"
+      })
+    }))
+    expect(submit).toHaveBeenCalledWith(expect.stringContaining('"phone":"555-0101"'), {
+      storedSessionId: 'session-jason', displayText: "What's Jason's phone number?"
+    })
+    expect(submit.mock.calls[0][0]).toContain('ASHLEY\'S CURRENT MESSAGE (answer this):')
+    expect(submit.mock.calls[0][0]).toContain('Jason_3.4.xml')
+
+    dispose()
+    setActiveCustomerFile(null)
+    $selectedStoredSessionId.set(null)
+  })
+
+  it('keeps Customer File context independent of the selected model/profile adapter', async () => {
+    const rest = vi.fn(async () => ({
+      status: 'resolved', workspace_id: 'loan-jason-synthetic', display_name: 'Jason Lathrop', bound: true,
+      context: 'CURRENT CUSTOMER FILE DATA: {"contacts":[{"role":"borrower","phone":"555-0101"}]}'
+    }))
+
+    const dispose = bindFloActions(rest as never)
+    const actions = makeChatActions()
+    actions.onSubmit = vi.fn(async () => true)
+    setActiveCustomerFile('loan-jason-synthetic')
+
+    await latestChatActions(actions).onSubmit('Hello Flo')
+
+    expect(rest).toHaveBeenCalledWith('/context/turn', expect.objectContaining({
+      method: 'POST', body: expect.objectContaining({ active_workspace_id: 'loan-jason-synthetic' })
+    }))
+    expect(actions.onSubmit).toHaveBeenCalledWith(expect.stringContaining('"phone":"555-0101"'), {
+      displayText: 'Hello Flo'
+    })
+
+    dispose()
+    setActiveCustomerFile(null)
   })
 })

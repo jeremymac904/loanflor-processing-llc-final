@@ -287,6 +287,7 @@ export function borrowerName(ws: WorkspaceRow): string | null {
     if (full) {
       return full
     }
+
     const parts = ['first_name', 'middle_name', 'last_name', 'suffix']
       .map(key => textValue(values[key]))
       .filter(Boolean)
@@ -305,6 +306,7 @@ function workspaceProperty(ws: WorkspaceRow): Record<string, unknown> {
   if (Object.keys(current).length) {
     return current
   }
+
   const subject = ws.mismo?.properties?.find(row => row.kind === 'subject')
 
   return asRecord(subject?.values)
@@ -320,6 +322,7 @@ export function propertyAddress(ws: WorkspaceRow): string | null {
   const locality = [textValue(property.city), textValue(property.state), textValue(property.postal_code)].filter(
     Boolean
   )
+
   const address = [line, locality.join(', ')].filter(Boolean).join(' · ')
 
   return address || null
@@ -338,6 +341,7 @@ function personName(value: unknown): string | null {
   if (direct) {
     return direct
   }
+
   const values = ['first_name', 'middle_name', 'last_name', 'suffix'].map(key => textValue(record[key])).filter(Boolean)
 
   return values.length ? values.join(' ') : null
@@ -367,26 +371,34 @@ export function customerFileOverview(ws: FileRecord): CustomerFileOverview {
   const lenders = ws.mismo?.lenders ?? []
   const parsedLender = asRecord(lenders[0]?.values)
   const executives = ws.mismo?.account_executives ?? []
+  const fileContacts = ws.contacts ?? []
+  const firstContact = (role: string) => fileContacts.find(contact => contact.role === role && (contact.name || contact.company))
+  const borrowerContact = firstContact('borrower')
+  const officerContact = firstContact('loan_officer')
+  const lenderContact = firstContact('lender')
+  const executiveContact = firstContact('lender_ae')
+
   const date =
     textValue(ws.closing_date) ?? textValue(ws.submission?.expected_closing_date) ?? textValue(loan.closing_date)
+
   const amount = textValue(loan.total_loan_amount) ?? textValue(loan.base_loan_amount)
   const purpose = textValue(loan.loan_purpose) ?? textValue(loan.refinance_type)
   const program = textValue(ws.program) ?? textValue(loan.loan_program) ?? textValue(loan.loan_type)
 
   return {
-    borrower: borrowerName(ws) ?? (usableFileLabel(ws.display_name) ? ws.display_name! : 'Not Set'),
+    borrower: borrowerContact?.name ?? borrowerName(ws) ?? (usableFileLabel(ws.display_name) ? ws.display_name! : 'Not Set'),
     property: propertyAddress(ws) ?? 'Not Set',
     loanOfficer:
-      personName(officer) ?? personName(parsedOfficer) ?? textValue(ws.submission?.loan_officer?.name) ?? 'Not Set',
+      officerContact?.name ?? personName(officer) ?? personName(parsedOfficer) ?? textValue(ws.submission?.loan_officer?.name) ?? 'Not Set',
     lender:
-      textValue(ws.lender) ??
+      lenderContact?.company ?? lenderContact?.name ?? textValue(ws.lender) ??
       personName(parsedLender) ??
       textValue(parsedCompany.company) ??
       personName(parsedCompany) ??
       textValue(officer.company) ??
       textValue(ws.origination_company) ??
       'Not Set',
-    accountExecutive: textValue(ws.account_executive) ?? personName(executives[0]?.values) ?? 'Not Set',
+    accountExecutive: executiveContact?.name ?? textValue(ws.account_executive) ?? personName(executives[0]?.values) ?? 'Not Set',
     closingDate: date ? formatClosingDate(date) : 'Not Set',
     status: textValue(ws.milestone) ?? 'Intake',
     loanNumber: loanNumber(ws) ?? 'Not Set',
@@ -1058,9 +1070,12 @@ export function esignBoard(ws: FileRecord): EsignRequest[] {
   }))
 }
 
-/** Borrower/co-borrower recipients prefilled from the submission — Ashley must still confirm every one. */
+/** Borrower/co-borrower signers come only from this Customer File's Contacts roster. */
 export function prefillSignRecipients(ws: FileRecord): Array<{ name: string; email: string; role: string }> {
-  return (ws.submission?.borrowers ?? []).map(b => ({ name: b.name ?? '', email: b.email ?? '', role: 'SIGNER' }))
+  return (ws.contacts ?? [])
+    .filter(contact => contact.role === 'borrower' || contact.role === 'co_borrower')
+    .filter(contact => Boolean(contact.name?.trim() || contact.email?.trim()))
+    .map(contact => ({ name: contact.name ?? '', email: contact.email ?? '', role: 'SIGNER' }))
 }
 
 export function sendForSignaturePrompt(
@@ -1654,7 +1669,7 @@ export function reviewDraftPrompt(ws: FileRecord, draftId: string): string {
 }
 
 export function sendDraftPrompt(ws: FileRecord, draftId: string): string {
-  return `Send Whisper's borrower missing-document draft ${draftId} for ${fileName(ws)} (Deal Room ${ws.workspace_id}) exactly as written using the approved borrower-message path. This must stop at Ashley's approval before anything is sent. After the approved send succeeds, mark the draft sent with its execution reference and leave the requested items as waiting on the borrower.`
+  return `Send Whisper's borrower missing-document draft ${draftId} for ${fileName(ws)} (Deal Room ${ws.workspace_id}) exactly as written using the approved borrower-message path. Resolve the recipient from this workspace's Contacts (role borrower), never chat history; if missing or ambiguous, ask Ashley to set/choose the contact. This must stop at Ashley's approval before anything is sent. After the approved send succeeds, mark the draft sent with its execution reference and leave the requested items as waiting on the borrower.`
 }
 
 export function editDraftPrompt(ws: FileRecord, draftId: string, body: string): string {
@@ -1686,7 +1701,7 @@ export function borrowerRequestPrompt(ws: FileRecord): string {
     ? ' Some of these look like they need a guideline check; if so, route that part to Sage and tell me what they said before drafting.'
     : ''
 
-  return `Send ONE borrower message for ${fileName(ws)} (Deal Room ${ws.workspace_id}, ${ws.program ?? ''}). The Borrower-owned items are:\n${list}\nHave Whisper put together a single concise message with all of these. Do not create more than one draft; if an active or already-sent borrower request exists for this file, do not create a duplicate. Sending still stops at Ashley's approval. After the approved send, mark each of these items as Waiting on borrower.${flag}`
+  return `Send ONE borrower message for ${fileName(ws)} (Deal Room ${ws.workspace_id}, ${ws.program ?? ''}). The Borrower-owned items are:\n${list}\nHave Whisper put together a single concise message with all of these. Resolve any recipient only from this workspace's Contacts (role borrower), never chat history; if missing or ambiguous, ask Ashley to set/choose the contact. Do not create more than one draft; if an active or already-sent borrower request exists for this file, do not create a duplicate. Sending still stops at Ashley's approval. After the approved send, mark each of these items as Waiting on borrower.${flag}`
 }
 
 /** Same shape, but for Loan Officer-owned items. */
@@ -1694,7 +1709,7 @@ export function loRequestPrompt(ws: FileRecord): string {
   const items = openConditionsByOwner(ws, 'Loan Officer')
   const list = _conditionList(items)
 
-  return `Send ONE concise loan-officer message for ${fileName(ws)} (Deal Room ${ws.workspace_id}) asking for these items:\n${list}\nKeep borrower requests and loan-officer requests separate. Sending stops at Ashley's approval. After the approved send, mark each of these items as Waiting on loan officer.`
+  return `Send ONE concise loan-officer message for ${fileName(ws)} (Deal Room ${ws.workspace_id}) asking for these items:\n${list}\nResolve any recipient only from this workspace's Contacts (role loan_officer), never chat history; if missing or ambiguous, ask Ashley to set/choose the contact. Keep borrower requests and loan-officer requests separate. Sending stops at Ashley's approval. After the approved send, mark each of these items as Waiting on loan officer.`
 }
 
 /** A short plain-English list of one owner's open conditions — used both

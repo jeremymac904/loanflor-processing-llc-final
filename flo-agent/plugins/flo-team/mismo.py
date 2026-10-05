@@ -165,6 +165,7 @@ def parse_file(path: str | Path) -> dict[str, Any]:
     origination_companies = []
     lenders = []
     account_executives = []
+    contacts = []
 
     # MISMO 3.4 commonly puts the borrower's identity under DEAL/PARTIES/PARTY
     # and connects that person to ROLE entities. The older flat BORROWER
@@ -187,6 +188,7 @@ def parse_file(path: str | Path) -> dict[str, Any]:
                 "employment_status": ("EMPLOYMENTSTATUSTYPE",),
                 "monthly_income": ("CURRENTINCOMEITEMMONTHLYAMOUNT", "BASEMONTHLYINCOMEAMOUNT", "TOTALMONTHLYINCOMEAMOUNT"),
                 "company": ("LEGALENTITYNAME", "COMPANYNAME"),
+                "nmls_id": ("INDIVIDUALNMLSID", "NMLSID", "LICENSEID"),
             },
             parents,
             numeric={"dependents", "monthly_income"},
@@ -198,22 +200,35 @@ def parse_file(path: str | Path) -> dict[str, Any]:
                 vals["full_name"] = name
         party_roles = _elements(party, "ROLE")
         role_id = next((_node_id(node) for node in party_roles if _node_id(node)), None)
+        contact_role = {
+            "buyeragent": "buyers_agent", "buyersagent": "buyers_agent",
+            "listingagent": "listing_agent", "selleragent": "listing_agent",
+            "titlecompany": "title_closing_agent", "settlementagent": "title_closing_agent",
+            "closingagent": "title_closing_agent", "hazardinsuranceagent": "insurance_agent",
+            "insuranceagent": "insurance_agent", "employer": "employer_voe",
+            "appraiser": "appraiser_amc", "appraisalmanagementcompany": "appraiser_amc",
+        }.get(role_key)
+        if contact_role and (vals.get("full_name") or vals.get("company") or vals.get("phone") or vals.get("email")):
+            contacts.append({
+                "role": contact_role, "party_id": _node_id(party), "values": vals,
+                "provenance": _path(party, parents), "source_party_role": party_role,
+            })
         if role_key == "borrower" and (vals.get("full_name") or any(k in vals for k in ("first_name", "last_name"))):
             borrowers.append({
                 **values, "borrower_id": role_id or _node_id(party), "references": _references(party), "role": "borrower"
             })
         elif role_key in {"loanoriginator", "loanofficer"}:
             if vals.get("full_name"):
-                loan_officers.append({**values, "role": party_role})
+                loan_officers.append({**values, "role": party_role, "party_id": _node_id(party)})
         elif role_key in {"loanoriginationcompany", "loancompany"}:
             if vals.get("full_name") or vals.get("company"):
-                origination_companies.append({**values, "role": party_role})
+                origination_companies.append({**values, "role": party_role, "party_id": _node_id(party)})
         elif role_key in {"lender", "investor"}:
             if vals.get("full_name") or vals.get("company"):
-                lenders.append({**values, "role": party_role})
+                lenders.append({**values, "role": party_role, "party_id": _node_id(party)})
         elif role_key in {"accountexecutive", "ae"}:
             if vals.get("full_name"):
-                account_executives.append({**values, "role": party_role})
+                account_executives.append({**values, "role": party_role, "party_id": _node_id(party)})
 
     flat_borrowers = []
     for index, node in enumerate(_elements(root, "BORROWER")):
@@ -338,6 +353,7 @@ def parse_file(path: str | Path) -> dict[str, Any]:
         "borrowers": borrowers, "properties": properties, "assets": assets, "liabilities": liabilities,
         "loan_officers": loan_officers, "origination_companies": origination_companies,
         "lenders": lenders, "account_executives": account_executives,
+        "contacts": contacts,
         "relationships": relationships,
         "display_name": borrower_name,
         "needs_review": disagreements,

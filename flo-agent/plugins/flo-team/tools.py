@@ -270,15 +270,17 @@ def handle_flo_handoff(args: dict, **_: Any) -> str:
 
 FLO_WORKSPACE_SCHEMA = {
     "name": "flo_workspace",
-    "description": "Loan Workspace / Deal Room: one structured record per file (milestone, program, AUS, blockers, conditions, orders, refs, tasks, approvals, activity). References only — never SSNs, account numbers or document bodies.",
+    "description": "Loan Workspace / Customer File: one structured record per file, including the authoritative Contacts roster. For any recipient (text/email/LO/title/HOI/WVOE/borrower), resolve from this workspace's Contacts with action=resolve_contact; never use old chat history or guess. If the result is ambiguous, ask Ashley to choose. References only — never SSNs, account numbers or document bodies.",
     "parameters": {"type": "object", "properties": {
-        "action": {"type": "string", "enum": ["create", "get", "list", "update", "add", "invite"]},
+        "action": {"type": "string", "enum": ["create", "get", "list", "update", "add", "invite", "resolve_contact"]},
         "workspace_id": {"type": "string"},
         "display_name": {"type": "string", "description": "borrower last name or file nickname (create)"},
         "fields": {"type": "object", "description": "update: program, agency, aus, milestone, status_summary, next_action"},
         "list": {"type": "string", "enum": ["blockers", "conditions", "document_refs", "communication_refs", "source_refs"]},
         "item": {"type": "object", "description": "add: the item (text, ref, owner, ...)"},
         "agent": {"type": "string", "description": "invite: profile to add to the Deal Room"},
+        "role": {"type": "string", "description": "resolve_contact: borrower, co_borrower, loan_officer, lender, lender_ae, buyers_agent, listing_agent, title_closing_agent, insurance_agent, employer_voe, appraiser_amc, or other"},
+        "contact_id": {"type": "string", "description": "resolve_contact: choose a specific contact when Ashley has identified one"},
     }, "required": ["action"]},
 }
 
@@ -303,6 +305,13 @@ def handle_flo_workspace(args: dict, **_: Any) -> str:
         if action == "get":
             store.check_access(wid, me.name)
             return _result(store.get(wid))
+        if action == "resolve_contact":
+            store.check_access(wid, me.name)
+            from .contacts import load_workspace_contacts, resolve
+
+            rows, _ = load_workspace_contacts(store, wid)
+            return _result(resolve(rows, str(args.get("role") or ""),
+                                   str(args.get("contact_id") or "") or None))
         if action == "update":
             return _result(store.update_fields(wid, me.name, dict(args.get("fields") or {})))
         if action == "add":
@@ -1663,7 +1672,19 @@ def handle_flo_documents(args: dict, **_: Any) -> str:
                     text = Path(rec["text_path"]).read_text(encoding="utf-8")[: int(args.get("max_chars") or 6000)]
                 except OSError:
                     text = ""
-            return _result({**public(rec), "text": text, "text_note": None if text else "no extracted text (image, scan without text layer, or office file)"})
+            result = {**public(rec), "text": text,
+                      "text_note": None if text else "no extracted text (image, scan without text layer, or office file)"}
+            if str(rec.get("original_filename") or "").lower().endswith((".xml", ".mismo")):
+                ws = WorkspaceStore(root).get(wid)
+                parsed = ws.get("mismo") or {}
+                if parsed and (not parsed.get("source_sha256") or parsed.get("source_sha256") == rec.get("sha256")):
+                    # The unchanged original remains in DocumentStore; expose
+                    # the already-persisted deterministic parse and provenance
+                    # instead of reparsing XML or requiring a re-upload.
+                    result["structured_mismo"] = parsed
+                    result["source_available"] = bool(rec.get("local_path"))
+                    result["source_sha256"] = rec.get("sha256")
+            return _result(result)
         if action == "update":
             rec = store.update(wid, did, dict(args.get("fields") or {}), by=me.name)
             ws = WorkspaceStore(root)

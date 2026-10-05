@@ -34,6 +34,7 @@ export interface WorkspaceRow {
   origination_company?: string | null
   account_executive?: string | null
   closing_date?: string | null
+  contacts?: CustomerFileContact[]
   mismo_summary_refreshed_at?: string | null
   property?: Record<string, unknown> | null
   loan_terms?: Record<string, unknown> | null
@@ -71,6 +72,22 @@ export interface WorkspaceRow {
   agent_tasks?: string[]
   approvals?: Array<{ proposal_id: string; agent: string; status: string }>
   activity?: Array<{ timestamp: string; actor: string; event: string }>
+  updated_at?: string
+}
+
+export interface CustomerFileContact {
+  contact_id: string
+  role: string
+  custom_role?: string | null
+  name?: string | null
+  company?: string | null
+  phone?: string | null
+  mobile?: string | null
+  email?: string | null
+  nmls_license_id?: string | null
+  notes?: string | null
+  preferred_communication_method?: string | null
+  source?: { kind?: string; source_file?: string; path?: string } | null
   updated_at?: string
 }
 

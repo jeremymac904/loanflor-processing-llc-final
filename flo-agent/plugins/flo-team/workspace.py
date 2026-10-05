@@ -76,6 +76,7 @@ class WorkspaceStore:
             "document_refs": [],
             "communication_refs": [],
             "source_refs": [],
+            "contacts": [],
             "agent_tasks": [],
             "approvals": [],
             "members": default_members(self.team),
@@ -97,13 +98,24 @@ class WorkspaceStore:
         return doc
 
     def list(self) -> List[Dict[str, Any]]:
-        return [
-            {k: d.get(k) for k in ("workspace_id", "display_name", "program", "agency", "milestone",
-                                    "status_summary", "next_action", "members", "updated_at")}
-            | {"blockers": len(d.get("blockers") or []), "open_orders": len([o for o in d.get("orders") or [] if o.get("state") not in ("reconciled",)]),
-               "readiness_score": (d.get("readiness") or {}).get("score")}
-            for d in self.docs.all()
-        ]
+        rows = []
+        for d in self.docs.all():
+            contacts = d.get("contacts") or []
+            if d.get("mismo") or d.get("submission"):
+                # Keep Pipeline's summary roster current for older workspaces,
+                # even before Ashley opens the full Contacts editor.
+                from .contacts import load_workspace_contacts
+
+                contacts, _ = load_workspace_contacts(self, str(d.get("workspace_id") or ""))
+            rows.append(
+                {k: d.get(k) for k in ("workspace_id", "display_name", "program", "agency", "milestone",
+                                        "status_summary", "next_action", "members", "updated_at")}
+                | {"contacts": contacts,
+                   "blockers": len(d.get("blockers") or []),
+                   "open_orders": len([o for o in d.get("orders") or [] if o.get("state") not in ("reconciled",)]),
+                   "readiness_score": (d.get("readiness") or {}).get("score")}
+            )
+        return rows
 
     # -- access control ---------------------------------------------------
 

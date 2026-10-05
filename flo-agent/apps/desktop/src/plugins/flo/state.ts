@@ -5,7 +5,7 @@
  */
 
 import { host } from '@hermes/plugin-sdk'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import {
   type ActivityRow,
@@ -152,6 +152,7 @@ export async function loadTeamState(): Promise<TeamState> {
 export function useTeamState(intervalMs = 20_000): { state: TeamState | null; reload: () => void } {
   const [state, setState] = useState<TeamState | null>(null)
   const [tick, setTick] = useState(0)
+  const reload = useCallback(() => setTick(t => t + 1), [])
   useEffect(() => {
     let cancelled = false
     void loadTeamState().then(next => {
@@ -167,5 +168,5 @@ export function useTeamState(intervalMs = 20_000): { state: TeamState | null; re
     }
   }, [tick, intervalMs])
 
-  return { state, reload: () => setTick(t => t + 1) }
+  return { state, reload }
 }

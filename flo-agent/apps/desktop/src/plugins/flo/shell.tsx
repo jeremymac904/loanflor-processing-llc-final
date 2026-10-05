@@ -12,6 +12,7 @@ import { APPROVALS_ROUTE } from './approvals'
 import floBadge from './flo-badge.png'
 import { customerFileOverview, fileName, type FileRecord } from './ashley'
 import { useTeamState } from './state'
+import { setActiveCustomerFile } from './actions-api'
 
 const TODAY_ROUTE = '/flo'
 
@@ -83,6 +84,11 @@ export function FloAshleyShell({ children, onOpenSettings }: FloShellProps) {
     if (requested) return rows.find(row => row.workspace_id === requested) ?? null
     return [...rows].sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))[0] ?? null
   }, [location.search, state?.workspaces])
+
+  useEffect(() => {
+    const explicitFileId = new URLSearchParams(location.search).get('file')
+    setActiveCustomerFile(explicitFileId || currentFile?.workspace_id || null)
+  }, [currentFile?.workspace_id, location.search])
 
   const currentFileRecord = currentFile as FileRecord | null
   const currentFileOverview = currentFileRecord ? customerFileOverview(currentFileRecord) : null

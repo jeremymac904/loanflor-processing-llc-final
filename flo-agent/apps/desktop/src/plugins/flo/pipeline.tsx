@@ -68,6 +68,7 @@ import {
   type WhyKind
 } from './ashley'
 import { preferFloProfile, reportStartFailure, runFloInBackground, startFloChat } from './chat'
+import { ContactsPanel } from './contacts-panel'
 import { SmsPanel } from './sms-panel'
 import { type TeamState, useTeamState } from './state'
 import { Fact, Pill } from './ui'
@@ -1541,6 +1542,7 @@ function FilePanel({
         ws={ws}
       />
 
+      <ContactsPanel onSaved={reload} ws={ws} />
       <SmsPanel ask={ask} ws={ws} />
 
       <details>
@@ -1699,9 +1701,10 @@ export function PipelinePage() {
                     {r.readiness === 'New submission' ? <Pill tone="warn">NEW LOAN</Pill> : null}
                     <Pill tone={STATUS_TONE[r.status]}>{overview.status}</Pill>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-(--ui-text-secondary) sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-(--ui-text-secondary) sm:grid-cols-5">
                     <span>Loan Officer · {overview.loanOfficer}</span>
                     <span>Lender · {overview.lender}</span>
+                    <span>Lender AE · {overview.accountExecutive}</span>
                     <span>Closing · {overview.closingDate}</span>
                     <span>Loan #{overview.loanNumber}</span>
                   </div>
