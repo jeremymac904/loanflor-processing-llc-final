@@ -52,7 +52,11 @@ if (-not (Test-Path -LiteralPath (Join-Path $SourceDir 'Flo.exe'))) {
 # A present executable is not enough: release\win-unpacked can be left behind
 # by an older build. Refuse to deploy unless its embedded source stamp exactly
 # matches the clean, fetched canonical source that npm run deploy:win packed.
-$repoRoot = (Resolve-Path -LiteralPath (Join-Path $ScriptDir '..\..\..')).Path
+$repoRoot = (& git -C $ScriptDir rev-parse --show-toplevel 2>$null)
+if ($LASTEXITCODE -ne 0 -or -not $repoRoot) {
+  throw "[deploy-windows] could not resolve the Git repository root from '$ScriptDir'."
+}
+$repoRoot = (Resolve-Path -LiteralPath $repoRoot.Trim()).Path
 $stampGuard = Join-Path $ScriptDir 'assert-deploy-stamp.mjs'
 & node $stampGuard --source-dir $SourceDir --repo-root $repoRoot
 if ($LASTEXITCODE -ne 0) {
