@@ -2,7 +2,7 @@
   "name": "hermes",
   "productName": "Flo",
   "private": true,
-  "version": "0.18.1",
+  "version": "0.18.2",
   "description": "Native desktop shell for Flo Agent, a downstream distribution built on Hermes Agent.",
   "author": "LoanFlow Processing LLC",
   "repository": {

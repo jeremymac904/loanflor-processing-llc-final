@@ -4,7 +4,7 @@
 
 - Repository: https://github.com/jeremymac904/loanflor-processing-llc-final
 - Canonical branch: `flo/codex-polish`
-- Desktop version line: `0.18.0` (release is not published by this change)
+- Desktop version line: `0.18.2` (update smoke release; production acceptance still requires a real Windows update and Jeremy's Mac voice test)
 - The source checkout must be clean and at the intended canonical commit before packaging. The exact current SHA is the Git HEAD shown by `git rev-parse HEAD` and Settings → About in a package. Build provenance is embedded at `resources/install-stamp.json` and includes commit, branch, build time, dirty state, version, platform, and architecture.
 
 ## Build and test
