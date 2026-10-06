@@ -1,0 +1,48 @@
+name: Flo macOS Build Check
+
+on:
+  push:
+    branches: [flo/codex-polish]
+    paths:
+      - "flo-agent/apps/desktop/**"
+      - "flo-agent/plugins/flo-team/**"
+      - "flo-agent/package.json"
+      - "flo-agent/package-lock.json"
+      - ".github/workflows/macos-build-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flo-macos-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-arm64:
+    runs-on: macos-15
+    env:
+      BUILD_BRANCH: flo/codex-polish
+    defaults:
+      run:
+        working-directory: flo-agent
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+          cache-dependency-path: flo-agent/package-lock.json
+      - run: npm ci
+      - name: Build local-test DMG and updater ZIP from the clean clone
+        run: npm run dist:mac --workspace apps/desktop
+      - name: Verify build provenance and updater metadata
+        run: |
+          node -e "const fs=require('fs'); const p='apps/desktop/build/install-stamp.json'; const s=JSON.parse(fs.readFileSync(p,'utf8')); if (s.commit !== process.env.GITHUB_SHA || s.branch !== 'flo/codex-polish' || s.dirty || s.platform !== 'darwin' || s.arch !== 'arm64') process.exit(1)"
+          test -f apps/desktop/release/latest-mac.yml
+          test -n "$(find apps/desktop/release -maxdepth 1 -name 'Flo-*-mac-arm64.dmg' -print -quit)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flo-macos-arm64-local-test
+          path: flo-agent/apps/desktop/release/*
+          if-no-files-found: error
