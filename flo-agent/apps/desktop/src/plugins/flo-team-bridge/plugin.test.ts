@@ -11,7 +11,12 @@ describe('Flo local workflow API bridge', () => {
     const rest = vi.fn().mockResolvedValue({ action: 'prep', message: 'Malcolm completed.' })
     let dispose: (() => void) | undefined
 
-    plugin.register({ rest, onDispose: handler => { dispose = handler } } as never)
+    plugin.register({
+      rest,
+      onDispose: (handler: () => void) => {
+        dispose = handler
+      }
+    } as never)
     await runFloAction('prep', { workspace_id: 'smith-test' })
 
     expect(rest).toHaveBeenCalledWith('/actions/prep', {

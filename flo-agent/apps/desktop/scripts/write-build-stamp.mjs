@@ -26,7 +26,7 @@
  * commit as unpinned and follows the branch instead of fetching a fake SHA.
  */
 
-import { mkdirSync, writeFileSync } from "fs"
+import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { resolve, join, relative } from "path"
 import { execSync } from "child_process"
 
@@ -54,7 +54,7 @@ function tryExec(cmd, opts) {
 export function fromCI(env = process.env) {
   const sha = env.GITHUB_SHA
   if (!sha) return null
-  const branch = env.GITHUB_REF_NAME || env.GITHUB_HEAD_REF || null
+  const branch = env.BUILD_BRANCH || env.GITHUB_REF_NAME || env.GITHUB_HEAD_REF || null
   return {
     commit: sha,
     branch: branch,
@@ -114,6 +114,24 @@ export function isFallbackCommit(commit) {
   return typeof commit === "string" && /^0{7,40}$/.test(commit)
 }
 
+export function createBuildStamp(
+  stamp,
+  { builtAt = new Date().toISOString(), platform = process.platform, arch = process.arch, version } = {}
+) {
+  const appVersion = version || JSON.parse(readFileSync(join(DESKTOP_ROOT, "package.json"), "utf8")).version
+  return {
+    schemaVersion: STAMP_SCHEMA_VERSION,
+    commit: stamp.commit,
+    branch: stamp.branch,
+    builtAt,
+    dirty: stamp.dirty,
+    source: stamp.source,
+    platform,
+    arch,
+    version: appVersion
+  }
+}
+
 function main() {
   const stamp = resolveStamp()
   if (!stamp || !stamp.commit) {
@@ -149,14 +167,7 @@ function main() {
     )
   }
 
-  const payload = {
-    schemaVersion: STAMP_SCHEMA_VERSION,
-    commit: stamp.commit,
-    branch: stamp.branch,
-    builtAt: new Date().toISOString(),
-    dirty: stamp.dirty,
-    source: stamp.source
-  }
+  const payload = createBuildStamp(stamp)
 
   mkdirSync(OUT_DIR, { recursive: true })
   writeFileSync(OUT_FILE, JSON.stringify(payload, null, 2) + "\n", "utf8")

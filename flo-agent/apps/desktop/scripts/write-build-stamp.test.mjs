@@ -4,6 +4,7 @@ import { test } from 'vitest'
 import {
   FALLBACK_BRANCH,
   FALLBACK_COMMIT,
+  createBuildStamp,
   fromCI,
   fromFallback,
   fromLocalGit,
@@ -12,10 +13,12 @@ import {
 } from './write-build-stamp.mjs'
 
 test('fromCI reads GITHUB_SHA / GITHUB_REF_NAME', () => {
-  assert.deepEqual(
-    fromCI({ GITHUB_SHA: 'a'.repeat(40), GITHUB_REF_NAME: 'release' }),
-    { commit: 'a'.repeat(40), branch: 'release', dirty: false, source: 'ci' }
-  )
+  assert.deepEqual(fromCI({ GITHUB_SHA: 'a'.repeat(40), GITHUB_REF_NAME: 'release' }), {
+    commit: 'a'.repeat(40),
+    branch: 'release',
+    dirty: false,
+    source: 'ci'
+  })
   assert.equal(fromCI({}), null)
 })
 
@@ -26,7 +29,7 @@ test('fromLocalGit returns null when git rev-parse fails', () => {
 
 test('fromLocalGit reads HEAD + branch + dirty status', () => {
   const calls = []
-  const execFn = (cmd) => {
+  const execFn = cmd => {
     calls.push(cmd)
     if (cmd === 'git rev-parse HEAD') return 'b'.repeat(40)
     if (cmd === 'git rev-parse --abbrev-ref HEAD') return 'main'
@@ -63,7 +66,7 @@ test('resolveStamp prefers CI over local git over fallback', () => {
 
   const local = resolveStamp({
     env: {},
-    execFn: (cmd) => {
+    execFn: cmd => {
       if (cmd === 'git rev-parse HEAD') return 'd'.repeat(40)
       if (cmd === 'git rev-parse --abbrev-ref HEAD') return 'main'
       if (cmd === 'git status --porcelain -uno') return ''
@@ -83,4 +86,24 @@ test('resolveStamp falls back when neither CI nor git is available', () => {
     dirty: false,
     source: 'fallback'
   })
+})
+
+test('build stamp includes reproducible release provenance fields', () => {
+  assert.deepEqual(
+    createBuildStamp(
+      { commit: 'e'.repeat(40), branch: 'flo/codex-polish', dirty: false, source: 'ci' },
+      { builtAt: '2026-10-06T12:00:00.000Z', platform: 'win32', arch: 'x64', version: '0.18.0' }
+    ),
+    {
+      schemaVersion: 1,
+      commit: 'e'.repeat(40),
+      branch: 'flo/codex-polish',
+      builtAt: '2026-10-06T12:00:00.000Z',
+      dirty: false,
+      source: 'ci',
+      platform: 'win32',
+      arch: 'x64',
+      version: '0.18.0'
+    }
+  )
 })

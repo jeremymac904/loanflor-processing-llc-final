@@ -2,12 +2,12 @@
   "name": "hermes",
   "productName": "Flo",
   "private": true,
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Native desktop shell for Flo Agent, a downstream distribution built on Hermes Agent.",
   "author": "LoanFlow Processing LLC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NousResearch/hermes-agent.git"
+    "url": "git+https://github.com/jeremymac904/loanflor-processing-llc-final.git"
   },
   "type": "module",
   "main": "dist/electron-main.mjs",
@@ -124,6 +124,7 @@
     "dnd-core": "14.0.1",
     "dompurify": "3.4.13",
     "driver.js": "1.8.0",
+    "electron-updater": "6.8.9",
     "emojibase-data": "16.0.3",
     "fflate": "0.8.3",
     "frimousse": "0.3.0",
@@ -209,6 +210,14 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "jeremymac904",
+        "repo": "loanflor-processing-llc-final",
+        "releaseType": "release"
+      }
+    ],
     "files": [
       "dist/**",
       "assets/**",
@@ -226,7 +235,11 @@
       {
         "from": "../../plugins/flo-team",
         "to": "flo-team-plugin",
-        "filter": ["**/*", "!**/__pycache__/**", "!**/*.pyc"]
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
       },
       {
         "from": "assets/icon.ico",

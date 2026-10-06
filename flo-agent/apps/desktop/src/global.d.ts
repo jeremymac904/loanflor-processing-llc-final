@@ -491,6 +491,13 @@ declare global {
       cancelBootstrap: () => Promise<{ ok: boolean; cancelled: boolean }>
       onBootstrapEvent: (callback: (payload: DesktopBootstrapEvent) => void) => () => void
       getVersion: () => Promise<DesktopVersionInfo>
+      appUpdate: {
+        state: () => Promise<FloAppUpdateState>
+        check: () => Promise<FloAppUpdateState>
+        download: () => Promise<FloAppUpdateState>
+        install: () => Promise<{ ok: boolean }>
+        onState: (callback: (state: FloAppUpdateState) => void) => () => void
+      }
       getRemoteDisplayReason?: () => Promise<string | null>
       updates: {
         check: () => Promise<DesktopUpdateStatus>
@@ -565,12 +572,29 @@ export interface DesktopVersionInfo {
   electronVersion: string
   nodeVersion: string
   platform: string
+  build?: null | {
+    commit: string
+    branch: string | null
+    builtAt: string | null
+    dirty: boolean
+    platform: string | null
+    arch: string | null
+    version: string | null
+  }
   hermesRoot: string
   /** True when the running renderer bundle predates desktop changes in the
    *  installed source tree (runtime updated, app binary not rebuilt/swapped). */
   bundleOutOfSync?: boolean
   /** Commits under apps/desktop/ the running bundle is missing (null unknown). */
   bundleCommitsBehind?: null | number
+}
+
+export interface FloAppUpdateState {
+  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
+  version?: string
+  releaseNotes?: string
+  percent?: number
+  message?: string
 }
 
 export type DesktopUninstallMode = 'full' | 'gui' | 'lite'

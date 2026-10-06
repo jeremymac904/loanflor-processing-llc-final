@@ -29,6 +29,7 @@ import {
   shell,
   systemPreferences
 } from 'electron'
+import { autoUpdater } from 'electron-updater'
 
 import { FLO_BRAND } from '../flo/brand'
 import { floUpdateGate } from '../flo/release-channel'
@@ -729,6 +730,9 @@ function loadInstallStamp() {
           builtAt: parsed.builtAt || null,
           dirty: Boolean(parsed.dirty),
           source: parsed.source || null,
+          platform: parsed.platform || null,
+          arch: parsed.arch || null,
+          version: parsed.version || null,
           path: p
         })
       }
@@ -16639,7 +16643,6 @@ ipcMain.handle(
   }
 )
 
-
 ipcMain.handle('hermes:flo:connection-status', async () => {
   const env = process.env
   const ss = safeStorageApi()
@@ -17975,10 +17978,105 @@ ipcMain.handle('hermes:version', async () => {
     electronVersion: process.versions.electron,
     nodeVersion: process.versions.node,
     platform: process.platform,
+    build: INSTALL_STAMP
+      ? {
+          commit: INSTALL_STAMP.commit,
+          branch: INSTALL_STAMP.branch,
+          builtAt: INSTALL_STAMP.builtAt,
+          dirty: INSTALL_STAMP.dirty,
+          platform: INSTALL_STAMP.platform,
+          arch: INSTALL_STAMP.arch,
+          version: INSTALL_STAMP.version
+        }
+      : null,
     hermesRoot: resolveUpdateRoot(),
     bundleOutOfSync: skew.outOfSync,
     bundleCommitsBehind: skew.desktopCommitsBehind
   }
+})
+
+type FloAppUpdateState = {
+  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
+  version?: string
+  releaseNotes?: string
+  percent?: number
+  message?: string
+}
+
+let floAppUpdateState: FloAppUpdateState = { status: 'idle' }
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = false
+autoUpdater.allowPrerelease = false
+
+function publishFloAppUpdateState(next: FloAppUpdateState) {
+  floAppUpdateState = next
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('flo:app-update:state', next)
+  }
+}
+
+autoUpdater.on('checking-for-update', () => publishFloAppUpdateState({ status: 'checking' }))
+autoUpdater.on('update-available', info => {
+  publishFloAppUpdateState({
+    status: 'available',
+    version: info.version,
+    releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
+  })
+  if (Notification.isSupported()) {
+    new Notification({
+      title: 'A Flo update is ready 🌿',
+      body: 'Open Settings → About to review it and choose when to install.'
+    }).show()
+  }
+})
+autoUpdater.on('update-not-available', info =>
+  publishFloAppUpdateState({ status: 'not-available', version: info.version })
+)
+autoUpdater.on('download-progress', progress =>
+  publishFloAppUpdateState({ status: 'downloading', percent: Math.round(progress.percent) })
+)
+autoUpdater.on('update-downloaded', info =>
+  publishFloAppUpdateState({
+    status: 'downloaded',
+    version: info.version,
+    releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
+  })
+)
+autoUpdater.on('error', error => {
+  rememberLog(`[app-updater] ${error.message}`)
+  publishFloAppUpdateState({ status: 'error', message: 'Update could not be checked or downloaded.' })
+})
+
+ipcMain.handle('flo:app-update:state', () => floAppUpdateState)
+ipcMain.handle('flo:app-update:check', async () => {
+  if (!app.isPackaged) return { status: 'error', message: 'Updates are available in packaged Flo.' }
+  if (process.platform !== 'win32' && process.platform !== 'darwin') {
+    return { status: 'error', message: 'Updates are not supported on this platform.' }
+  }
+  if (floAppUpdateState.status === 'checking' || floAppUpdateState.status === 'downloading') {
+    return floAppUpdateState
+  }
+  try {
+    publishFloAppUpdateState({ status: 'checking' })
+    await autoUpdater.checkForUpdates()
+  } catch {
+    publishFloAppUpdateState({ status: 'error', message: 'Update could not be checked. Flo is still ready to work.' })
+  }
+  return floAppUpdateState
+})
+ipcMain.handle('flo:app-update:download', async () => {
+  if (floAppUpdateState.status !== 'available') return floAppUpdateState
+  try {
+    await autoUpdater.downloadUpdate()
+  } catch {
+    publishFloAppUpdateState({ status: 'error', message: 'Update could not be installed. Flo is still ready to work.' })
+  }
+  return floAppUpdateState
+})
+ipcMain.handle('flo:app-update:install', () => {
+  if (floAppUpdateState.status !== 'downloaded') return { ok: false }
+  autoUpdater.quitAndInstall(false, true)
+  return { ok: true }
 })
 
 // ===========================================================================
@@ -18447,6 +18545,13 @@ app.whenReady().then(() => {
   // captured by the original transaction before removing the journal entry.
   void resumeManagedSshRecoveries()
   createWindow()
+  if (app.isPackaged && (process.platform === 'win32' || process.platform === 'darwin')) {
+    setTimeout(() => {
+      void autoUpdater.checkForUpdates().catch(() => {
+        // Update checks are opportunistic and must never hold Flo startup open.
+      })
+    }, 15_000)
+  }
 
   // Win/Linux cold start: the launching hermes:// URL is in our own argv.
   const _coldStartLink = _extractDeepLink(process.argv)

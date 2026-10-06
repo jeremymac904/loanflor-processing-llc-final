@@ -7,6 +7,7 @@ import { Codicon } from '@/components/ui/codicon'
 import { type Translations, useI18n } from '@/i18n'
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import type { FloAppUpdateState } from '@/global'
 import {
   $desktopVersion,
   $updateApply,
@@ -54,6 +55,7 @@ export function AboutSettings() {
   const apply = useStore($updateApply)
   const checking = useStore($updateChecking)
   const [justChecked, setJustChecked] = useState(false)
+  const [appUpdate, setAppUpdate] = useState<FloAppUpdateState>({ status: 'idle' })
 
   // The version atom is loaded once at app boot, which makes About show a
   // stale number after a self-update (the running binary is current, the
@@ -61,6 +63,8 @@ export function AboutSettings() {
   // reflects the running build.
   useEffect(() => {
     void refreshDesktopVersion()
+    void window.hermesDesktop?.appUpdate?.state().then(setAppUpdate)
+    return window.hermesDesktop?.appUpdate?.onState(setAppUpdate)
   }, [])
 
   const behind = status?.behind ?? 0
@@ -75,6 +79,8 @@ export function AboutSettings() {
     const next = await checkUpdates()
     setJustChecked(Boolean(next))
   }
+
+  const checkFloAppUpdate = async () => setAppUpdate(await window.hermesDesktop.appUpdate.check())
 
   let statusLine: string
   let statusTone: 'idle' | 'available' | 'error' = 'idle'
@@ -135,6 +141,70 @@ export function AboutSettings() {
       </div>
 
       <div className="mx-auto mt-4 w-full max-w-2xl">
+        <SectionHeading icon={RefreshCw} title="Flo app updates" />
+        <div className="rounded-xl border border-border/70 bg-background/90 px-4 py-3 text-sm shadow-sm">
+          <div className="font-medium">
+            {appUpdate.status === 'checking' && 'Checking for updates…'}
+            {appUpdate.status === 'available' && `Flo ${appUpdate.version} is ready to download 🌿`}
+            {appUpdate.status === 'downloading' && `Downloading Flo update… ${appUpdate.percent ?? 0}%`}
+            {appUpdate.status === 'downloaded' && `Flo ${appUpdate.version} is ready to install.`}
+            {appUpdate.status === 'not-available' && "You're up to date."}
+            {appUpdate.status === 'error' &&
+              (appUpdate.message ?? "Update couldn't be checked. Flo is still ready to work.")}
+            {appUpdate.status === 'idle' && 'Check for the latest Flo app version.'}
+          </div>
+          {version?.build && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {version.build.version ?? version.appVersion} · {version.build.commit.slice(0, 12)} ·{' '}
+              {version.build.platform ?? version.platform}/{version.build.arch ?? 'unknown'}
+              {version.build.dirty ? ' · local changes' : ''}
+            </p>
+          )}
+          {appUpdate.status === 'error' && appUpdate.message && (
+            <p className="mt-1 text-xs text-muted-foreground">Flo is still ready to work.</p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              disabled={appUpdate.status === 'checking' || appUpdate.status === 'downloading'}
+              onClick={() => void checkFloAppUpdate()}
+              size="sm"
+              variant="textStrong"
+            >
+              {appUpdate.status === 'checking' ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3" />
+              )}
+              Check for Updates
+            </Button>
+            {appUpdate.status === 'available' && (
+              <Button onClick={() => void window.hermesDesktop.appUpdate.download().then(setAppUpdate)} size="sm">
+                Update Now
+              </Button>
+            )}
+            {appUpdate.status === 'downloaded' && (
+              <Button onClick={() => void window.hermesDesktop.appUpdate.install()} size="sm">
+                Install & Restart
+              </Button>
+            )}
+            <Button asChild size="sm" variant="text">
+              <a
+                href="https://github.com/jeremymac904/loanflor-processing-llc-final/releases"
+                onClick={event => {
+                  event.preventDefault()
+                  void window.hermesDesktop?.openExternal?.(
+                    'https://github.com/jeremymac904/loanflor-processing-llc-final/releases'
+                  )
+                }}
+                rel="noreferrer"
+                target="_blank"
+              >
+                What's New
+              </a>
+            </Button>
+          </div>
+        </div>
+
         <SectionHeading icon={RefreshCw} title={a.updates} />
 
         <div

@@ -1,0 +1,121 @@
+name: Release Flo Desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flo-desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    env:
+      BUILD_BRANCH: flo/codex-polish
+    defaults:
+      run:
+        working-directory: flo-agent
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+          cache-dependency-path: flo-agent/package-lock.json
+      - name: Verify release commit is on canonical branch
+        shell: pwsh
+        run: |
+          git fetch origin flo/codex-polish
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/flo/codex-polish
+          if ($LASTEXITCODE -ne 0) { throw 'Release tag commit is not contained in flo/codex-polish.' }
+          $version = (Get-Content apps/desktop/package.json | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw "Tag $env:GITHUB_REF_NAME does not match Flo version v$version." }
+      - run: npm ci
+      - name: Build Windows x64 NSIS updater package
+        run: npm run dist:win:nsis --workspace apps/desktop
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem apps/desktop/release -File | ForEach-Object {
+            $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Out-File -Append -Encoding ascii apps/desktop/release/SHA256SUMS-windows-x64.txt
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flo-windows-x64
+          path: flo-agent/apps/desktop/release/*
+          if-no-files-found: error
+
+  macos-arm64:
+    runs-on: macos-15
+    env:
+      BUILD_BRANCH: flo/codex-polish
+      CSC_LINK: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+      CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_P8 }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+    defaults:
+      run:
+        working-directory: flo-agent
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+          cache-dependency-path: flo-agent/package-lock.json
+      - name: Verify release commit is on canonical branch
+        run: |
+          git fetch origin flo/codex-polish
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/flo/codex-polish
+          version=$(node -p "require('./apps/desktop/package.json').version")
+          test "$GITHUB_REF_NAME" = "v$version"
+      - name: Require signed and notarized Mac release credentials
+        run: |
+          test -n "$CSC_LINK" && test -n "$CSC_KEY_PASSWORD"
+          test -n "$APPLE_API_KEY" && test -n "$APPLE_API_KEY_ID" && test -n "$APPLE_API_ISSUER"
+      - run: npm ci
+      - name: Build macOS arm64 DMG and updater ZIP
+        run: npm run dist:mac --workspace apps/desktop
+      - name: Checksums
+        run: cd apps/desktop/release && shasum -a 256 Flo-* > SHA256SUMS-macos-arm64.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flo-macos-arm64
+          path: flo-agent/apps/desktop/release/*
+          if-no-files-found: error
+
+  publish:
+    needs: [windows, macos-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub Release with updater metadata and checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ contains(github.ref_name, '-') }}
+        run: |
+          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -print | sort)
+          notes="release-notes/$TAG.md"
+          test -f "$notes" || { echo "Missing Ashley-friendly release notes: $notes"; exit 1; }
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          elif [ "$PRERELEASE" = "true" ]; then
+            gh release create "$TAG" "${assets[@]}" --title "Flo $TAG" --notes-file "$notes" --prerelease
+          else
+            gh release create "$TAG" "${assets[@]}" --title "Flo $TAG" --notes-file "$notes"
+          fi

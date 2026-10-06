@@ -516,6 +516,17 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
     return () => ipcRenderer.removeListener('hermes:bootstrap:event', listener)
   },
   getVersion: () => ipcRenderer.invoke('hermes:version'),
+  appUpdate: {
+    state: () => ipcRenderer.invoke('flo:app-update:state'),
+    check: () => ipcRenderer.invoke('flo:app-update:check'),
+    download: () => ipcRenderer.invoke('flo:app-update:download'),
+    install: () => ipcRenderer.invoke('flo:app-update:install'),
+    onState: callback => {
+      const listener = (_event, payload) => callback(payload)
+      ipcRenderer.on('flo:app-update:state', listener)
+      return () => ipcRenderer.removeListener('flo:app-update:state', listener)
+    }
+  },
   getRemoteDisplayReason: () => ipcRenderer.invoke('hermes:get-remote-display-reason'),
   uninstall: {
     summary: () => ipcRenderer.invoke('hermes:uninstall:summary'),
