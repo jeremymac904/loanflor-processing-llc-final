@@ -4,7 +4,7 @@
 
 - Repository: https://github.com/jeremymac904/loanflor-processing-llc-final
 - Canonical branch: `flo/codex-polish`
-- Desktop version line: `0.18.2` (update smoke release; production acceptance still requires a real Windows update and Jeremy's Mac voice test)
+- Desktop version line: `0.18.3` (Windows post-update launch fix; the real 0.18.2 → 0.18.3 in-app update acceptance must still be completed before calling Windows updater closeout PASS)
 - The source checkout must be clean and at the intended canonical commit before packaging. The exact current SHA is the Git HEAD shown by `git rev-parse HEAD` and Settings → About in a package. Build provenance is embedded at `resources/install-stamp.json` and includes commit, branch, build time, dirty state, version, platform, and architecture.
 
 ## Build and test
@@ -17,6 +17,8 @@ For local Mac testing, the app uses the current macOS account's own data at `~/L
 
 The packaged app uses electron-updater with the public GitHub Releases feed for this repository. No update server or embedded GitHub token is used. Create a semantic-version tag from a commit already contained in `flo/codex-polish`; `.github/workflows/release-desktop.yml` builds Windows x64 NSIS and macOS arm64 DMG/ZIP, creates SHA256 manifests, and publishes updater metadata with the GitHub Release. NSIS is the Windows auto-update format. Update behavior must be acceptance-tested on Windows before calling a release production-ready.
 
+Windows NSIS post-update launch is pinned by `apps/desktop/scripts/updater-installer.nsh`: after installing, the hook refreshes Flo's package-owned Start Menu/Desktop links and points the installer Finish action directly at `$appExe`, avoiding a retained stale Start Menu `.lnk`. The focused regression is `apps/desktop/scripts/app-update-config.test.mjs`. The 0.18.3 NSIS package compiled successfully locally with this hook; automatic relaunch from Ashley's in-app 0.18.2 update remains an acceptance requirement, not yet a claimed pass.
+
 The About page exposes the build stamp and a manual update check. The updater downloads only after Ashley chooses Update Now, and installs/restarts only after the download completes. If GitHub is unreachable, the existing app remains running. Public releases are required for anonymous update discovery; a private repository would require a separately designed authenticated distribution path, not a shipped PAT.
 
 ## Mac distribution boundary
@@ -28,7 +30,7 @@ Windows builds are currently unsigned unless a signing certificate is configured
 ## Secrets, data, and services
 
 - Borrower documents, Customer Files, chats, contacts, reactions, preferences, and local signing settings stay in OS-specific user data, not GitHub.
-- Provider, Gmail, and Twilio credentials stay in local secure storage/configuration; never commit them or add them to build artifacts.
+- Provider, Gmail, and Twilio credentials stay in local secure storage/configuration; never commit them or add them to build artifacts. On Ashley's current Windows data, the shared Nous account store is `%LOCALAPPDATA%\hermes\shared\nous_auth.json`, Codex account login is `%USERPROFILE%\.codex\auth.json`, and MiniMax is in the Hermes Flo profile auth store. These are outside the application install directory. Nous and Codex access/refresh credentials were present and their access tokens were not expired during the 0.18.2 closeout inspection; this confirms persistence/discovery inputs, not a post-0.18.3 live completion.
 - GitHub Actions receives only its short-lived repository `GITHUB_TOKEN` for release upload. The installed app needs no GitHub token for public releases.
 - Ollama and local signing remain local services when configured. Cloud model, Gmail, Twilio, and other connectors are intentional external services used only according to their in-app configuration and policies.
 

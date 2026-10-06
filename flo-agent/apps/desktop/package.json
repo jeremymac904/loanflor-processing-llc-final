@@ -2,7 +2,7 @@
   "name": "hermes",
   "productName": "Flo",
   "private": true,
-  "version": "0.18.2",
+  "version": "0.18.3",
   "description": "Native desktop shell for Flo Agent, a downstream distribution built on Hermes Agent.",
   "author": "LoanFlow Processing LLC",
   "repository": {
@@ -324,6 +324,7 @@
       "perMachine": false,
       "shortcutName": "Flo",
       "uninstallDisplayName": "Flo",
+      "include": "scripts/updater-installer.nsh",
       "warningsAsErrors": false
     }
   }
