@@ -54,6 +54,9 @@ jobs:
           if-no-files-found: error
 
   macos-arm64:
+    # A public Mac auto-update artifact is valid only when signed/notarized.
+    # Keep Windows releases available while Mac signing is an explicit setup boundary.
+    if: ${{ vars.FLO_MAC_SIGNING_CONFIGURED == 'true' }}
     runs-on: macos-15
     env:
       BUILD_BRANCH: flo/codex-polish
@@ -97,6 +100,7 @@ jobs:
 
   publish:
     needs: [windows, macos-arm64]
+    if: ${{ always() && needs.windows.result == 'success' && (needs.macos-arm64.result == 'success' || needs.macos-arm64.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

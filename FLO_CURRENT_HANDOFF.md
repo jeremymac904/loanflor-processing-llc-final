@@ -21,7 +21,7 @@ The About page exposes the build stamp and a manual update check. The updater do
 
 ## Mac distribution boundary
 
-Local development builds can be made without Apple signing credentials. The release workflow requires GitHub Actions secrets `MACOS_CERT_P12_BASE64`, `MACOS_CERT_PASSWORD`, `APPLE_API_KEY_P8`, `APPLE_API_KEY_ID`, and `APPLE_API_ISSUER` before it will publish Mac artifacts. Public Mac distribution/update requires an Apple Developer ID Application certificate, hardened runtime, suitable entitlements, and notarization. Microphone permission text is present in the app bundle configuration; real microphone/STT/TTS acceptance must still be performed on Jeremy's Mac. No Apple credentials are committed.
+Local development builds can be made without Apple signing credentials. The release workflow publishes Windows when ready; a signed/notarized Mac release job runs only when the repository variable `FLO_MAC_SIGNING_CONFIGURED=true` and secrets `MACOS_CERT_P12_BASE64`, `MACOS_CERT_PASSWORD`, `APPLE_API_KEY_P8`, `APPLE_API_KEY_ID`, and `APPLE_API_ISSUER` are configured. Public Mac distribution/update requires an Apple Developer ID Application certificate, hardened runtime, suitable entitlements, and notarization. Microphone permission text is present in the app bundle configuration; real microphone/STT/TTS acceptance must still be performed on Jeremy's Mac. No Apple credentials are committed.
 
 Windows builds are currently unsigned unless a signing certificate is configured in CI. Broader distribution may show SmartScreen warnings until the publisher uses a trusted code-signing certificate and establishes reputation. No signing secret belongs in Git or the app.
 

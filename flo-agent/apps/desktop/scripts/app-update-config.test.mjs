@@ -28,6 +28,7 @@ describe('Flo GitHub Release update packaging', () => {
     expect(workflow).toContain('npm run dist:mac --workspace apps/desktop')
     expect(workflow).toContain('SHA256SUMS-windows-x64.txt')
     expect(workflow).toContain('SHA256SUMS-macos-arm64.txt')
+    expect(workflow).toContain("vars.FLO_MAC_SIGNING_CONFIGURED == 'true'")
     expect(manifest.build.nsis.perMachine).toBe(false)
   })
 
