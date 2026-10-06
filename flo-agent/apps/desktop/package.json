@@ -244,6 +244,10 @@
       {
         "from": "assets/icon.ico",
         "to": "icon.ico"
+      },
+      {
+        "from": "scripts/flo-auth-runtime/flo_auth_runtime_compat.py",
+        "to": "flo-auth-runtime/flo_auth_runtime_compat.py"
       }
     ],
     "asar": true,

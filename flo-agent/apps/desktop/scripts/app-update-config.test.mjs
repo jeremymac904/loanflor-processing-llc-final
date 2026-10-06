@@ -8,6 +8,7 @@ const manifest = JSON.parse(readFileSync(resolve(desktopDir, 'package.json'), 'u
 const workflow = readFileSync(resolve(desktopDir, '../../../.github/workflows/release-desktop.yml'), 'utf8')
 const mainSource = readFileSync(resolve(desktopDir, 'electron/main.ts'), 'utf8')
 const nsisInstaller = readFileSync(resolve(desktopDir, 'scripts/updater-installer.nsh'), 'utf8')
+const authCompat = readFileSync(resolve(desktopDir, 'scripts/flo-auth-runtime/flo_auth_runtime_compat.py'), 'utf8')
 const hermesAuthSource = readFileSync(resolve(desktopDir, '../../hermes_cli/auth.py'), 'utf8')
 const updaterStart = mainSource.indexOf('type FloAppUpdateState')
 const updaterEnd = mainSource.indexOf('// Uninstall — remove the Chat GUI', updaterStart)
@@ -43,10 +44,23 @@ describe('Flo GitHub Release update packaging', () => {
     expect(nsisInstaller).not.toMatch(/(?:Delete|RMDir).*(?:userData|HERMES_HOME|hermes\\shared)/i)
   })
 
-  it('repairs retained shortcut targets and relaunches the installed executable directly', () => {
+  it('repairs retained shortcuts and relaunches only the final installed executable', () => {
     expect(manifest.build.nsis.include).toBe('scripts/updater-installer.nsh')
+    expect(manifest.build.extraResources).toContainEqual({
+      from: 'scripts/flo-auth-runtime/flo_auth_runtime_compat.py',
+      to: 'flo-auth-runtime/flo_auth_runtime_compat.py'
+    })
     expect(nsisInstaller).toContain('CreateShortCut "$newStartMenuLink" "$appExe"')
     expect(nsisInstaller).toContain('CreateShortCut "$newDesktopLink" "$appExe"')
-    expect(nsisInstaller).toContain('StrCpy $launchLink "$appExe"')
+    expect(nsisInstaller).toContain('!macro customFinishPage')
+    expect(nsisInstaller).toContain('!define MUI_FINISHPAGE_RUN_FUNCTION "FloRunInstalledExe"')
+    expect(nsisInstaller).toContain('IfFileExists "$INSTDIR\\${APP_EXECUTABLE_FILENAME}" flo_launch_installed_exe 0')
+    expect(nsisInstaller).toContain('${StdUtils.ExecShellAsUser} $0 "$INSTDIR\\${APP_EXECUTABLE_FILENAME}" "open" "$1"')
+    expect(nsisInstaller).not.toContain('ExecShellAsUser} $0 "$launchLink"')
+    expect(mainSource).toContain('install_shared_account_auth_compat()')
+    expect(mainSource).toContain("runpy.run_module('hermes_cli.main', run_name='__main__')")
+    expect(authCompat).toContain('"source": "runtime:shared_account_store"')
+    expect(authCompat).toContain('source="codex-cli-auth"')
+    expect(authCompat).not.toContain('_save_codex_tokens')
   })
 })

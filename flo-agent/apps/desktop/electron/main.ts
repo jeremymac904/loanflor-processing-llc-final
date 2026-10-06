@@ -4687,12 +4687,17 @@ function createPythonBackend(root, label, backendArgs, options: any = {}) {
 function createActiveBackend(backendArgs) {
   const venvPython = getVenvPython(VENV_ROOT)
   const command = fileExists(venvPython) ? venvPython : findSystemPython()
+  const authCompatDir = IS_PACKAGED
+    ? path.join(process.resourcesPath, 'flo-auth-runtime')
+    : path.resolve(__dirname, '../scripts/flo-auth-runtime')
+  const authCompatEntrypoint =
+    "import flo_auth_runtime_compat; flo_auth_runtime_compat.install_shared_account_auth_compat(); import runpy; runpy.run_module('hermes_cli.main', run_name='__main__')"
 
   return {
     kind: 'python',
     label: `Hermes at ${ACTIVE_HERMES_ROOT}`,
     command,
-    args: ['-m', 'hermes_cli.main', ...backendArgs],
+    args: ['-c', authCompatEntrypoint, ...backendArgs],
     // Flo's Windows bootstrap owns this venv and installs its dependencies
     // directly. Current Hermes source checkouts may see the legacy install as
     // PM-out-of-sync and try to run the self-update dependency path before
@@ -4703,7 +4708,7 @@ function createActiveBackend(backendArgs) {
     env: {
       ...buildDesktopBackendEnv({
         hermesHome: HERMES_HOME,
-        pythonPathEntries: [ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
+        pythonPathEntries: [authCompatDir, ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
         venvRoot: VENV_ROOT
       }),
       HERMES_DISABLE_LAZY_INSTALLS: '1'
